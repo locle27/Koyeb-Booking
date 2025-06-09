@@ -784,6 +784,7 @@ def export_templates_route():
         flash(f'Lỗi khi export: {e}', 'danger')
     return redirect(url_for('get_templates_page'))
 
+# --- Chạy ứng dụng ---
 if __name__ == '__main__':
-    # Sử dụng biến DEV_MODE để kiểm soát chế độ debug khi chạy trực tiếp
-    app.run(host='0.0.0.0', port=int(os.getenv("PORT", 5001)), debug=DEV_MODE)
+    # Chạy trên cổng 8000 để debug trên Koyeb
+    app.run(host='0.0.0.0', port=8000, debug=False)
