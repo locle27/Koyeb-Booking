@@ -53,7 +53,7 @@ def _get_gspread_client(gcp_creds_file_path: str):
         print(f"Lỗi nghiêm trọng khi xác thực với file credentials '{gcp_creds_file_path}': {e}")
         raise
 
-def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: str | None = None) -> pd.DataFrame:
+def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: Optional[str] = None) -> pd.DataFrame:
     """
     Hàm này sẽ đọc dữ liệu từ Google Sheet và thực hiện việc chuyển đổi kiểu dữ liệu
     một lần duy nhất và chính xác tại đây.
@@ -187,7 +187,7 @@ def delete_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name
         print(f"Lỗi nghiêm trọng khi xóa trên Google Sheet: {e}")
         return False
 
-def delete_multiple_rows_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: str, booking_ids: list[str]) -> bool:
+def delete_multiple_rows_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: str, booking_ids: List[str]) -> bool:
     """
     Xóa nhiều hàng trong Google Sheet dựa trên danh sách các booking_id.
     Phiên bản này hiệu quả và đáng tin cậy hơn.
@@ -254,7 +254,7 @@ def delete_multiple_rows_in_gsheet(sheet_id: str, gcp_creds_file_path: str, work
 # LOGIC CHO MẪU TIN NHẮN (VỚI DEBUG VÀ XỬ LÝ LỖI NÂNG CAP)
 # ==============================================================================
 
-def import_message_templates_from_gsheet(sheet_id: str, gcp_creds_file_path: str) -> list[dict]:
+def import_message_templates_from_gsheet(sheet_id: str, gcp_creds_file_path: str) -> List[dict]:
     """
     Đọc mẫu tin nhắn từ tab 'MessageTemplate' trong Google Sheet.
     Phiên bản có debug chi tiết và xử lý lỗi tốt hơn.
@@ -358,7 +358,7 @@ def import_message_templates_from_gsheet(sheet_id: str, gcp_creds_file_path: str
         print("Trả về dữ liệu mẫu do có lỗi...")
         return get_fallback_templates()
 
-def get_fallback_templates() -> list[dict]:
+def get_fallback_templates() -> List[dict]:
     """
     Trả về dữ liệu mẫu khi không thể đọc từ Google Sheets.
     """
@@ -380,7 +380,7 @@ def get_fallback_templates() -> list[dict]:
         }
     ]
 
-def export_message_templates_to_gsheet(templates: list[dict], sheet_id: str, gcp_creds_file_path: str):
+def export_message_templates_to_gsheet(templates: List[dict], sheet_id: str, gcp_creds_file_path: str):
     """
     Export templates với xử lý lỗi tốt hơn.
     """
@@ -426,7 +426,7 @@ def export_message_templates_to_gsheet(templates: list[dict], sheet_id: str, gcp
         traceback.print_exc()
         return False
 
-def safe_import_message_templates(sheet_id: str, gcp_creds_file_path: str) -> list[dict]:
+def safe_import_message_templates(sheet_id: str, gcp_creds_file_path: str) -> List[dict]:
     """
     Hàm wrapper an toàn để import templates.
     Luôn trả về list, không bao giờ raise exception.
