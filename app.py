@@ -845,15 +845,27 @@ def ai_chat_analyze():
         image_header, image_b64_data = data['image_b64'].split(',', 1)
         image_bytes = base64.b64decode(image_b64_data)
         
-        # Đọc templates hiện tại
-        templates_path = BASE_DIR / 'message_templates.json'
+        # Đọc templates MỚI NHẤT trực tiếp từ Google Sheets
+        print("🔄 Đang tải templates mới nhất từ Google Sheets...")
         try:
-            with open(templates_path, 'r', encoding='utf-8') as f:
-                templates = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            templates = []
+            templates = import_message_templates_from_gsheet(
+                sheet_id=DEFAULT_SHEET_ID,
+                gcp_creds_file_path=GCP_CREDS_FILE_PATH
+            )
+            print(f"✅ Đã tải {len(templates)} templates từ Google Sheets")
+        except Exception as e:
+            print(f"⚠️ Lỗi khi tải từ Google Sheets, dùng file JSON backup: {e}")
+            # Fallback: đọc từ file JSON nếu Google Sheets lỗi
+            templates_path = BASE_DIR / 'message_templates.json'
+            try:
+                with open(templates_path, 'r', encoding='utf-8') as f:
+                    templates = json.load(f)
+                print(f"📁 Đã tải {len(templates)} templates từ file JSON backup")
+            except (FileNotFoundError, json.JSONDecodeError):
+                templates = []
+                print("❌ Không có templates nào available")
         
-        # Phân tích ảnh với AI
+        # Phân tích ảnh với AI sử dụng templates mới nhất
         result = analyze_chat_image_with_ai(image_bytes, templates)
         
         return jsonify(result)
@@ -866,7 +878,7 @@ def ai_chat_analyze():
 
 @app.route('/api/templates/add', methods=['POST'])
 def add_template_api():
-    """API endpoint để thêm mẫu tin nhắn mới và tự động export ra Google Sheets"""
+    """API endpoint để thêm mẫu tin nhắn mới và tự động sync với Google Sheets"""
     try:
         # Lấy dữ liệu mẫu mới từ request
         new_template = request.get_json()
@@ -880,13 +892,23 @@ def add_template_api():
             if field not in new_template or not new_template[field].strip():
                 return jsonify({'success': False, 'message': f'Thiếu trường bắt buộc: {field}'}), 400
         
-        # Đọc templates hiện tại từ file JSON
-        templates_path = BASE_DIR / 'message_templates.json'
+        # Đọc templates hiện tại từ Google Sheets (source of truth)
+        print("🔄 Đang đọc templates từ Google Sheets...")
         try:
-            with open(templates_path, 'r', encoding='utf-8') as f:
-                templates = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            templates = []
+            templates = import_message_templates_from_gsheet(
+                sheet_id=DEFAULT_SHEET_ID,
+                gcp_creds_file_path=GCP_CREDS_FILE_PATH
+            )
+            print(f"✅ Đã đọc {len(templates)} templates từ Google Sheets")
+        except Exception as e:
+            print(f"⚠️ Lỗi đọc Google Sheets, dùng file JSON: {e}")
+            # Fallback: đọc từ file JSON
+            templates_path = BASE_DIR / 'message_templates.json'
+            try:
+                with open(templates_path, 'r', encoding='utf-8') as f:
+                    templates = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                templates = []
         
         # Kiểm tra trùng lặp (Category + Label)
         for existing in templates:
@@ -894,39 +916,49 @@ def add_template_api():
                 existing.get('Label', '').upper() == new_template['Label'].upper()):
                 return jsonify({
                     'success': False, 
-                    'message': f'Đã tồn tại mẫu với Category "{new_template["Category"]}" và Label "{new_template["Label"]}"'
+                    'message': f'❌ Đã tồn tại mẫu với Category "{new_template["Category"]}" và Label "{new_template["Label"]}"'
                 }), 400
         
         # Thêm mẫu mới vào danh sách
-        templates.append({
+        new_template_formatted = {
             'Category': new_template['Category'].strip(),
             'Label': new_template['Label'].strip(),
             'Message': new_template['Message'].strip()
-        })
+        }
+        templates.append(new_template_formatted)
         
-        # Lưu lại file JSON
-        with open(templates_path, 'w', encoding='utf-8') as f:
-            json.dump(templates, f, ensure_ascii=False, indent=4)
-        
-        # Tự động export ra Google Sheets
+        # Đồng bộ với Google Sheets TRƯỚC (source of truth)
         try:
             export_message_templates_to_gsheet(templates, DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH)
-            export_message = " và đã export ra Google Sheets"
+            sheets_sync = " ✅ Google Sheets"
+            print("✅ Đã cập nhật Google Sheets thành công")
         except Exception as export_error:
-            print(f"Export error: {export_error}")
-            export_message = " nhưng có lỗi khi export ra Google Sheets"
+            print(f"❌ Export Google Sheets error: {export_error}")
+            sheets_sync = " ❌ Google Sheets (lỗi)"
+        
+        # Cập nhật file JSON backup
+        try:
+            templates_path = BASE_DIR / 'message_templates.json'
+            with open(templates_path, 'w', encoding='utf-8') as f:
+                json.dump(templates, f, ensure_ascii=False, indent=4)
+            json_sync = " ✅ JSON backup"
+            print("✅ Đã cập nhật file JSON backup")
+        except Exception as json_error:
+            print(f"❌ JSON backup error: {json_error}")
+            json_sync = " ❌ JSON backup (lỗi)"
         
         return jsonify({
             'success': True, 
-            'message': f'Đã thêm mẫu tin nhắn thành công{export_message}!',
-            'template_count': len(templates)
+            'message': f'🎉 Đã thêm mẫu tin nhắn thành công!\n📊 Sync:{sheets_sync}{json_sync}',
+            'template_count': len(templates),
+            'new_template': new_template_formatted
         })
         
     except Exception as e:
         print(f"Add template error: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'❌ Lỗi server: {str(e)}'}), 500
 
 @app.route('/api/save_templates', methods=['POST'])
 def save_templates_api():
@@ -939,17 +971,21 @@ def save_templates_api():
 @app.route('/templates/import', methods=['GET'])
 def import_templates():
     try:
+        # Import từ Google Sheets
         templates = import_message_templates_from_gsheet(
             sheet_id=DEFAULT_SHEET_ID,
             gcp_creds_file_path=GCP_CREDS_FILE_PATH
         )
+        
+        # Lưu vào file JSON làm backup
         templates_path = BASE_DIR / 'message_templates.json'
         with open(templates_path, 'w', encoding='utf-8') as f:
             json.dump(templates, f, ensure_ascii=False, indent=4)
-        flash(f'Đã import thành công {len(templates)} mẫu tin nhắn từ Google Sheets.', 'success')
+            
+        flash(f'✅ Đã import thành công {len(templates)} mẫu tin nhắn từ Google Sheets và cập nhật backup file.', 'success')
         return redirect(url_for('get_templates_page'))
     except Exception as e:
-        flash(f'Lỗi khi import: {str(e)}', 'danger')
+        flash(f'❌ Lỗi khi import: {str(e)}', 'danger')
         return redirect(url_for('get_templates_page'))
 
 @app.route('/templates/export')
