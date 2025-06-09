@@ -748,6 +748,11 @@ def delete_multiple_bookings():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
 
+@app.route('/ai_chat_assistant')
+def ai_chat_assistant():
+    """Trang AI Chat Assistant - Lễ tân thông minh"""
+    return render_template('ai_chat_assistant.html')
+
 @app.route('/templates')
 def get_templates_page():
     """Trả về trang HTML cho quản lý templates"""
@@ -827,6 +832,37 @@ def get_templates_api():
         import traceback
         traceback.print_exc()
         return jsonify([])
+
+@app.route('/api/ai_chat_analyze', methods=['POST'])
+def ai_chat_analyze():
+    """API endpoint để phân tích ảnh chat và tạo phản hồi AI"""
+    try:
+        data = request.get_json()
+        if not data or 'image_b64' not in data:
+            return jsonify({"error": "Yêu cầu không chứa dữ liệu ảnh."}), 400
+        
+        # Xử lý ảnh base64
+        image_header, image_b64_data = data['image_b64'].split(',', 1)
+        image_bytes = base64.b64decode(image_b64_data)
+        
+        # Đọc templates hiện tại
+        templates_path = BASE_DIR / 'message_templates.json'
+        try:
+            with open(templates_path, 'r', encoding='utf-8') as f:
+                templates = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            templates = []
+        
+        # Phân tích ảnh với AI
+        result = analyze_chat_image_with_ai(image_bytes, templates)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"AI Chat Analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Lỗi xử lý phía server: {str(e)}"}), 500
 
 @app.route('/api/templates/add', methods=['POST'])
 def add_template_api():
@@ -933,6 +969,113 @@ def export_templates_route():
     except Exception as e:
         flash(f'Lỗi khi export: {e}', 'danger')
     return redirect(url_for('get_templates_page'))
+
+# --- Hàm AI Chat Analysis ---
+def analyze_chat_image_with_ai(image_bytes, templates):
+    """
+    Phân tích ảnh đoạn chat và tạo phản hồi AI với vai trò lễ tân khách sạn
+    """
+    try:
+        if not GOOGLE_API_KEY:
+            return {"error": "Google API key chưa được cấu hình"}
+        
+        # Chuẩn bị context từ templates
+        templates_context = "\n".join([
+            f"- {t.get('Category', '')} - {t.get('Label', '')}: {t.get('Message', '')}"
+            for t in templates if isinstance(t, dict)
+        ])
+        
+        # Tạo prompt cho AI
+        prompt = f"""
+Bạn là một lễ tân thông minh của khách sạn 118 Hang Bac. Nhiệm vụ của bạn là phân tích đoạn chat trong ảnh và đưa ra phản hồi phù hợp cho khách hàng.
+
+THÔNG TIN KHÁCH SẠN:
+- Tên: 118 Hang Bac Hostel
+- Địa chỉ: 118 Hang Bac, Hoan Kiem, Hanoi
+- Loại hình: Hostel/Guest house trong phố cổ Hà Nội
+
+CÁC MẪU TIN NHẮN CÓ SẴN:
+{templates_context}
+
+HƯỚNG DẪN PHÂN TÍCH:
+1. Đọc và hiểu nội dung cuộc trò chuyện trong ảnh
+2. Xác định khách hàng đang hỏi gì hoặc cần hỗ trợ gì
+3. Tìm mẫu tin nhắn phù hợp từ danh sách trên (nếu có)
+4. Tạo phản hồi chuyên nghiệp với vai trò lễ tân
+
+YÊU CẦU PHẢN HỒI:
+- Phải lịch sự, thân thiện và chuyên nghiệp
+- Sử dụng tiếng Việt hoặc tiếng Anh tùy theo ngôn ngữ khách sử dụng
+- Nếu có mẫu tin nhắn phù hợp, ưu tiên sử dụng và tùy chỉnh cho phù hợp
+- Nếu không có mẫu phù hợp, tự tạo phản hồi dựa trên kinh nghiệm lễ tân
+- Đưa ra thông tin hữu ích và giải pháp cụ thể
+
+Hãy phân tích ảnh và trả về kết quả theo format JSON:
+{{
+    "analysis_info": "Mô tả ngắn gọn nội dung chat đã phân tích",
+    "matched_templates": [
+        {{"category": "Tên danh mục", "label": "Nhãn", "message": "Nội dung mẫu"}}
+    ],
+    "ai_response": "Phản hồi hoàn chỉnh để gửi cho khách hàng"
+}}
+"""
+        
+        # Gọi Gemini API
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Chuyển đổi image bytes thành format phù hợp
+        image_data = {
+            'mime_type': 'image/jpeg',
+            'data': image_bytes
+        }
+        
+        response = model.generate_content([prompt, image_data])
+        ai_text = response.text.strip()
+        
+        # Parse JSON response
+        try:
+            # Tìm và extract JSON từ response
+            json_start = ai_text.find('{')
+            json_end = ai_text.rfind('}') + 1
+            
+            if json_start >= 0 and json_end > json_start:
+                json_str = ai_text[json_start:json_end]
+                result = json.loads(json_str)
+                
+                # Validate và clean result
+                if not isinstance(result, dict):
+                    raise ValueError("Invalid JSON structure")
+                
+                # Ensure required fields
+                result.setdefault('analysis_info', 'Đã phân tích nội dung chat')
+                result.setdefault('matched_templates', [])
+                result.setdefault('ai_response', ai_text)
+                
+                return result
+            else:
+                # Fallback nếu không parse được JSON
+                return {
+                    "analysis_info": "Đã phân tích nội dung chat từ ảnh",
+                    "matched_templates": [],
+                    "ai_response": ai_text
+                }
+                
+        except json.JSONDecodeError:
+            # Fallback nếu response không phải JSON
+            return {
+                "analysis_info": "Đã phân tích nội dung chat từ ảnh",
+                "matched_templates": [],
+                "ai_response": ai_text
+            }
+        
+    except Exception as e:
+        print(f"AI analysis error: {e}")
+        return {
+            "error": f"Lỗi khi phân tích với AI: {str(e)}",
+            "analysis_info": "",
+            "matched_templates": [],
+            "ai_response": ""
+        }
 
 # --- Chạy ứng dụng ---
 if __name__ == '__main__':

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Assistant - Lễ Tân Thông Minh</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:9998;}
+        .image-paste-area{border:2px dashed #dee2e6;border-radius:8px;padding:40px;text-align:center;background:#f8f9fa;transition:all 0.3s;cursor:pointer;}
+        .image-paste-area:hover{border-color:#0d6efd;background:#e7f3ff;}
+        .image-paste-area.dragover{border-color:#0d6efd;background:#e7f3ff;transform:scale(1.02);}
+        .image-preview{max-width:100%;max-height:400px;border-radius:8px;box-shadow:0 4px 8px rgba(0,0,0,0.1);}
+        .response-area{background:#f8f9fa;border-radius:8px;padding:20px;margin-top:20px;min-height:150px;}
+        .copy-button{position:absolute;top:10px;right:10px;}
+        .ai-response{position:relative;background:white;border-radius:8px;padding:15px;border-left:4px solid #28a745;box-shadow:0 2px 4px rgba(0,0,0,0.05);}
+        .analysis-info{background:#e3f2fd;border-radius:6px;padding:12px;margin-bottom:15px;font-size:0.9em;}
+        .template-match{background:#fff3cd;border-radius:6px;padding:10px;margin:10px 0;border-left:3px solid #ffc107;}
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center my-4">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-outline-secondary me-3" onclick="goToHome()">
+                    <i class="fas fa-home"></i> Trang chính
+                </button>
+                <h1 class="mb-0">
+                    <i class="fas fa-robot text-primary"></i> AI Chat Assistant
+                </h1>
+            </div>
+            <div>
+                <button class="btn btn-info me-2" onclick="viewTemplates()">
+                    <i class="fas fa-list"></i> Xem mẫu tin nhắn
+                </button>
+                <button class="btn btn-success" onclick="clearAll()">
+                    <i class="fas fa-refresh"></i> Làm mới
+                </button>
+            </div>
+        </div>
+        
+        <div class="row">
+            <!-- Phần tải ảnh -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-image"></i> Tải Ảnh Đoạn Chat
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="imagePasteArea" class="image-paste-area" onclick="selectImageFile()">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                            <h5>Dán ảnh hoặc nhấn để chọn file</h5>
+                            <p class="text-muted mb-0">
+                                Hỗ trợ: PNG, JPG, JPEG<br>
+                                <kbd>Ctrl+V</kbd> để dán ảnh từ clipboard
+                            </p>
+                        </div>
+                        
+                        <input type="file" id="imageFileInput" accept="image/*" style="display: none;">
+                        
+                        <div id="imagePreviewContainer" class="mt-3" style="display: none;">
+                            <img id="imagePreview" class="image-preview" alt="Xem trước ảnh">
+                            <div class="mt-2">
+                                <button class="btn btn-danger btn-sm" onclick="removeImage()">
+                                    <i class="fas fa-trash"></i> Xóa ảnh
+                                </button>
+                                <button class="btn btn-primary btn-sm ms-2" onclick="analyzeImage()">
+                                    <i class="fas fa-magic"></i> Phân tích với AI
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Phần kết quả AI -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-comments"></i> Phản Hồi AI
+                        </h5>
+                        <div id="processingStatus" class="text-muted" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i> Đang phân tích...
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="responseArea" class="response-area">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-robot fa-2x mb-3"></i>
+                                <p>Tải ảnh đoạn chat lên và nhấn "Phân tích với AI" để nhận được phản hồi thông minh từ AI lễ tân.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Phần hướng dẫn -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle"></i> Hướng Dẫn Sử Dụng
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-upload fa-2x text-primary mb-2"></i>
+                                    <h6>Bước 1: Tải Ảnh</h6>
+                                    <p class="small text-muted">Dán ảnh đoạn chat hoặc chọn file từ máy tính</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-eye fa-2x text-success mb-2"></i>
+                                    <h6>Bước 2: Xem Trước</h6>
+                                    <p class="small text-muted">Kiểm tra ảnh đã tải lên đúng chưa</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-magic fa-2x text-warning mb-2"></i>
+                                    <h6>Bước 3: Phân Tích</h6>
+                                    <p class="small text-muted">AI sẽ đọc và hiểu nội dung chat</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-copy fa-2x text-info mb-2"></i>
+                                    <h6>Bước 4: Copy & Gửi</h6>
+                                    <p class="small text-muted">Copy phản hồi và gửi cho khách hàng</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="loading-overlay">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentImageData = null;
+        
+        // Load page
+        document.addEventListener('DOMContentLoaded', function() {
+            setupImageHandling();
+        });
+        
+        // Setup image upload and paste handling
+        function setupImageHandling() {
+            const pasteArea = document.getElementById('imagePasteArea');
+            const fileInput = document.getElementById('imageFileInput');
+            
+            // Handle paste event
+            document.addEventListener('paste', function(e) {
+                const items = e.clipboardData.items;
+                for (let item of items) {
+                    if (item.type.indexOf('image') !== -1) {
+                        e.preventDefault();
+                        const file = item.getAsFile();
+                        handleImageFile(file);
+                        break;
+                    }
+                }
+            });
+            
+            // Handle drag and drop
+            pasteArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                pasteArea.classList.add('dragover');
+            });
+            
+            pasteArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                pasteArea.classList.remove('dragover');
+            });
+            
+            pasteArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                pasteArea.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type.startsWith('image/')) {
+                    handleImageFile(files[0]);
+                }
+            });
+            
+            // Handle file input
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    handleImageFile(e.target.files[0]);
+                }
+            });
+        }
+        
+        // Select image file
+        function selectImageFile() {
+            document.getElementById('imageFileInput').click();
+        }
+        
+        // Handle image file
+        function handleImageFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Vui lòng chọn file ảnh (PNG, JPG, JPEG)');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentImageData = e.target.result;
+                showImagePreview(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Show image preview
+        function showImagePreview(imageSrc) {
+            const previewContainer = document.getElementById('imagePreviewContainer');
+            const imagePreview = document.getElementById('imagePreview');
+            
+            imagePreview.src = imageSrc;
+            previewContainer.style.display = 'block';
+            
+            // Hide paste area
+            document.getElementById('imagePasteArea').style.display = 'none';
+        }
+        
+        // Remove image
+        function removeImage() {
+            currentImageData = null;
+            document.getElementById('imagePreviewContainer').style.display = 'none';
+            document.getElementById('imagePasteArea').style.display = 'block';
+            document.getElementById('imageFileInput').value = '';
+            
+            // Clear response area
+            document.getElementById('responseArea').innerHTML = `
+                <div class="text-center text-muted">
+                    <i class="fas fa-robot fa-2x mb-3"></i>
+                    <p>Tải ảnh đoạn chat lên và nhấn "Phân tích với AI" để nhận được phản hồi thông minh từ AI lễ tân.</p>
+                </div>
+            `;
+        }
+        
+        // Analyze image with AI
+        async function analyzeImage() {
+            if (!currentImageData) {
+                alert('Vui lòng tải ảnh trước!');
+                return;
+            }
+            
+            showLoading(true);
+            document.getElementById('processingStatus').style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/ai_chat_analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        image_b64: currentImageData
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                displayAIResponse(result);
+                
+            } catch (error) {
+                console.error('AI Analysis error:', error);
+                showError('Lỗi khi phân tích ảnh: ' + error.message);
+            } finally {
+                showLoading(false);
+                document.getElementById('processingStatus').style.display = 'none';
+            }
+        }
+        
+        // Display AI response
+        function displayAIResponse(result) {
+            const responseArea = document.getElementById('responseArea');
+            
+            let html = '';
+            
+            // Analysis info
+            if (result.analysis_info) {
+                html += `
+                    <div class="analysis-info">
+                        <h6><i class="fas fa-search"></i> Phân tích nội dung:</h6>
+                        <p class="mb-0">${result.analysis_info}</p>
+                    </div>
+                `;
+            }
+            
+            // Template matches
+            if (result.matched_templates && result.matched_templates.length > 0) {
+                html += `<h6><i class="fas fa-lightbulb"></i> Mẫu tin nhắn phù hợp:</h6>`;
+                result.matched_templates.forEach(template => {
+                    html += `
+                        <div class="template-match">
+                            <strong>${template.category} - ${template.label}</strong>
+                            <p class="mb-0 mt-1">${template.message}</p>
+                        </div>
+                    `;
+                });
+            }
+            
+            // AI Response
+            if (result.ai_response) {
+                html += `
+                    <div class="ai-response">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6><i class="fas fa-robot text-success"></i> Phản hồi AI:</h6>
+                            <button class="btn btn-sm btn-outline-primary copy-button" onclick="copyToClipboard(\`${result.ai_response.replace(/`/g, '\\`')}\`)">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <div style="white-space: pre-wrap; line-height: 1.6;">${result.ai_response}</div>
+                    </div>
+                `;
+            }
+            
+            responseArea.innerHTML = html;
+        }
+        
+        // Copy to clipboard
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                showSuccess('Đã copy phản hồi!');
+            } catch (error) {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showSuccess('Đã copy phản hồi!');
+            }
+        }
+        
+        // Utility functions
+        function showLoading(show) {
+            document.querySelector('.loading-overlay').style.display = show ? 'flex' : 'none';
+        }
+        
+        function showSuccess(message) {
+            const toast = document.createElement('div');
+            toast.className = 'position-fixed top-0 end-0 m-3 alert alert-success alert-dismissible';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `<i class="fas fa-check-circle"></i> ${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function showError(message) {
+            const toast = document.createElement('div');
+            toast.className = 'position-fixed top-0 end-0 m-3 alert alert-danger alert-dismissible';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+        }
+        
+        function goToHome() { window.location.href = '/'; }
+        function viewTemplates() { window.location.href = '/templates'; }
+        function clearAll() { removeImage(); }
+    </script>
+</body>
+</html>
+        
