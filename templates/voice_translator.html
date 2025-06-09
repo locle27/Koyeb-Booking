@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Translator - Dịch Giọng Nói</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:9998;}
+        .recording-button{width:120px;height:120px;border-radius:50%;border:none;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;font-size:2rem;transition:all 0.3s;box-shadow:0 4px 15px rgba(0,0,0,0.2);}
+        .recording-button:hover{transform:scale(1.05);box-shadow:0 6px 20px rgba(0,0,0,0.3);}
+        .recording-button.recording{background:linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);animation:pulse 1.5s infinite;}
+        .recording-button.processing{background:linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);animation:spin 2s linear infinite;}
+        @keyframes pulse{0%{transform:scale(1);}50%{transform:scale(1.1);}100%{transform:scale(1);}}
+        @keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+        .text-display{background:#f8f9fa;border-radius:8px;padding:20px;min-height:100px;border:2px dashed #dee2e6;}
+        .text-result{background:white;border-radius:8px;padding:15px;margin:10px 0;border-left:4px solid #28a745;box-shadow:0 2px 4px rgba(0,0,0,0.1);}
+        .language-indicator{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.1);padding:4px 8px;border-radius:12px;font-size:0.8em;}
+        .copy-btn{position:absolute;top:10px;right:10px;}
+        .status-indicator{margin-bottom:20px;text-align:center;}
+        .support-info{background:#e3f2fd;border-radius:6px;padding:12px;margin-bottom:20px;font-size:0.9em;}
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center my-4">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-outline-secondary me-3" onclick="goToHome()">
+                    <i class="fas fa-home"></i> Trang chính
+                </button>
+                <h1 class="mb-0">
+                    <i class="fas fa-microphone-alt text-primary"></i> Voice Translator
+                </h1>
+            </div>
+            <div>
+                <button class="btn btn-info me-2" onclick="clearAll()">
+                    <i class="fas fa-refresh"></i> Làm mới
+                </button>
+                <button class="btn btn-success" onclick="testVoice()">
+                    <i class="fas fa-volume-up"></i> Test Audio
+                </button>
+            </div>
+        </div>
+        
+        <!-- Browser Support Check -->
+        <div id="browserCheck" class="alert alert-warning" style="display: none;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Lưu ý:</strong> Trình duyệt của bạn có thể không hỗ trợ nhận diện giọng nói. Vui lòng sử dụng Chrome hoặc Edge.
+        </div>
+        
+        <div class="row">
+            <!-- Voice Input Section -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-microphone"></i> Ghi Âm Giọng Nói
+                        </h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="status-indicator">
+                            <div id="statusText" class="mb-3">
+                                <i class="fas fa-info-circle text-muted"></i>
+                                Nhấn nút mic để bắt đầu ghi âm
+                            </div>
+                        </div>
+                        
+                        <button id="recordButton" class="recording-button" onclick="toggleRecording()">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        
+                        <div class="mt-4">
+                            <div class="support-info">
+                                <strong><i class="fas fa-language"></i> Hỗ trợ ngôn ngữ:</strong>
+                                <br>🇻🇳 Tiếng Việt (tự động nhận diện)
+                                <br>🇬🇧 English (auto-detect)
+                                <br>📱 Hoạt động tốt nhất trên Chrome/Edge
+                            </div>
+                        </div>
+                        
+                        <div id="originalText" class="text-display">
+                            <div class="text-muted">
+                                <i class="fas fa-quote-left"></i>
+                                Văn bản gốc sẽ hiển thị ở đây
+                                <i class="fas fa-quote-right"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Translation Result Section -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-language"></i> Bản Dịch
+                        </h5>
+                        <div id="translationStatus" class="text-muted" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i> Đang dịch...
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="translationResult" class="text-display">
+                            <div class="text-muted text-center">
+                                <i class="fas fa-globe fa-2x mb-3"></i>
+                                <p>Bản dịch tiếng Anh sẽ xuất hiện ở đây</p>
+                                <small>Tự động dịch từ tiếng Việt sang tiếng Anh</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3" id="actionButtons" style="display: none;">
+                            <button class="btn btn-primary me-2" onclick="copyTranslation()">
+                                <i class="fas fa-copy"></i> Copy Bản Dịch
+                            </button>
+                            <button class="btn btn-success me-2" onclick="speakTranslation()">
+                                <i class="fas fa-volume-up"></i> Đọc To
+                            </button>
+                            <button class="btn btn-info" onclick="translateAgain()">
+                                <i class="fas fa-redo"></i> Dịch Lại
+                            </button>
+                        </div>
+                        
+                        <!-- Translation History -->
+                        <div class="mt-4">
+                            <h6><i class="fas fa-history"></i> Lịch Sử Dịch:</h6>
+                            <div id="translationHistory" class="mt-2">
+                                <div class="text-muted text-center">
+                                    <small>Chưa có bản dịch nào</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Usage Guide -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-lightbulb"></i> Hướng Dẫn Sử Dụng
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-microphone fa-2x text-primary mb-2"></i>
+                                    <h6>Bước 1: Ghi Âm</h6>
+                                    <p class="small text-muted">Nhấn nút mic và nói tiếng Việt tự nhiên</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-brain fa-2x text-success mb-2"></i>
+                                    <h6>Bước 2: Nhận Diện</h6>
+                                    <p class="small text-muted">AI tự động chuyển giọng nói thành văn bản</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-language fa-2x text-warning mb-2"></i>
+                                    <h6>Bước 3: Dịch Thuật</h6>
+                                    <p class="small text-muted">Tự động dịch sang tiếng Anh chất lượng cao</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-comments fa-2x text-info mb-2"></i>
+                                    <h6>Bước 4: Giao Tiếp</h6>
+                                    <p class="small text-muted">Copy bản dịch để nói chuyện với khách</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6><i class="fas fa-tips"></i> Mẹo sử dụng hiệu quả:</h6>
+                            <ul class="small">
+                                <li>🎤 Nói rõ ràng và với tốc độ vừa phải</li>
+                                <li>🔇 Sử dụng trong môi trường ít tiếng ồn</li>
+                                <li>📱 Chrome/Edge có độ chính xác nhận diện tốt nhất</li>
+                                <li>⚡ Dịch nhanh chóng - phù hợp cho conversation thời gian thực</li>
+                                <li>💬 Thích hợp cho small talk, hỏi đường, giới thiệu địa điểm</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="loading-overlay">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let recognition = null;
+        let isRecording = false;
+        let currentTranslation = '';
+        let translationHistory = [];
+        
+        // Initialize speech recognition
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSpeechRecognition();
+        });
+        
+        function initializeSpeechRecognition() {
+            // Check browser support
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                document.getElementById('browserCheck').style.display = 'block';
+                document.getElementById('recordButton').disabled = true;
+                return;
+            }
+            
+            // Initialize recognition
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            
+            // Configure recognition
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.maxAlternatives = 1;
+            
+            // Auto-detect language (Vietnamese preferred)
+            recognition.lang = 'vi-VN';
+            
+            // Event handlers
+            recognition.onstart = function() {
+                updateStatus('🎤 Đang nghe... Hãy nói tiếng Việt', 'text-primary');
+                document.getElementById('recordButton').querySelector('i').className = 'fas fa-stop';
+            };
+            
+            recognition.onresult = function(event) {
+                let transcript = '';
+                let confidence = 0;
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                    confidence = event.results[i][0].confidence;
+                }
+                
+                // Display original text
+                displayOriginalText(transcript, confidence);
+                
+                // Auto-translate when final result
+                if (event.results[event.results.length - 1].isFinal) {
+                    translateText(transcript);
+                }
+            };
+            
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error:', event.error);
+                updateStatus('❌ Lỗi nhận diện: ' + event.error, 'text-danger');
+                resetRecordingButton();
+            };
+            
+            recognition.onend = function() {
+                isRecording = false;
+                resetRecordingButton();
+                updateStatus('✅ Hoàn thành ghi âm', 'text-success');
+            };
+        }
+        
+        function toggleRecording() {
+            if (!recognition) {
+                alert('Trình duyệt không hỗ trợ nhận diện giọng nói');
+                return;
+            }
+            
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+        
+        function startRecording() {
+            try {
+                isRecording = true;
+                document.getElementById('recordButton').classList.add('recording');
+                recognition.start();
+            } catch (error) {
+                console.error('Failed to start recording:', error);
+                updateStatus('❌ Không thể bắt đầu ghi âm', 'text-danger');
+                resetRecordingButton();
+            }
+        }
+        
+        function stopRecording() {
+            if (recognition && isRecording) {
+                recognition.stop();
+            }
+        }
+        
+        function resetRecordingButton() {
+            isRecording = false;
+            const button = document.getElementById('recordButton');
+            button.classList.remove('recording', 'processing');
+            button.querySelector('i').className = 'fas fa-microphone';
+        }
+        
+        function displayOriginalText(text, confidence) {
+            const originalTextDiv = document.getElementById('originalText');
+            const confidencePercent = Math.round(confidence * 100);
+            
+            originalTextDiv.innerHTML = `
+                <div class="position-relative">
+                    <div class="language-indicator">🇻🇳 VN</div>
+                    <div class="text-start">
+                        <i class="fas fa-quote-left text-muted"></i>
+                        <span class="mx-2">${text}</span>
+                        <i class="fas fa-quote-right text-muted"></i>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="fas fa-chart-bar"></i> Độ tin cậy: ${confidencePercent}%
+                        </small>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function translateText(text) {
+            if (!text.trim()) return;
+            
+            updateStatus('🔄 Đang dịch sang tiếng Anh...', 'text-warning');
+            document.getElementById('translationStatus').style.display = 'block';
+            document.getElementById('recordButton').classList.add('processing');
+            
+            try {
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        source_lang: 'vi',
+                        target_lang: 'en'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                displayTranslation(result.translated_text, text);
+                addToHistory(text, result.translated_text);
+                updateStatus('✅ Dịch hoàn thành!', 'text-success');
+                
+            } catch (error) {
+                console.error('Translation error:', error);
+                updateStatus('❌ Lỗi dịch thuật: ' + error.message, 'text-danger');
+                document.getElementById('translationResult').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Không thể dịch văn bản. Vui lòng thử lại.
+                    </div>
+                `;
+            } finally {
+                document.getElementById('translationStatus').style.display = 'none';
+                document.getElementById('recordButton').classList.remove('processing');
+            }
+        }
+        
+        function displayTranslation(translatedText, originalText) {
+            currentTranslation = translatedText;
+            
+            const resultDiv = document.getElementById('translationResult');
+            resultDiv.innerHTML = `
+                <div class="position-relative">
+                    <div class="language-indicator">🇬🇧 EN</div>
+                    <button class="copy-btn btn btn-sm btn-outline-primary" onclick="copyTranslation()">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <div class="text-start">
+                        <i class="fas fa-quote-left text-muted"></i>
+                        <span class="mx-2 fw-bold">${translatedText}</span>
+                        <i class="fas fa-quote-right text-muted"></i>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="fas fa-language"></i> Tự động dịch từ tiếng Việt
+                        </small>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('actionButtons').style.display = 'block';
+        }
+        
+        function addToHistory(original, translated) {
+            const historyItem = {
+                original: original,
+                translated: translated,
+                timestamp: new Date().toLocaleTimeString('vi-VN')
+            };
+            
+            translationHistory.unshift(historyItem);
+            
+            // Keep only last 5 translations
+            if (translationHistory.length > 5) {
+                translationHistory = translationHistory.slice(0, 5);
+            }
+            
+            updateHistoryDisplay();
+        }
+        
+        function updateHistoryDisplay() {
+            const historyDiv = document.getElementById('translationHistory');
+            
+            if (translationHistory.length === 0) {
+                historyDiv.innerHTML = '<div class="text-muted text-center"><small>Chưa có bản dịch nào</small></div>';
+                return;
+            }
+            
+            let historyHtml = '';
+            translationHistory.forEach((item, index) => {
+                historyHtml += `
+                    <div class="text-result small">
+                        <div class="d-flex justify-content-between">
+                            <strong>🇻🇳 ${item.original}</strong>
+                            <small class="text-muted">${item.timestamp}</small>
+                        </div>
+                        <div class="text-primary mt-1">🇬🇧 ${item.translated}</div>
+                    </div>
+                `;
+            });
+            
+            historyDiv.innerHTML = historyHtml;
+        }
+        
+        async function copyTranslation() {
+            if (!currentTranslation) return;
+            
+            try {
+                await navigator.clipboard.writeText(currentTranslation);
+                showToast('✅ Đã copy bản dịch!', 'success');
+            } catch (error) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = currentTranslation;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showToast('✅ Đã copy bản dịch!', 'success');
+            }
+        }
+        
+        function speakTranslation() {
+            if (!currentTranslation) return;
+            
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(currentTranslation);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.8;
+                utterance.pitch = 1;
+                speechSynthesis.speak(utterance);
+                
+                showToast('🔊 Đang đọc bản dịch...', 'info');
+            } else {
+                showToast('❌ Trình duyệt không hỗ trợ text-to-speech', 'warning');
+            }
+        }
+        
+        function translateAgain() {
+            const originalTextDiv = document.getElementById('originalText');
+            const textContent = originalTextDiv.textContent.replace(/[""]/g, '').trim();
+            
+            if (textContent && textContent !== 'Văn bản gốc sẽ hiển thị ở đây') {
+                translateText(textContent);
+            } else {
+                showToast('❌ Không có văn bản để dịch lại', 'warning');
+            }
+        }
+        
+        function updateStatus(message, className) {
+            const statusDiv = document.getElementById('statusText');
+            statusDiv.innerHTML = `<span class="${className}">${message}</span>`;
+        }
+        
+        function clearAll() {
+            document.getElementById('originalText').innerHTML = `
+                <div class="text-muted">
+                    <i class="fas fa-quote-left"></i>
+                    Văn bản gốc sẽ hiển thị ở đây
+                    <i class="fas fa-quote-right"></i>
+                </div>
+            `;
+            
+            document.getElementById('translationResult').innerHTML = `
+                <div class="text-muted text-center">
+                    <i class="fas fa-globe fa-2x mb-3"></i>
+                    <p>Bản dịch tiếng Anh sẽ xuất hiện ở đây</p>
+                    <small>Tự động dịch từ tiếng Việt sang tiếng Anh</small>
+                </div>
+            `;
+            
+            document.getElementById('actionButtons').style.display = 'none';
+            translationHistory = [];
+            updateHistoryDisplay();
+            currentTranslation = '';
+            updateStatus('<i class="fas fa-info-circle text-muted"></i> Nhấn nút mic để bắt đầu ghi âm', '');
+        }
+        
+        function testVoice() {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance('Voice translator is working correctly!');
+                utterance.lang = 'en-US';
+                speechSynthesis.speak(utterance);
+                showToast('🔊 Test audio thành công!', 'success');
+            } else {
+                showToast('❌ Trình duyệt không hỗ trợ audio', 'warning');
+            }
+        }
+        
+        function goToHome() {
+            window.location.href = '/';
+        }
+        
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'alert-success' : 
+                           type === 'warning' ? 'alert-warning' : 
+                           type === 'info' ? 'alert-info' : 'alert-danger';
+            
+            toast.className = `position-fixed top-0 end-0 m-3 alert ${bgClass} alert-dismissible`;
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
