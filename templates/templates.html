@@ -30,6 +30,9 @@
                 <button class="btn btn-success me-2" onclick="importFromSheets()">
                     <i class="fas fa-download"></i> Import từ Sheets
                 </button>
+                <button class="btn btn-warning me-2" onclick="showAddTemplateModal()">
+                    <i class="fas fa-plus"></i> Thêm mẫu
+                </button>
                 <button class="btn btn-primary" onclick="exportToSheets()">
                     <i class="fas fa-upload"></i> Export ra Sheets
                 </button>
@@ -55,6 +58,65 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal thêm mẫu tin nhắn -->
+    <div class="modal fade" id="addTemplateModal" tabindex="-1" aria-labelledby="addTemplateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addTemplateModalLabel">
+                        <i class="fas fa-plus"></i> Thêm Mẫu Tin Nhắn Mới
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addTemplateForm">
+                        <div class="mb-3">
+                            <label for="templateCategory" class="form-label">Danh mục <span class="text-danger">*</span></label>
+                            <select class="form-select" id="templateCategory" required>
+                                <option value="">-- Chọn danh mục --</option>
+                                <option value="WELCOME">WELCOME</option>
+                                <option value="ARRIVAL">ARRIVAL</option>
+                                <option value="CHECK IN">CHECK IN</option>
+                                <option value="EARLY CHECK IN">EARLY CHECK IN</option>
+                                <option value="DON PHONG">DON PHONG</option>
+                                <option value="HET PHONG">HET PHONG</option>
+                                <option value="FEED BACK">FEED BACK</option>
+                                <option value="TAXI">TAXI</option>
+                                <option value="PARK">PARK</option>
+                                <option value="LAUNDRY">LAUNDRY</option>
+                                <option value="NOT BOOKING">NOT BOOKING</option>
+                                <option value="OTHER">Khác (nhập thủ công)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3" id="customCategoryDiv" style="display: none;">
+                            <label for="customCategory" class="form-label">Danh mục tùy chỉnh <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="customCategory" placeholder="Nhập tên danh mục mới">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="templateLabel" class="form-label">Nhãn <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="templateLabel" placeholder="VD: DEFAULT, 1, 2, v.v." required>
+                            <div class="form-text">Sử dụng "DEFAULT" cho mẫu mặc định hoặc số thứ tự cho các biến thể</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="templateMessage" class="form-label">Nội dung tin nhắn <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="templateMessage" rows="6" placeholder="Nhập nội dung tin nhắn..." required></textarea>
+                            <div class="form-text">Có thể sử dụng xuống dòng bằng cách nhấn Enter</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="addNewTemplate()">
+                        <i class="fas fa-save"></i> Thêm & Export
+                    </button>
                 </div>
             </div>
         </div>
@@ -245,6 +307,108 @@
                 } catch (error) {
                     showError('Không thể copy');
                 }
+            }
+        }
+        
+        // Hiển thị modal thêm mẫu
+        function showAddTemplateModal() {
+            // Reset form
+            document.getElementById('addTemplateForm').reset();
+            document.getElementById('customCategoryDiv').style.display = 'none';
+            
+            // Hiển thị modal
+            const modal = new bootstrap.Modal(document.getElementById('addTemplateModal'));
+            modal.show();
+        }
+        
+        // Xử lý thay đổi danh mục
+        document.getElementById('templateCategory').addEventListener('change', function() {
+            const customDiv = document.getElementById('customCategoryDiv');
+            if (this.value === 'OTHER') {
+                customDiv.style.display = 'block';
+                document.getElementById('customCategory').required = true;
+            } else {
+                customDiv.style.display = 'none';
+                document.getElementById('customCategory').required = false;
+            }
+        });
+        
+        // Thêm mẫu tin nhắn mới
+        async function addNewTemplate() {
+            const form = document.getElementById('addTemplateForm');
+            
+            // Validate form
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            // Lấy dữ liệu từ form
+            const categorySelect = document.getElementById('templateCategory');
+            const customCategory = document.getElementById('customCategory').value.trim();
+            const label = document.getElementById('templateLabel').value.trim();
+            const message = document.getElementById('templateMessage').value.trim();
+            
+            // Xác định category cuối cùng
+            let finalCategory = categorySelect.value;
+            if (finalCategory === 'OTHER' && customCategory) {
+                finalCategory = customCategory.toUpperCase();
+            }
+            
+            // Validation bổ sung
+            if (!finalCategory || finalCategory === 'OTHER') {
+                alert('Vui lòng chọn hoặc nhập danh mục!');
+                return;
+            }
+            
+            if (!label) {
+                alert('Vui lòng nhập nhãn!');
+                return;
+            }
+            
+            if (!message) {
+                alert('Vui lòng nhập nội dung tin nhắn!');
+                return;
+            }
+            
+            // Chuẩn bị dữ liệu mẫu mới
+            const newTemplate = {
+                Category: finalCategory,
+                Label: label,
+                Message: message
+            };
+            
+            showLoading(true);
+            
+            try {
+                // Gọi API thêm mẫu mới
+                const response = await fetch('/api/templates/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(newTemplate)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    showSuccess(result.message || 'Đã thêm mẫu tin nhắn thành công và export ra Google Sheets!');
+                    
+                    // Đóng modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addTemplateModal'));
+                    modal.hide();
+                    
+                    // Tải lại danh sách templates
+                    loadTemplates();
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Lỗi khi thêm mẫu tin nhắn');
+                }
+            } catch (error) {
+                console.error('Add template error:', error);
+                showError('Lỗi khi thêm mẫu tin nhắn: ' + error.message);
+            } finally {
+                showLoading(false);
             }
         }
         

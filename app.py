@@ -828,6 +828,70 @@ def get_templates_api():
         traceback.print_exc()
         return jsonify([])
 
+@app.route('/api/templates/add', methods=['POST'])
+def add_template_api():
+    """API endpoint để thêm mẫu tin nhắn mới và tự động export ra Google Sheets"""
+    try:
+        # Lấy dữ liệu mẫu mới từ request
+        new_template = request.get_json()
+        
+        if not new_template:
+            return jsonify({'success': False, 'message': 'Không có dữ liệu mẫu tin nhắn'}), 400
+        
+        # Validate required fields
+        required_fields = ['Category', 'Label', 'Message']
+        for field in required_fields:
+            if field not in new_template or not new_template[field].strip():
+                return jsonify({'success': False, 'message': f'Thiếu trường bắt buộc: {field}'}), 400
+        
+        # Đọc templates hiện tại từ file JSON
+        templates_path = BASE_DIR / 'message_templates.json'
+        try:
+            with open(templates_path, 'r', encoding='utf-8') as f:
+                templates = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            templates = []
+        
+        # Kiểm tra trùng lặp (Category + Label)
+        for existing in templates:
+            if (existing.get('Category', '').upper() == new_template['Category'].upper() and 
+                existing.get('Label', '').upper() == new_template['Label'].upper()):
+                return jsonify({
+                    'success': False, 
+                    'message': f'Đã tồn tại mẫu với Category "{new_template["Category"]}" và Label "{new_template["Label"]}"'
+                }), 400
+        
+        # Thêm mẫu mới vào danh sách
+        templates.append({
+            'Category': new_template['Category'].strip(),
+            'Label': new_template['Label'].strip(),
+            'Message': new_template['Message'].strip()
+        })
+        
+        # Lưu lại file JSON
+        with open(templates_path, 'w', encoding='utf-8') as f:
+            json.dump(templates, f, ensure_ascii=False, indent=4)
+        
+        # Tự động export ra Google Sheets
+        try:
+            export_message_templates_to_gsheet(templates, DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH)
+            export_message = " và đã export ra Google Sheets"
+        except Exception as export_error:
+            print(f"Export error: {export_error}")
+            export_message = " nhưng có lỗi khi export ra Google Sheets"
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Đã thêm mẫu tin nhắn thành công{export_message}!',
+            'template_count': len(templates)
+        })
+        
+    except Exception as e:
+        print(f"Add template error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
+
 @app.route('/api/save_templates', methods=['POST'])
 def save_templates_api():
     templates_path = BASE_DIR / 'message_templates.json'
