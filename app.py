@@ -263,64 +263,76 @@ def dashboard():
             # Sắp xếp theo tháng
             merged_data = merged_data.sort_values('Tháng')
             
-            # Tạo biểu đồ cột grouped với custom hover
+            # Tạo biểu đồ cột grouped chuyên nghiệp với gradient
             fig_collected = px.bar(
                 merged_data, 
                 x='Tháng', 
                 y=['Đã thu', 'Chưa thu'],
-                title='💰 Doanh thu Đã thu vs Chưa thu (Theo tháng)',
+                title='💰 Doanh thu Đã thu vs Chưa thu',
                 color_discrete_map={
-                    'Đã thu': '#2ecc71',
-                    'Chưa thu': '#e74c3c'
+                    'Đã thu': '#2ecc71',  # Xanh lá cho đã thu
+                    'Chưa thu': '#e74c3c'  # Đỏ cho chưa thu
                 },
-                text_auto=True  # Hiển thị giá trị trên cột
+                text_auto=True
             )
             
-            # Cải thiện text hiển thị trên cột
+            # Cải thiện text hiển thị trên cột với format đẹp hơn
             fig_collected.update_traces(
-                texttemplate='%{y:,.0f}đ',
+                texttemplate='%{y:,.0f}K',
                 textposition='outside',
+                textfont=dict(size=11, family='Arial', color='#2c3e50'),
                 hovertemplate='<b>%{fullData.name}</b><br>' +
                              'Tháng: %{x}<br>' +
                              'Số tiền: %{y:,.0f}đ<br>' +
-                             '<extra></extra>'
+                             '<extra></extra>',
+                marker=dict(
+                    line=dict(color='rgba(255,255,255,0.6)', width=1),
+                    pattern=dict(shape="", fgcolor="")
+                )
             )
             
-            # Cải thiện layout
+            # Layout chuyên nghiệp với gradient background
             fig_collected.update_layout(
                 title={
-                    'text': '💰 Doanh thu Đã thu vs Chưa thu (Theo tháng)',
+                    'text': '💰 Doanh thu Đã thu vs Chưa thu',
                     'x': 0.5,
-                    'font': {'size': 16, 'family': 'Arial, sans-serif', 'color': '#2c3e50'}
+                    'y': 0.95,
+                    'font': {'size': 18, 'family': 'Arial Black', 'color': '#2c3e50'}
                 },
                 xaxis_title='Tháng',
                 yaxis_title='Doanh thu (VND)',
-                plot_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(248,249,250,0.9)',
                 paper_bgcolor='rgba(0,0,0,0)',
-                font={'family': 'Arial, sans-serif', 'size': 12},
-                margin=dict(l=60, r=30, t=100, b=50),  # Tăng margin top cho text trên cột
-                height=450,  # Tăng chiều cao để chứa text
+                font={'family': 'Arial, sans-serif', 'size': 12, 'color': '#2c3e50'},
+                margin=dict(l=80, r=30, t=80, b=60),
+                height=480,
                 showlegend=True,
                 legend=dict(
                     orientation="h",
-                    yanchor="bottom",
-                    y=1.02,
+                    yanchor="top",
+                    y=0.98,
                     xanchor="center",
-                    x=0.5
+                    x=0.5,
+                    bgcolor="rgba(255,255,255,0.9)",
+                    bordercolor="rgba(0,0,0,0.1)",
+                    borderwidth=1,
+                    font=dict(size=12, family='Arial')
                 ),
                 hovermode='x unified',
-                bargap=0.6,  # Khoảng cách giữa các nhóm cột
-                bargroupgap=0.1  # Khoảng cách giữa các cột trong nhóm
+                bargap=0.3,
+                bargroupgap=0.1
             )
             
-            # Cải thiện axes
+            # Cải thiện axes với grid đẹp hơn
             fig_collected.update_xaxes(
                 showgrid=True,
                 gridwidth=1,
                 gridcolor='rgba(128,128,128,0.2)',
                 showline=True,
-                linewidth=1,
-                linecolor='rgba(128,128,128,0.5)'
+                linewidth=2,
+                linecolor='rgba(128,128,128,0.5)',
+                tickfont=dict(size=11, family='Arial', color='#495057'),
+                title_font=dict(size=13, family='Arial Bold', color='#2c3e50')
             )
             
             fig_collected.update_yaxes(
@@ -328,9 +340,29 @@ def dashboard():
                 gridwidth=1,
                 gridcolor='rgba(128,128,128,0.2)',
                 showline=True,
-                linewidth=1,
+                linewidth=2,
                 linecolor='rgba(128,128,128,0.5)',
-                tickformat=',.0f'
+                tickformat=',.0f',
+                tickfont=dict(size=11, family='Arial', color='#495057'),
+                title_font=dict(size=13, family='Arial Bold', color='#2c3e50')
+            )
+            
+            # Thêm annotation tổng kết
+            total_collected = merged_data['Đã thu'].sum()
+            total_uncollected = merged_data['Chưa thu'].sum()
+            collection_rate = (total_collected / (total_collected + total_uncollected) * 100) if (total_collected + total_uncollected) > 0 else 0
+            
+            fig_collected.add_annotation(
+                x=1, y=1, xref="paper", yref="paper",
+                text=f"Tỷ lệ thu: <b>{collection_rate:.1f}%</b>",
+                showarrow=False,
+                font=dict(size=14, family='Arial Bold', color='#ffffff'),
+                bgcolor='rgba(52, 152, 219, 0.8)',
+                bordercolor='rgba(52, 152, 219, 1)',
+                borderwidth=2,
+                borderpad=8,
+                xanchor='right',
+                yanchor='top'
             )
             
             collected_vs_uncollected_chart_json = json.loads(fig_collected.to_json())
@@ -342,7 +374,7 @@ def dashboard():
             print("DEBUG: No data for collected vs uncollected chart")
             collected_vs_uncollected_table_data = []
 
-    # Tạo biểu đồ pie chart đẹp hơn cho người thu tiền
+    # Tạo biểu đồ donut chart chuyên nghiệp cho người thu tiền
     collector_revenue_data = dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records')
     
     collector_chart_data = {
@@ -350,7 +382,7 @@ def dashboard():
             'type': 'pie',
             'labels': [row['Người thu tiền'] for row in collector_revenue_data],
             'values': [row['Tổng thanh toán'] for row in collector_revenue_data],
-            'textinfo': 'label+percent+value',
+            'textinfo': 'label+percent',
             'textposition': 'auto',
             'hovertemplate': '<b>%{label}</b><br>' +
                            'Doanh thu: %{value:,.0f}đ<br>' +
@@ -360,44 +392,57 @@ def dashboard():
                 'colors': ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'],
                 'line': {
                     'color': '#ffffff',
-                    'width': 2
+                    'width': 3
                 }
             },
-            'hole': 0.4,  # Tạo donut chart
+            'hole': 0.4,
             'textfont': {
                 'size': 12,
-                'family': 'Arial, sans-serif'
-            }
+                'family': 'Arial Bold',
+                'color': '#2c3e50'
+            },
+            'pull': [0.05 if i == 0 else 0 for i in range(len(collector_revenue_data))]  # Nổi bật phần đầu tiên
         }],
         'layout': {
             'title': {
-                'text': '💰 Doanh thu theo Người thu tiền',
+                'text': '💰 Doanh thu theo Người thu',
                 'x': 0.5,
+                'y': 0.95,
                 'font': {
                     'size': 16,
-                    'family': 'Arial, sans-serif',
+                    'family': 'Arial Bold',
                     'color': '#2c3e50'
                 }
             },
             'showlegend': True,
             'legend': {
                 'orientation': 'v',
-                'x': 1.02,
+                'x': 1.05,
                 'y': 0.5,
                 'font': {
-                    'size': 11,
-                    'family': 'Arial, sans-serif'
-                }
+                    'size': 12,
+                    'family': 'Arial',
+                    'color': '#2c3e50'
+                },
+                'bgcolor': 'rgba(255,255,255,0.9)',
+                'bordercolor': 'rgba(0,0,0,0.1)',
+                'borderwidth': 1
             },
-            'height': 350,
-            'margin': {'l': 20, 'r': 100, 't': 60, 'b': 20},
-            'plot_bgcolor': 'rgba(0,0,0,0)',
+            'height': 300,
+            'margin': {'l': 20, 'r': 120, 't': 40, 'b': 20},
+            'plot_bgcolor': 'rgba(248,249,250,0.8)',
             'paper_bgcolor': 'rgba(0,0,0,0)',
             'font': {
                 'family': 'Arial, sans-serif',
                 'size': 12,
                 'color': '#2c3e50'
-            }
+            },
+            'annotations': [{
+                'text': f'<b>Tổng</b><br>{sum([row["Tổng thanh toán"] for row in collector_revenue_data]):,.0f}đ',
+                'x': 0.5, 'y': 0.5,
+                'font': {'size': 14, 'family': 'Arial Bold', 'color': '#2c3e50'},
+                'showarrow': False
+            }]
         }
     }
 
@@ -431,10 +476,40 @@ def view_bookings():
     search_term = request.args.get('search_term', '').strip().lower()
     sort_by = request.args.get('sort_by', 'Check-in Date') # Mặc định sắp xếp theo Check-in Date
     order = request.args.get('order', 'asc') # Mặc định tăng dần (ascending)
+    
+    # Thêm filter theo tháng
+    filter_month = request.args.get('filter_month', '')
+    filter_year = request.args.get('filter_year', '')
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
 
     # Lọc theo từ khóa tìm kiếm
     if search_term:
         df = df[df.apply(lambda row: search_term in str(row).lower(), axis=1)]
+
+    # Lọc theo tháng/năm
+    if filter_month and filter_year:
+        try:
+            year = int(filter_year)
+            month = int(filter_month)
+            df = df[
+                (df['Check-in Date'].dt.year == year) & 
+                (df['Check-in Date'].dt.month == month)
+            ]
+        except (ValueError, AttributeError):
+            pass
+    
+    # Lọc theo khoảng ngày cụ thể
+    elif start_date and end_date:
+        try:
+            start_dt = pd.to_datetime(start_date)
+            end_dt = pd.to_datetime(end_date)
+            df = df[
+                (df['Check-in Date'] >= start_dt) & 
+                (df['Check-in Date'] <= end_dt)
+            ]
+        except (ValueError, AttributeError):
+            pass
 
     # Sắp xếp dữ liệu
     if sort_by in df.columns:
@@ -443,12 +518,24 @@ def view_bookings():
     
     bookings_list = df.to_dict(orient='records')
     
+    # Tạo danh sách tháng/năm có sẵn để dropdown
+    all_df, _ = load_data()
+    available_months = []
+    if not all_df.empty and 'Check-in Date' in all_df.columns:
+        unique_dates = all_df['Check-in Date'].dropna().dt.to_period('M').unique()
+        available_months = [(str(period), period.year, period.month) for period in sorted(unique_dates, reverse=True)]
+    
     return render_template('bookings.html', 
                          bookings=bookings_list, 
                          search_term=search_term, 
                          booking_count=len(bookings_list),
                          current_sort_by=sort_by,
-                         current_order=order)
+                         current_order=order,
+                         filter_month=filter_month,
+                         filter_year=filter_year,
+                         start_date=start_date,
+                         end_date=end_date,
+                         available_months=available_months)
 
 @app.route('/calendar/')
 @app.route('/calendar/<int:year>/<int:month>')

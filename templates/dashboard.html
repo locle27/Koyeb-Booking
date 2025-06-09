@@ -66,88 +66,126 @@
     </div>
 
     <!-- Charts -->
+    <!-- Biểu đồ doanh thu chuyên nghiệp -->
     <div class="row">
-        <div class="col-xl-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-chart-area me-1"></i>
-                    Biểu đồ Doanh thu Hàng tháng
+        <div class="col-xl-8">
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-chart-bar me-2"></i>
+                            <span class="fw-bold">💰 Doanh thu Đã thu vs Chưa thu</span>
+                        </div>
+                        <div class="badge bg-light text-dark">Theo tháng</div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div id="monthlyRevenueChart" style="height: 400px;"></div>
+                <div class="card-body p-0">
+                    <div id="collectedVsUncollectedChart" style="height: 480px;"></div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-chart-column me-1"></i>
-                    Doanh thu Đã thu vs Chưa thu (Theo tháng)
+        <div class="col-xl-4">
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class="fas fa-chart-line me-2"></i>
+                    <span class="fw-bold">📈 Tổng doanh thu theo tháng</span>
                 </div>
                 <div class="card-body">
-                    <div id="collectedVsUncollectedChart" style="height: 450px;"></div>
-                    
-                    <!-- Bảng số liệu chi tiết -->
-                    {% if collected_vs_uncollected_table_data %}
-                    <div class="mt-4">
-                        <h6><i class="fas fa-table me-1"></i> Chi tiết số liệu:</h6>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>Tháng</th>
-                                        <th class="text-end">Đã thu (VND)</th>
-                                        <th class="text-end">Chưa thu (VND)</th>
-                                        <th class="text-end">Tổng (VND)</th>
-                                        <th class="text-end">% Đã thu</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for row in collected_vs_uncollected_table_data %}
-                                    <tr>
-                                        <td><strong>{{ row['Tháng'] }}</strong></td>
-                                        <td class="text-end text-success">
-                                            <strong>{{ "{:,.0f}".format(row['Đã thu'] | float) }}đ</strong>
-                                        </td>
-                                        <td class="text-end text-danger">
-                                            <strong>{{ "{:,.0f}".format(row['Chưa thu'] | float) }}đ</strong>
-                                        </td>
-                                        <td class="text-end">
-                                            <strong>{{ "{:,.0f}".format((row['Đã thu'] | float) + (row['Chưa thu'] | float)) }}đ</strong>
-                                        </td>
-                                        <td class="text-end">
-                                            {% set total = (row['Đã thu'] | float) + (row['Chưa thu'] | float) %}
-                                            {% if total > 0 %}
-                                                <span class="badge bg-primary">{{ "{:.1f}%".format((row['Đã thu'] | float) / total * 100) }}</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">0%</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    {% endif %}
+                    <div id="monthlyRevenueChart" style="height: 380px;"></div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Bảng chi tiết và phân tích -->
+    {% if collected_vs_uncollected_table_data %}
     <div class="row">
-        <div class="col-xl-12">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-chart-pie me-1"></i>
-                    Doanh thu theo Người thu tiền
+        <div class="col-xl-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-table me-1 text-primary"></i> 
+                        Chi tiết Doanh thu theo tháng
+                    </h6>
                 </div>
                 <div class="card-body">
-                    <div id="collectorChart" style="height: 400px;"></div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="border-0">
+                                        <i class="fas fa-calendar-alt me-1"></i>Tháng
+                                    </th>
+                                    <th class="text-end border-0">
+                                        <i class="fas fa-check-circle me-1 text-success"></i>Đã thu
+                                    </th>
+                                    <th class="text-end border-0">
+                                        <i class="fas fa-clock me-1 text-warning"></i>Chưa thu
+                                    </th>
+                                    <th class="text-end border-0">
+                                        <i class="fas fa-coins me-1 text-info"></i>Tổng cộng
+                                    </th>
+                                    <th class="text-center border-0">
+                                        <i class="fas fa-percentage me-1 text-primary"></i>Tỷ lệ thu
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in collected_vs_uncollected_table_data %}
+                                <tr class="border-bottom">
+                                    <td>
+                                        <div class="fw-bold text-primary">{{ row['Tháng'] }}</div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="fw-bold text-success">
+                                            {{ "{:,.0f}".format(row['Đã thu'] | float) }}đ
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="fw-bold text-danger">
+                                            {{ "{:,.0f}".format(row['Chưa thu'] | float) }}đ
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="fw-bold text-dark">
+                                            {{ "{:,.0f}".format((row['Đã thu'] | float) + (row['Chưa thu'] | float)) }}đ
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        {% set total = (row['Đã thu'] | float) + (row['Chưa thu'] | float) %}
+                                        {% set percentage = (row['Đã thu'] | float) / total * 100 if total > 0 else 0 %}
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-success" role="progressbar" 
+                                                 style="width: {{ percentage }}%;" 
+                                                 aria-valuenow="{{ percentage }}" 
+                                                 aria-valuemin="0" aria-valuemax="100">
+                                                <small class="fw-bold">{{ "{:.1f}%".format(percentage) }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-pie me-1 text-primary"></i> 
+                        Phân bổ theo Người thu
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="collectorChart" style="height: 300px;"></div>
                 </div>
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 
