@@ -33,6 +33,7 @@ wheels/
 venv/
 env/
 ENV/
+test_env/
 
 # IDE
 .vscode/
