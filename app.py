@@ -286,8 +286,7 @@ def dashboard():
                              'Số tiền: %{y:,.0f}đ<br>' +
                              '<extra></extra>',
                 marker=dict(
-                    line=dict(color='rgba(255,255,255,0.6)', width=1),
-                    pattern=dict(shape="", fgcolor="")
+                    line=dict(color='rgba(255,255,255,0.6)', width=1)
                 )
             )
             
