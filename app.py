@@ -1021,7 +1021,7 @@ Hãy phân tích ảnh và trả về kết quả theo format JSON:
 """
         
         # Gọi Gemini API
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         # Chuyển đổi image bytes thành format phù hợp
         image_data = {

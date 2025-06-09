@@ -649,7 +649,7 @@ def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str
 
         # 2. Chuẩn bị mô hình và PROMPT ĐÃ CẢI TIẾN
         img = Image.open(BytesIO(image_bytes))
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')('gemini-1.5-flash')
         
         # === PROMPT ĐÃ ĐƯỢC NÂNG CẤP ===
         prompt = """
