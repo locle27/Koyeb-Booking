@@ -997,30 +997,39 @@ HOTEL INFO:
 AVAILABLE MESSAGE TEMPLATES:
 {templates_context}
 
-YOUR TASK:
-1. Read and understand the entire conversation in the image
-2. Identify what the guest said in their LAST message
-3. Create a natural, friendly response to that LAST message
-4. Use a casual, conversational tone - like talking to a friend
-5. Be helpful and warm, not overly formal or corporate
+TEMPLATE USAGE PRIORITY (VERY IMPORTANT):
+1. FIRST: Analyze the guest's last message and identify the topic/need
+2. SEARCH: Look through ALL available templates to find any that relate to the topic
+3. IF MATCH FOUND: Use the relevant template as your BASE response, then adapt it to sound natural and conversational
+4. IF NO MATCH: Create a helpful response based on hotel receptionist experience
+5. ALWAYS: List any templates you used in the "matched_templates" section
 
 RESPONSE STYLE:
 - Use natural, casual English (avoid overly formal language)
 - Be friendly and conversational 
 - Keep it simple and easy to understand
 - Show genuine care and helpfulness
-- If you can match with existing templates, adapt them to sound natural
-- If no template fits, create a helpful response based on hotel receptionist experience
+- When using templates, make them sound natural and personal
 
-IMPORTANT: Your response should be what YOU (the receptionist) would say NEXT to continue the conversation, not a translation or summary of what was already said.
+TOPIC MATCHING EXAMPLES:
+- Guest asks about check-in → Use CHECK IN or EARLY CHECK IN templates
+- Guest asks about arrival/directions → Use ARRIVAL template  
+- Guest asks about parking → Use PARK template
+- Guest asks about laundry → Use LAUNDRY template
+- Guest asks about taxi/transport → Use TAXI templates
+- Guest says thanks for cleaning → Use DON PHONG template
+- Guest asks about room availability → Use HET PHONG if no rooms
+- Guest asks about payment options → Use NOT BOOKING template
+
+IMPORTANT: Your response should be what YOU (the receptionist) would say NEXT to continue the conversation, based on available templates when possible.
 
 Return your analysis in this JSON format:
 {{
-    "analysis_info": "Brief description of what the guest needs or is asking about",
+    "analysis_info": "Brief description of what the guest needs and which topic it relates to",
     "matched_templates": [
-        {{"category": "Template category", "label": "Template label", "message": "Template content if relevant"}}
+        {{"category": "Template category if used", "label": "Template label if used", "message": "Original template content if used"}}
     ],
-    "ai_response": "Your friendly, natural response to the guest's last message"
+    "ai_response": "Your friendly, natural response based on templates when available, or original helpful response"
 }}
 """
         
