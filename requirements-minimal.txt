@@ -1,0 +1,19 @@
+# Minimal requirements for production deployment
+flask
+gunicorn
+pandas
+numpy
+openpyxl
+xlrd
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+gspread
+google-generativeai
+python-dotenv
+python-dateutil
+Pillow
+beautifulsoup4
+PyPDF2
+plotly
+requests
