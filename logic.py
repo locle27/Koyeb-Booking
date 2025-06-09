@@ -356,12 +356,6 @@ def import_message_templates_from_gsheet(sheet_id: str, gcp_creds_file_path: str
         
         # Trả về dữ liệu mẫu nếu có lỗi
         print("Trả về dữ liệu mẫu do có lỗi...")
-        return get_fallback_templates()NG: {e}")
-        import traceback
-        traceback.print_exc()
-        
-        # Trả về dữ liệu mẫu nếu có lỗi
-        print("Trả về dữ liệu mẫu do có lỗi...")
         return get_fallback_templates()
 
 def get_fallback_templates() -> list[dict]:
