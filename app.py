@@ -69,16 +69,16 @@ if GOOGLE_API_KEY:
 # --- Hàm chính để tải dữ liệu ---
 @lru_cache(maxsize=1)
 def load_data():
-    print("Đang tải dữ liệu đặt phòng từ nguồn...")
+    print("Loading booking data from source...")
     try:
         df = import_from_gsheet(DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH, WORKSHEET_NAME)
         if df.empty:
-            raise ValueError("Sheet đặt phòng trống hoặc không thể truy cập.")
+            raise ValueError("Booking sheet is empty or inaccessible.")
         active_bookings = df[df['Tình trạng'] != 'Đã hủy'].copy()
-        print("Tải dữ liệu từ Google Sheet thành công!")
+        print("Successfully loaded data from Google Sheet!")
         return df, active_bookings
     except Exception as e:
-        print(f"Lỗi tải dữ liệu đặt phòng: {e}. Dùng dữ liệu demo.")
+        print(f"Error loading booking data: {e}. Using demo data.")
         df_demo, active_bookings_demo = create_demo_data()
         return df_demo, active_bookings_demo
 
@@ -213,32 +213,46 @@ def dashboard():
             if df['Check-in Date'].dtype == 'object':
                 df['Check-in Date'] = pd.to_datetime(df['Check-in Date'], errors='coerce')
             
-            # Tìm khách chưa thu tiền quá hạn (đã check-in nhưng chưa thu tiền)
+            # Find overdue unpaid guests (checked-in but not paid)
             try:
-                overdue_mask = (
-                    (df['Check-in Date'].dt.date <= today) &  # Đã đến ngày check-in
-                    (~df['Người thu tiền'].isin(['LOC LE', 'THAO LE'])) &  # Chưa thu tiền
-                    (df['Tình trạng'] != 'Đã hủy') &  # Không phải booking đã hủy
-                    (df['Check-in Date'].notna())  # Không phải NaT/None
-                )
+                # Safer approach: work with a clean copy and convert dates properly
+                df_work = df.copy()
                 
-                overdue_df = df[overdue_mask].copy()
-                
-                if not overdue_df.empty:
-                    # Tính số ngày quá hạn an toàn
-                    overdue_df['days_overdue'] = (today - overdue_df['Check-in Date'].dt.date).dt.days
+                # Ensure datetime conversion with explicit handling
+                if 'Check-in Date' in df_work.columns:
+                    # Convert to datetime, handle various formats
+                    df_work['Check-in Date'] = pd.to_datetime(df_work['Check-in Date'], errors='coerce', dayfirst=True)
                     
-                    # Sắp xếp theo số ngày quá hạn giảm dần
-                    overdue_df = overdue_df.sort_values('days_overdue', ascending=False)
-                    
-                    # Chuyển thành list và tính tổng
-                    overdue_unpaid_guests = overdue_df.to_dict('records')
-                    
-                    # An toàn khi tính tổng
-                    if 'Tổng thanh toán' in overdue_df.columns:
-                        overdue_total_amount = pd.to_numeric(overdue_df['Tổng thanh toán'], errors='coerce').fillna(0).sum()
-                    
-                    print(f"DEBUG: Found {len(overdue_unpaid_guests)} overdue unpaid guests, total: {overdue_total_amount:,.0f}đ")
+                    # Only proceed if we have valid datetime data
+                    valid_dates_mask = df_work['Check-in Date'].notna()
+                    if valid_dates_mask.any():
+                        # Filter to only rows with valid dates first
+                        df_valid = df_work[valid_dates_mask].copy()
+                        
+                        # Now create overdue mask on clean data
+                        overdue_mask = (
+                            (df_valid['Check-in Date'].dt.date <= today) &  # Past check-in date
+                            (~df_valid['Người thu tiền'].isin(['LOC LE', 'THAO LE'])) &  # Not collected
+                            (df_valid['Tình trạng'] != 'Đã hủy')  # Not cancelled
+                        )
+                        
+                        overdue_df = df_valid[overdue_mask].copy()
+                        
+                        if not overdue_df.empty:
+                            # Calculate overdue days
+                            overdue_df['days_overdue'] = (today - overdue_df['Check-in Date'].dt.date).dt.days
+                            
+                            # Sort by overdue days descending
+                            overdue_df = overdue_df.sort_values('days_overdue', ascending=False)
+                            
+                            # Convert to list and calculate total
+                            overdue_unpaid_guests = overdue_df.to_dict('records')
+                            
+                            # Safe sum calculation
+                            if 'Tổng thanh toán' in overdue_df.columns:
+                                overdue_total_amount = pd.to_numeric(overdue_df['Tổng thanh toán'], errors='coerce').fillna(0).sum()
+                            
+                            print(f"DEBUG: Found {len(overdue_unpaid_guests)} overdue unpaid guests, total: {overdue_total_amount:,.0f}d")
                 
             except Exception as overdue_error:
                 print(f"WARNING: Error calculating overdue guests: {overdue_error}")
@@ -564,10 +578,10 @@ def sync_bookings():
     """
     try:
         load_data.cache_clear()
-        flash('Dữ liệu đã được đồng bộ lại từ Google Sheets.', 'info')
-        print("Cache đã được xóa thành công qua nút Đồng bộ.")
+        flash('Data has been synced from Google Sheets.', 'info')
+        print("Cache cleared successfully via Sync button.")
     except Exception as e:
-        flash(f'Lỗi khi xóa cache: {e}', 'danger')
+        flash(f'Error clearing cache: {e}', 'danger')
 
     return redirect(url_for('view_bookings'))
 
@@ -838,25 +852,25 @@ def ai_chat_analyze():
         selected_template = ai_config.get('selectedTemplate')
         response_mode = ai_config.get('responseMode', 'auto')
         
-        # Đọc templates MỚI NHẤT trực tiếp từ Google Sheets
-        print("🔄 Đang tải templates mới nhất từ Google Sheets...")
+        # Read latest templates directly from Google Sheets
+        print("Loading latest templates from Google Sheets...")
         try:
             templates = import_message_templates_from_gsheet(
                 sheet_id=DEFAULT_SHEET_ID,
                 gcp_creds_file_path=GCP_CREDS_FILE_PATH
             )
-            print(f"✅ Đã tải {len(templates)} templates từ Google Sheets")
+            print(f"Loaded {len(templates)} templates from Google Sheets")
         except Exception as e:
-            print(f"⚠️ Lỗi khi tải từ Google Sheets, dùng file JSON backup: {e}")
-            # Fallback: đọc từ file JSON nếu Google Sheets lỗi
+            print(f"Error loading from Google Sheets, using JSON backup: {e}")
+            # Fallback: read from JSON file if Google Sheets fails
             templates_path = BASE_DIR / 'message_templates.json'
             try:
                 with open(templates_path, 'r', encoding='utf-8') as f:
                     templates = json.load(f)
-                print(f"📁 Đã tải {len(templates)} templates từ file JSON backup")
+                print(f"Loaded {len(templates)} templates from JSON backup")
             except (FileNotFoundError, json.JSONDecodeError):
                 templates = []
-                print("❌ Không có templates nào available")
+                print("No templates available")
         
         # Phân tích ảnh với AI sử dụng AI configuration
         result = analyze_chat_image_with_ai(image_bytes, templates, selected_template, response_mode)
@@ -885,16 +899,16 @@ def add_template_api():
             if field not in new_template or not new_template[field].strip():
                 return jsonify({'success': False, 'message': f'Thiếu trường bắt buộc: {field}'}), 400
         
-        # Đọc templates hiện tại từ Google Sheets (source of truth)
-        print("🔄 Đang đọc templates từ Google Sheets...")
+        # Read current templates from Google Sheets (source of truth)
+        print("Reading templates from Google Sheets...")
         try:
             templates = import_message_templates_from_gsheet(
                 sheet_id=DEFAULT_SHEET_ID,
                 gcp_creds_file_path=GCP_CREDS_FILE_PATH
             )
-            print(f"✅ Đã đọc {len(templates)} templates từ Google Sheets")
+            print(f"Read {len(templates)} templates from Google Sheets")
         except Exception as e:
-            print(f"⚠️ Lỗi đọc Google Sheets, dùng file JSON: {e}")
+            print(f"Error reading Google Sheets, using JSON file: {e}")
             # Fallback: đọc từ file JSON
             templates_path = BASE_DIR / 'message_templates.json'
             try:
@@ -920,29 +934,29 @@ def add_template_api():
         }
         templates.append(new_template_formatted)
         
-        # Đồng bộ với Google Sheets TRƯỚC (source of truth)
+        # Sync with Google Sheets FIRST (source of truth)
         try:
             export_message_templates_to_gsheet(templates, DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH)
-            sheets_sync = " ✅ Google Sheets"
-            print("✅ Đã cập nhật Google Sheets thành công")
+            sheets_sync = " - Google Sheets OK"
+            print("Google Sheets updated successfully")
         except Exception as export_error:
-            print(f"❌ Export Google Sheets error: {export_error}")
-            sheets_sync = " ❌ Google Sheets (lỗi)"
+            print(f"Export Google Sheets error: {export_error}")
+            sheets_sync = " - Google Sheets ERROR"
         
-        # Cập nhật file JSON backup
+        # Update JSON backup file
         try:
             templates_path = BASE_DIR / 'message_templates.json'
             with open(templates_path, 'w', encoding='utf-8') as f:
                 json.dump(templates, f, ensure_ascii=False, indent=4)
-            json_sync = " ✅ JSON backup"
-            print("✅ Đã cập nhật file JSON backup")
+            json_sync = " - JSON backup OK"
+            print("JSON backup file updated")
         except Exception as json_error:
-            print(f"❌ JSON backup error: {json_error}")
-            json_sync = " ❌ JSON backup (lỗi)"
+            print(f"JSON backup error: {json_error}")
+            json_sync = " - JSON backup ERROR"
         
         return jsonify({
             'success': True, 
-            'message': f'🎉 Đã thêm mẫu tin nhắn thành công!\n📊 Sync:{sheets_sync}{json_sync}',
+            'message': f'Template added successfully! Sync:{sheets_sync}{json_sync}',
             'template_count': len(templates),
             'new_template': new_template_formatted
         })
@@ -1207,19 +1221,19 @@ def translate_with_google_api(text, source_lang='vi', target_lang='en'):
                 result = response.json()
                 if 'data' in result and 'translations' in result['data']:
                     translated = result['data']['translations'][0]['translatedText']
-                    print(f"✅ Google Translate API success: {text[:50]}... → {translated[:50]}...")
+                    print(f"Google Translate API success: {text[:50]}... -> {translated[:50]}...")
                     return translated
                 else:
-                    print("❌ Google Translate API: Invalid response format")
+                    print("Google Translate API: Invalid response format")
             else:
-                print(f"❌ Google Translate API error: {response.status_code}")
+                print(f"Google Translate API error: {response.status_code}")
         
         # Method 2: Fallback to Gemini AI for translation
-        print("🔄 Fallback to Gemini AI translation...")
+        print("Fallback to Gemini AI translation...")
         return translate_with_gemini_ai(text, source_lang, target_lang)
         
     except Exception as e:
-        print(f"❌ Google Translate error: {e}, falling back to Gemini")
+        print(f"Google Translate error: {e}, falling back to Gemini")
         return translate_with_gemini_ai(text, source_lang, target_lang)
 
 def translate_with_gemini_ai(text, source_lang='vi', target_lang='en'):
@@ -1267,11 +1281,11 @@ Translation:
         if translated.startswith('"') and translated.endswith('"'):
             translated = translated[1:-1]
         
-        print(f"✅ Gemini AI translation: {text[:50]}... → {translated[:50]}...")
+        print(f"Gemini AI translation: {text[:50]}... -> {translated[:50]}...")
         return translated
         
     except Exception as e:
-        print(f"❌ Gemini translation error: {e}")
+        print(f"Gemini translation error: {e}")
         # Last resort: return original with note
         return f"[Translation Error] {text}"
 
