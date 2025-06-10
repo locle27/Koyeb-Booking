@@ -74,6 +74,9 @@
         </div>
         <div class="card-body">
             <form method="GET" action="{{ url_for('view_bookings') }}">
+                <!-- Hidden field để giữ show_all state -->
+                <input type="hidden" name="show_all" value="{{ 'true' if show_all else 'false' }}">
+                
                 <div class="row g-3">
                     <!-- Tìm kiếm -->
                     <div class="col-md-3">

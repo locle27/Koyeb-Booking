@@ -585,6 +585,14 @@ def view_bookings():
     # === FILTER MỚI: CHỈ HIỂN THỊ KHÁCH ACTIVE ===
     show_all = request.args.get('show_all', 'false').lower() == 'true'
     
+    # === MẶC ĐỊNH CHỈ HIỂN THỊ THÁNG HIỆN TẠI NẾU KHÔNG CÓ FILTER ===
+    if not filter_month and not filter_year and not start_date and not end_date and not show_all:
+        # Lọc theo tháng hiện tại
+        current_date = datetime.today()
+        filter_month = str(current_date.month)
+        filter_year = str(current_date.year)
+        print(f"DEBUG: Mặc định lọc theo tháng hiện tại: {filter_month}/{filter_year}")
+    
     if not show_all:
         # Mặc định: chỉ hiển thị khách active (chưa thu tiền HOẶC chưa check-out)
         today = datetime.today().date()
@@ -629,6 +637,7 @@ def view_bookings():
                 (df['Check-in Date'].dt.year == year) & 
                 (df['Check-in Date'].dt.month == month)
             ]
+            print(f"DEBUG: Filtered by month {month}/{year}, result: {len(df)} bookings")
         except (ValueError, AttributeError):
             pass
     
@@ -1109,6 +1118,7 @@ def check_data_issues():
 def data_health_dashboard():
     """Trang dashboard để kiểm tra và fix dữ liệu"""
     return render_template('data_health.html')
+@app.route('/api/translate_text', methods=['POST'])
 def translate_text():
     """API endpoint để dịch văn bản sử dụng Google Translate"""
     try:

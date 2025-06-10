@@ -68,6 +68,22 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
         
         df = pd.DataFrame(data[1:], columns=data[0])
         
+        # === SỬA LỖI: LỌC BỎ HÀNG TRỐNG ===
+        print(f"DEBUG: Dữ liệu ban đầu có {len(df)} hàng")
+        
+        # Loại bỏ hàng hoàn toàn trống
+        df = df.dropna(how='all')
+        print(f"DEBUG: Sau khi loại bỏ hàng hoàn toàn trống: {len(df)} hàng")
+        
+        # Loại bỏ hàng không có Số đặt phòng hoặc Tên người đặt (hai trường quan trọng nhất)
+        if 'Số đặt phòng' in df.columns and 'Tên người đặt' in df.columns:
+            df = df[(df['Số đặt phòng'].notna()) & (df['Số đặt phòng'].str.strip() != '') &
+                    (df['Tên người đặt'].notna()) & (df['Tên người đặt'].str.strip() != '')]
+            print(f"DEBUG: Sau khi loại bỏ hàng thiếu thông tin quan trọng: {len(df)} hàng")
+        
+        # Reset index sau khi loại bỏ hàng
+        df = df.reset_index(drop=True)
+        
         if 'Tổng thanh toán' in df.columns:
             df['Tổng thanh toán'] = pd.to_numeric(df['Tổng thanh toán'].astype(str).str.replace('[^\\d.]', '', regex=True), errors='coerce').fillna(0)
         
