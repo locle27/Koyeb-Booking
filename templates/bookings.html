@@ -19,6 +19,48 @@
         </div>
     </div>
 
+    <!-- Filter Active/All với style đẹp -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card border-0 bg-light">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <span class="text-muted me-3">
+                                <i class="fas fa-filter me-1"></i>Hiển thị:
+                            </span>
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="show_filter" id="show_active" 
+                                       autocomplete="off" {% if not show_all %}checked{% endif %}>
+                                <label class="btn btn-outline-primary btn-sm" for="show_active">
+                                    <i class="fas fa-users me-1"></i>Chỉ khách cần quan tâm
+                                </label>
+
+                                <input type="radio" class="btn-check" name="show_filter" id="show_all" 
+                                       autocomplete="off" {% if show_all %}checked{% endif %}>
+                                <label class="btn btn-outline-secondary btn-sm" for="show_all">
+                                    <i class="fas fa-list me-1"></i>Tất cả khách
+                                </label>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            {% if not show_all %}
+                            <small class="text-info">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Hiển thị khách <strong>chưa thu tiền</strong> hoặc <strong>chưa check-out</strong>
+                            </small>
+                            {% else %}
+                            <small class="text-muted">
+                                <i class="fas fa-eye me-1"></i>Hiển thị tất cả khách (bao gồm đã hoàn thành)
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Search and Filter form với style mới -->
     <div class="card mb-3 shadow-sm">
         <div class="card-header bg-light">
@@ -345,6 +387,32 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     toggleDeleteButton(); // Initial check
+    
+    // === Filter Active/All Toggle ===
+    document.getElementById('show_active').addEventListener('change', function() {
+        if (this.checked) {
+            updateFilterAndReload(false);
+        }
+    });
+    
+    document.getElementById('show_all').addEventListener('change', function() {
+        if (this.checked) {
+            updateFilterAndReload(true);
+        }
+    });
+    
+    function updateFilterAndReload(showAll) {
+        const url = new URL(window.location);
+        
+        if (showAll) {
+            url.searchParams.set('show_all', 'true');
+        } else {
+            url.searchParams.delete('show_all');
+        }
+        
+        // Giữ lại các filter khác
+        window.location.href = url.toString();
+    }
 });
 </script>
 {% endblock %} 

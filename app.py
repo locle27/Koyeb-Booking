@@ -495,6 +495,40 @@ def view_bookings():
     filter_year = request.args.get('filter_year', '')
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
+    
+    # === FILTER MỚI: CHỈ HIỂN THỊ KHÁCH ACTIVE ===
+    show_all = request.args.get('show_all', 'false').lower() == 'true'
+    
+    if not show_all:
+        # Mặc định: chỉ hiển thị khách active (chưa thu tiền HOẶC chưa check-out)
+        today = datetime.today().date()
+        
+        # Điều kiện active:
+        # 1. Chưa thu tiền (Người thu tiền không phải LOC LE/THAO LE)
+        # 2. HOẶC chưa check-out (Check-out Date > hôm nay)
+        # 3. VÀ không bị hủy
+        
+        # Ensure datetime conversion
+        if 'Check-out Date' in df.columns:
+            df['Check-out Date'] = pd.to_datetime(df['Check-out Date'], errors='coerce')
+        
+        # Create active mask
+        not_cancelled = df['Tình trạng'] != 'Đã hủy'
+        
+        # Chưa thu tiền
+        collected_values = ['LOC LE', 'THAO LE']
+        collector_series = df['Người thu tiền'].fillna('').astype(str)
+        not_collected = ~collector_series.isin(collected_values)
+        
+        # Chưa check-out (check-out date là hôm nay hoặc trong tương lai)
+        not_checked_out = df['Check-out Date'].dt.date >= today
+        
+        # Combine conditions: (chưa thu tiền HOẶC chưa check-out) VÀ không bị hủy
+        active_mask = (not_collected | not_checked_out) & not_cancelled
+        
+        df = df[active_mask].copy()
+        
+        print(f"DEBUG: Filtered to {len(df)} active bookings (unpaid OR not checked out)")
 
     # Lọc theo từ khóa tìm kiếm
     if search_term:
@@ -548,7 +582,8 @@ def view_bookings():
                          filter_year=filter_year,
                          start_date=start_date,
                          end_date=end_date,
-                         available_months=available_months)
+                         available_months=available_months,
+                         show_all=show_all)
 
 @app.route('/calendar/')
 @app.route('/calendar/<int:year>/<int:month>')
