@@ -1118,7 +1118,7 @@ def check_data_issues():
 def data_health_dashboard():
     """Trang dashboard để kiểm tra và fix dữ liệu"""
     return render_template('data_health.html')
-@app.route('/api/translate_text', methods=['POST'])
+@app.route('/api/translate', methods=['POST'])
 def translate_text():
     """API endpoint để dịch văn bản sử dụng Google Translate"""
     try:
