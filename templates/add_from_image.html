@@ -146,7 +146,7 @@
                     }
 
                     // Hiển thị kết quả với xử lý lỗi tốt hơn
-                    let tableHtml = '<table><thead><tr><th>Tên khách</th><th>Mã đặt phòng</th><th>Ngày đến</th><th>Ngày đi</th><th>Loại phòng</th><th>Tổng tiền</th><th>Trạng thái</th></tr></thead><tbody>';
+                    let tableHtml = '<table><thead><tr><th>Tên khách</th><th>Mã đặt phòng</th><th>Ngày đến</th><th>Ngày đi</th><th>Loại phòng</th><th>Tổng tiền</th><th>Hoa hồng</th><th>Trạng thái</th></tr></thead><tbody>';
                     let validBookings = [];
                     let invalidCount = 0;
 
@@ -154,7 +154,7 @@
                         // Nếu có lỗi trong từng booking, hiển thị lỗi đó
                         if (booking.error) {
                             invalidCount++;
-                            tableHtml += `<tr style="background-color: #f8d7da;"><td colspan="7" class="error-message">❌ ${booking.error}</td></tr>`;
+                            tableHtml += `<tr style="background-color: #f8d7da;"><td colspan="8" class="error-message">❌ ${booking.error}</td></tr>`;
                             continue;
                         }
                         
@@ -166,12 +166,17 @@
                         if (!hasRequiredFields) {
                             invalidCount++;
                             tableHtml += `<tr style="background-color: #f8d7da;">
-                                <td colspan="7" class="error-message">❌ Thiếu thông tin bắt buộc: ${booking.guest_name || 'Tên khách'}</td>
+                                <td colspan="8" class="error-message">❌ Thiếu thông tin bắt buộc: ${booking.guest_name || 'Tên khách'}</td>
                             </tr>`;
                             continue;
                         }
                         
                         validBookings.push(booking);
+                        
+                        // Xử lý hoa hồng
+                        const commission = booking.commission || 0;
+                        const commissionDisplay = commission > 0 ? commission.toLocaleString('vi-VN') + ' VND' : 'Chưa có';
+                        
                         tableHtml += `
                             <tr style="background-color: #d4edda;">
                                 <td>${booking.guest_name || 'N/A'}</td>
@@ -180,6 +185,7 @@
                                 <td>${booking.check_out_date || 'N/A'}</td>
                                 <td>${booking.room_type || 'N/A'}</td>
                                 <td>${booking.total_payment ? booking.total_payment.toLocaleString('vi-VN') + ' VND' : 'N/A'}</td>
+                                <td style="color: #e67e22; font-weight: bold;">${commissionDisplay}</td>
                                 <td>✅ Hợp lệ</td>
                             </tr>
                         `;

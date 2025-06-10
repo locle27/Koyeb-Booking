@@ -695,15 +695,17 @@ def save_extracted_bookings():
         formatted_bookings = []
         for booking in bookings_to_save:
             if 'error' in booking: continue
-            formatted_bookings.append({
+            formatted_booking = {
                 'Tên người đặt': booking.get('guest_name'),
                 'Số đặt phòng': booking.get('booking_id'),
                 'Check-in Date': booking.get('check_in_date'),
                 'Check-out Date': booking.get('check_out_date'),
                 'Tên chỗ nghỉ': booking.get('room_type'),
                 'Tổng thanh toán': booking.get('total_payment'),
+                'Hoa hồng': booking.get('commission', 0),  # Thêm hoa hồng
                 'Tình trạng': 'OK'
-            })
+            }
+            formatted_bookings.append(formatted_booking)
 
         if formatted_bookings:
             append_multiple_bookings_to_sheet(
@@ -735,6 +737,7 @@ def edit_booking(booking_id):
             'Check-in Date': request.form.get('Check-in Date'),
             'Check-out Date': request.form.get('Check-out Date'),
             'Tổng thanh toán': request.form.get('Tổng thanh toán'),
+            'Hoa hồng': request.form.get('Hoa hồng', 0),  # Thêm hoa hồng
             'Tình trạng': request.form.get('Tình trạng'),
             'Người thu tiền': request.form.get('Người thu tiền'),
         }
@@ -825,9 +828,11 @@ def collect_payment():
             'Người thu tiền': collector_name,
         }
         
-        # Thêm ghi chú nếu có
+        # Thêm ghi chú nếu có (bao gồm thông tin hoa hồng nếu có)
         if payment_note:
             new_data['Ghi chú thu tiền'] = f"Thu {collected_amount:,.0f}đ - {payment_note}"
+        else:
+            new_data['Ghi chú thu tiền'] = f"Thu {collected_amount:,.0f}đ"
         
         success = update_row_in_gsheet(
             sheet_id=DEFAULT_SHEET_ID,

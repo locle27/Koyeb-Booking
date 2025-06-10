@@ -246,6 +246,20 @@
                             {% endif %}
                         </a>
                     </th>
+                    <th class="text-end" style="padding: 4px 8px;">
+                        <a href="{{ url_for('view_bookings', search_term=search_term, filter_month=filter_month, filter_year=filter_year, start_date=start_date, end_date=end_date, sort_by='Hoa hồng', order='asc' if current_sort_by == 'Hoa hồng' and current_order == 'desc' else 'desc') }}" class="text-dark text-decoration-none fw-medium">
+                            🎯 Hoa hồng 
+                            {% if current_sort_by == 'Hoa hồng' %}
+                                {% if current_order == 'asc' %}
+                                    <i class="fas fa-sort-up fa-xs text-primary"></i>
+                                {% else %}
+                                    <i class="fas fa-sort-down fa-xs text-primary"></i>
+                                {% endif %}
+                            {% else %}
+                                <i class="fas fa-sort fa-xs text-muted"></i>
+                            {% endif %}
+                        </a>
+                    </th>
                     <th style="padding: 4px 8px; width: 60px;" class="text-dark fw-medium">Thao tác</th>
                 </tr>
             </thead>
@@ -293,6 +307,14 @@
                     </td>
                     <td style="padding: 2px 8px;">
                         <small class="text-muted">{{ booking.get('Người thu tiền', 'N/A') }}</small>
+                    </td>
+                    <td class="text-end" style="padding: 2px 8px;">
+                        {% set commission = booking.get('Hoa hồng', 0) %}
+                        {% if commission and commission > 0 %}
+                        <strong class="text-warning">{{ "{:,.0f}".format(commission) }}đ</strong>
+                        {% else %}
+                        <small class="text-muted">-</small>
+                        {% endif %}
                     </td>
                     <td style="padding: 2px 8px;">
                         <a href="{{ url_for('edit_booking', booking_id=booking['Số đặt phòng']) }}" 

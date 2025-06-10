@@ -203,6 +203,15 @@
                             <input type="number" id="total_payment" name="Tổng thanh toán" value="{{ booking.get('Tổng thanh toán', 0) }}" required>
                         </div>
                         <div class="form-group">
+                            <label for="commission"><i class="fas fa-percentage me-1 text-warning"></i>Hoa hồng (VND)</label>
+                            <input type="number" id="commission" name="Hoa hồng" value="{{ booking.get('Hoa hồng', 0) }}" 
+                                   placeholder="Nhập số tiền hoa hồng" min="0" step="1000">
+                            <small class="text-muted">Tiền hoa hồng cho booking này</small>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
                             <label for="status"><i class="fas fa-flag me-1"></i>Tình trạng</label>
                             <select id="status" name="Tình trạng">
                                 <option value="OK" {% if booking.get('Tình trạng') == 'OK' %}selected{% endif %}>✅ OK</option>

@@ -80,7 +80,7 @@
                                 <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest.get('Tổng thanh toán', 0) if guest.get('Tổng thanh toán') else 0) }}đ</div>
                                 <small class="text-muted">ID: {{ guest.get('Số đặt phòng', 'N/A') }}</small>
                                 <button class="btn btn-success btn-sm mt-1 w-100" 
-                                        onclick="openCollectModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('Tổng thanh toán', 0) }})">
+                                        onclick="openCollectModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('Tổng thanh toán', 0) }}, {{ guest.get('Hoa hồng', 0) }})">
                                     <i class="fas fa-money-bill-wave me-1"></i>Thu tiền
                                 </button>
                             </div>
@@ -124,7 +124,7 @@
                                     <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest.get('Tổng thanh toán', 0) if guest.get('Tổng thanh toán') else 0) }}đ</div>
                                     <small class="text-muted">ID: {{ guest.get('Số đặt phòng', 'N/A') }}</small>
                                     <button class="btn btn-success btn-sm mt-1 w-100" 
-                                            onclick="openCollectModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('Tổng thanh toán', 0) }})">
+                                            onclick="openCollectModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('Tổng thanh toán', 0) }}, {{ guest.get('Hoa hồng', 0) }})">
                                         <i class="fas fa-money-bill-wave me-1"></i>Thu tiền
                                     </button>
                                 </div>
@@ -326,6 +326,10 @@
                         <div class="fw-bold text-danger fs-5" id="modalTotalAmount"></div>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Hoa hồng dự kiến:</label>
+                        <div class="fw-bold text-warning fs-6" id="modalCommissionAmount">Chưa có thông tin</div>
+                    </div>
+                    <div class="mb-3">
                         <label for="collectedAmount" class="form-label">Số tiền thực thu (VND):</label>
                         <input type="number" class="form-control" id="collectedAmount" 
                                placeholder="Nhập số tiền đã thu" min="0" step="1000">
@@ -438,16 +442,28 @@ function toggleMoreOverdue() {
 // Global variables cho modal
 let currentBookingId = '';
 let currentTotalAmount = 0;
+let currentCommission = 0;
 
 // Mở modal thu tiền
-function openCollectModal(bookingId, guestName, totalAmount) {
+function openCollectModal(bookingId, guestName, totalAmount, commission = 0) {
     currentBookingId = bookingId;
     currentTotalAmount = totalAmount;
+    currentCommission = commission || 0;
     
     // Cập nhật thông tin modal
     document.getElementById('modalGuestName').textContent = guestName;
     document.getElementById('modalBookingId').textContent = bookingId;
     document.getElementById('modalTotalAmount').textContent = totalAmount.toLocaleString('vi-VN') + 'đ';
+    
+    // Hiển thị hoa hồng
+    const commissionElement = document.getElementById('modalCommissionAmount');
+    if (currentCommission > 0) {
+        commissionElement.textContent = currentCommission.toLocaleString('vi-VN') + 'đ';
+        commissionElement.className = 'fw-bold text-warning fs-6';
+    } else {
+        commissionElement.textContent = 'Chưa có thông tin';
+        commissionElement.className = 'text-muted fs-6';
+    }
     
     // Reset form
     document.getElementById('collectedAmount').value = totalAmount;

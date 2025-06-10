@@ -71,6 +71,13 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
         if 'Tổng thanh toán' in df.columns:
             df['Tổng thanh toán'] = pd.to_numeric(df['Tổng thanh toán'].astype(str).str.replace('[^\\d.]', '', regex=True), errors='coerce').fillna(0)
         
+        # Xử lý cột Hoa hồng
+        if 'Hoa hồng' in df.columns:
+            df['Hoa hồng'] = pd.to_numeric(df['Hoa hồng'].astype(str).str.replace('[^\\d.]', '', regex=True), errors='coerce').fillna(0)
+        else:
+            # Nếu chưa có cột Hoa hồng, tạo mặc định = 0
+            df['Hoa hồng'] = 0
+        
         # === SỬA LỖI QUAN TRỌNG NHẤT ===
         # Ép Pandas đọc ngày tháng theo đúng định dạng YYYY-MM-DD từ sheet của bạn.
         # Điều này loại bỏ mọi sự mơ hồ và sửa lỗi "dừng ở ngày 13".
@@ -667,12 +674,13 @@ def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str
         - "check_out_date" (string): Ngày trả phòng theo định dạng YYYY-MM-DD.
         - "room_type" (string): Tên loại phòng đã đặt.
         - "total_payment" (number): Tổng số tiền thanh toán (chỉ lấy số).
-        - "commission" (number): Tiền hoa hồng, nếu có (chỉ lấy số).
+        - "commission" (number): Tiền hoa hồng, nếu có (chỉ lấy số). Tìm kiếm các từ khóa như "hoa hồng", "commission", "com", hoặc số tiền nhỏ hơn total_payment. Nếu không có thông tin hoa hồng rõ ràng, để null.
 
         YÊU CẦU CỰC KỲ QUAN TRỌNG:
         - Kết quả cuối cùng PHẢI là một mảng JSON, ví dụ: [ { ...booking1... }, { ...booking2... } ].
         - Chỉ trả về đối tượng JSON thô, không kèm theo bất kỳ văn bản giải thích hay định dạng markdown nào như ```json.
         - Nếu không tìm thấy thông tin cho trường nào, hãy đặt giá trị là null.
+        - Đặc biệt chú ý đến hoa hồng: có thể được ghi dưới dạng % hoặc số tiền cụ thể.
         """
 
         # 3. Gọi API và xử lý kết quả
