@@ -349,11 +349,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let recognition;
+        let recognition = null;
         let isRecording = false;
         let finalTranscript = '';
         let microphonePermission = false;
-        let restartTimeout;
+        let restartTimeout = null;
+        let recognitionInitialized = false;
+        let lastLanguage = '';
+        let gracefulStop = false;
         
         // Check if app is running on HTTPS (required for microphone on mobile)
         function checkHTTPS() {
@@ -442,10 +445,89 @@
             return mobileLangMap[langCode] || langCode;
         }
         
+        // Safely stop recognition
+        function safeStopRecognition() {
+            if (recognition && isRecording) {
+                console.log('Safely stopping recognition...');
+                gracefulStop = true;
+                clearTimeout(restartTimeout);
+                restartTimeout = null;
+                
+                try {
+                    recognition.stop();
+                } catch (error) {
+                    console.warn('Error stopping recognition:', error);
+                }
+                
+                isRecording = false;
+                setTimeout(() => {
+                    gracefulStop = false;
+                }, 100);
+            }
+        }
+        
+        // Safely start recognition  
+        function safeStartRecognition() {
+            if (!recognition || !recognitionInitialized) {
+                console.log('Recognition not initialized, initializing first...');
+                const initialized = initializeSpeechRecognition();
+                if (!initialized) {
+                    return false;
+                }
+            }
+            
+            if (isRecording) {
+                console.log('Already recording, stopping first...');
+                safeStopRecognition();
+                return false;
+            }
+            
+            try {
+                console.log('Starting recognition...');
+                gracefulStop = false;
+                
+                // Update language if changed
+                const sourceLang = document.getElementById('sourceLanguage').value;
+                const newLangCode = getMobileLanguageCode(sourceLang);
+                if (lastLanguage !== newLangCode) {
+                    recognition.lang = newLangCode;
+                    lastLanguage = newLangCode;
+                    console.log('Updated recognition language to:', newLangCode);
+                }
+                
+                // Clear previous transcript
+                finalTranscript = '';
+                document.getElementById('recognizedText').value = '';
+                document.getElementById('manualText').value = '';
+                
+                recognition.start();
+                return true;
+                
+            } catch (error) {
+                console.error('Error starting recognition:', error);
+                updateStatus('ready', 'Lỗi khởi động: ' + error.message);
+                resetRecordButton();
+                return false;
+            }
+        }
+            if (!checkHTTPS()) {
+                return false;
+            }
+            
         // Initialize Speech Recognition with mobile optimizations
         function initializeSpeechRecognition() {
             if (!checkHTTPS()) {
                 return false;
+            }
+            
+            // Clean up existing recognition
+            if (recognition) {
+                console.log('Cleaning up existing recognition...');
+                try {
+                    recognition.abort();
+                } catch (e) {}
+                recognition = null;
+                recognitionInitialized = false;
             }
             
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -453,34 +535,39 @@
                 recognition = new SpeechRecognition();
                 
                 // Mobile-optimized settings
-                recognition.continuous = false; // Set to false for better mobile support
+                recognition.continuous = false; // Better for mobile
                 recognition.interimResults = true;
                 recognition.maxAlternatives = 1;
                 
                 // Set language with mobile-specific codes
                 const sourceLang = document.getElementById('sourceLanguage').value;
                 recognition.lang = getMobileLanguageCode(sourceLang);
+                lastLanguage = recognition.lang;
                 
                 recognition.onstart = function() {
-                    console.log('Speech recognition started');
+                    console.log('Speech recognition started successfully');
                     updateStatus('listening', 'Đang nghe...');
                     document.getElementById('recordButton').innerHTML = '<i class="fas fa-stop"></i>';
                     document.getElementById('recordButton').classList.add('recording');
                     isRecording = true;
                     
-                    // Auto-restart after 10 seconds for mobile (many mobile browsers auto-stop)
+                    // Mobile auto-restart timer (shorter for better compatibility)
                     clearTimeout(restartTimeout);
                     restartTimeout = setTimeout(() => {
-                        if (isRecording) {
-                            console.log('Auto-restarting recognition for mobile');
-                            recognition.stop();
-                            setTimeout(() => {
-                                if (isRecording) {
-                                    recognition.start();
-                                }
-                            }, 100);
+                        if (isRecording && !gracefulStop) {
+                            console.log('Auto-restarting recognition for mobile compatibility');
+                            try {
+                                recognition.stop();
+                                setTimeout(() => {
+                                    if (isRecording && !gracefulStop) {
+                                        recognition.start();
+                                    }
+                                }, 200);
+                            } catch (error) {
+                                console.warn('Auto-restart error:', error);
+                            }
                         }
-                    }, 9000);
+                    }, 8000); // Reduced timeout for better mobile support
                 };
                 
                 recognition.onresult = function(event) {
@@ -509,20 +596,24 @@
                 };
                 
                 recognition.onerror = function(event) {
-                    console.error('Speech recognition error:', event.error);
+                    console.error('Speech recognition error:', event.error, event);
                     clearTimeout(restartTimeout);
+                    restartTimeout = null;
                     
                     let errorMessage = 'Lỗi nhận diện giọng nói';
+                    let shouldReset = true;
                     
                     switch(event.error) {
                         case 'not-allowed':
                             errorMessage = 'Cần cấp quyền microphone. Vui lòng tải lại trang và cho phép.';
+                            microphonePermission = false;
                             break;
                         case 'no-speech':
                             errorMessage = 'Không nghe thấy giọng nói. Thử lại...';
+                            shouldReset = false; // Don't reset, let user try again quickly
                             break;
                         case 'audio-capture':
-                            errorMessage = 'Không thể truy cập microphone.';
+                            errorMessage = 'Không thể truy cập microphone. Kiểm tra kết nối microphone.';
                             break;
                         case 'network':
                             errorMessage = 'Lỗi mạng. Kiểm tra kết nối internet.';
@@ -530,32 +621,60 @@
                         case 'service-not-allowed':
                             errorMessage = 'Dịch vụ không khả dụng. Thử lại sau.';
                             break;
+                        case 'aborted':
+                            if (!gracefulStop) {
+                                errorMessage = 'Ghi âm bị gián đoạn. Thử lại...';
+                            } else {
+                                shouldReset = false; // Graceful stop, don't show error
+                            }
+                            break;
                         default:
                             errorMessage = `Lỗi: ${event.error}`;
                     }
                     
-                    updateStatus('ready', errorMessage);
-                    resetRecordButton();
+                    if (shouldReset && !gracefulStop) {
+                        updateStatus('ready', errorMessage);
+                        resetRecordButton();
+                    }
                 };
                 
                 recognition.onend = function() {
-                    console.log('Speech recognition ended');
+                    console.log('Speech recognition ended, gracefulStop:', gracefulStop, 'isRecording:', isRecording);
                     clearTimeout(restartTimeout);
+                    restartTimeout = null;
+                    
+                    if (gracefulStop) {
+                        // User intentionally stopped
+                        isRecording = false;
+                        updateStatus('ready', 'Đã dừng ghi âm');
+                        resetRecordButton();
+                        return;
+                    }
                     
                     if (isRecording) {
-                        // If we're still supposed to be recording, restart (mobile optimization)
+                        // Unexpected end, try to restart (mobile browsers often auto-stop)
+                        console.log('Unexpected end, attempting restart...');
                         setTimeout(() => {
-                            if (isRecording) {
-                                console.log('Restarting recognition after end');
-                                recognition.start();
+                            if (isRecording && !gracefulStop) {
+                                try {
+                                    console.log('Restarting recognition after unexpected end');
+                                    recognition.start();
+                                } catch (error) {
+                                    console.error('Failed to restart recognition:', error);
+                                    isRecording = false;
+                                    updateStatus('ready', 'Ghi âm kết thúc. Thử lại nếu cần.');
+                                    resetRecordButton();
+                                }
                             }
-                        }, 100);
+                        }, 200); // Longer delay for mobile stability
                     } else {
                         updateStatus('ready', 'Sẵn sàng ghi âm');
                         resetRecordButton();
                     }
                 };
                 
+                recognitionInitialized = true;
+                console.log('Speech recognition initialized successfully');
                 return true;
                 
             } else {
@@ -570,6 +689,16 @@
         async function toggleRecording() {
             console.log('Toggle recording called, isRecording:', isRecording);
             
+            // Prevent double-clicks
+            const recordButton = document.getElementById('recordButton');
+            if (recordButton.disabled) {
+                console.log('Button disabled, ignoring click');
+                return;
+            }
+            
+            recordButton.disabled = true;
+            setTimeout(() => { recordButton.disabled = false; }, 1000); // Re-enable after 1 second
+            
             if (!microphonePermission) {
                 updateStatus('processing', 'Đang xin quyền microphone...');
                 const hasPermission = await requestMicrophonePermission();
@@ -578,42 +707,18 @@
                 }
             }
             
-            if (!recognition) {
-                const initialized = initializeSpeechRecognition();
-                if (!initialized) {
-                    return;
-                }
-            }
-            
             if (isRecording) {
                 // Stop recording
                 console.log('Stopping recording...');
-                clearTimeout(restartTimeout);
-                isRecording = false;
-                recognition.stop();
-                resetRecordButton();
-                updateStatus('ready', 'Đã dừng ghi âm');
+                safeStopRecognition();
             } else {
                 // Start recording
                 console.log('Starting recording...');
-                try {
-                    // Update language before starting
-                    const sourceLang = document.getElementById('sourceLanguage').value;
-                    recognition.lang = getMobileLanguageCode(sourceLang);
-                    console.log('Using language:', recognition.lang);
-                    
-                    // Clear previous transcript
-                    finalTranscript = '';
-                    document.getElementById('recognizedText').value = '';
-                    document.getElementById('manualText').value = '';
-                    
-                    // Start recognition
-                    updateStatus('processing', 'Đang khởi động...');
-                    recognition.start();
-                    
-                } catch (error) {
-                    console.error('Error starting recognition:', error);
-                    updateStatus('ready', 'Lỗi khởi động: ' + error.message);
+                updateStatus('processing', 'Đang khởi động...');
+                
+                const started = safeStartRecognition();
+                if (!started) {
+                    updateStatus('ready', 'Không thể khởi động ghi âm. Thử lại...');
                     resetRecordButton();
                 }
             }

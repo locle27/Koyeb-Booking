@@ -1092,31 +1092,37 @@ def analyze_chat_image_with_ai(image_bytes, templates, selected_template=None, r
                 for t in templates if isinstance(t, dict)
             ])
         
-        # Tạo hướng dẫn cho response mode
+        # Tạo hướng dẫn cho response mode với emphasis mạnh hơn
         if response_mode == 'yes':
             response_mode_instruction = """
-RESPONSE MODE: POSITIVE/YES MODE
-- Always respond in a POSITIVE, HELPFUL, and ACCOMMODATING manner
-- Say YES whenever possible and offer solutions
-- Be enthusiastic and supportive
+⚠️⚠️⚠️ CRITICAL RESPONSE MODE: POSITIVE/YES MODE ⚠️⚠️⚠️
+- YOU MUST respond in a POSITIVE, HELPFUL, and ACCOMMODATING manner
+- ALWAYS say YES whenever possible and offer solutions
+- Be ENTHUSIASTIC and SUPPORTIVE in your tone
 - Example: "Absolutely! We'd be happy to help with that..."
+- DO NOT decline requests unless absolutely impossible
+- FOCUS on what you CAN do, not what you cannot do
 """
         elif response_mode == 'no':
             response_mode_instruction = """
-RESPONSE MODE: NEGATIVE/NO MODE  
-- Politely decline or explain why something isn't available
-- Be apologetic but professional
-- Offer alternatives when possible
-- Example: "I'm sorry, but unfortunately we don't have that available. However, we can offer..."
+⚠️⚠️⚠️ CRITICAL RESPONSE MODE: NEGATIVE/NO MODE ⚠️⚠️⚠️
+- YOU MUST politely DECLINE or explain why something ISN'T AVAILABLE
+- Say NO to requests, but be APOLOGETIC and PROFESSIONAL
+- Be REGRETFUL but maintain professional standards
+- Example: "I'm very sorry, but unfortunately we don't have that available right now. However, we can offer..."
+- ALWAYS explain why something cannot be done
+- FOCUS on limitations and constraints, then offer alternatives
+- Even if you would normally say yes, you MUST say no in this mode
 """
         else:
             response_mode_instruction = """
 RESPONSE MODE: AUTO MODE
 - Respond naturally based on the guest's request and available services
 - Be honest about what's available or not available
+- Use your best judgment for the most helpful response
 """
         
-        # Tạo prompt cho AI
+        # Tạo prompt cho AI với response mode emphasis
         prompt = f"""
 You are a friendly, casual hotel receptionist at 118 Hang Bac Hostel in Hanoi's Old Quarter. Your job is to analyze the chat conversation in the image and provide a NATURAL, FRIENDLY response to the LAST message from the guest.
 
@@ -1127,6 +1133,8 @@ HOTEL INFO:
 
 {response_mode_instruction}
 
+⚠️ IMPORTANT: The response mode above is MANDATORY and must be followed strictly. If the mode is YES, be positive even if normally you'd say no. If the mode is NO, decline even if normally you'd say yes.
+
 AVAILABLE MESSAGE TEMPLATES:
 {templates_context}
 
@@ -1135,7 +1143,8 @@ TEMPLATE USAGE PRIORITY (VERY IMPORTANT):
 2. {"USE SELECTED TEMPLATE: The user has specifically chosen a template to use as the primary response base" if selected_template else "SEARCH: Look through ALL available templates to find any that relate to the topic"}
 3. IF MATCH FOUND: Use the relevant template as your BASE response, then adapt it to sound natural and conversational
 4. IF NO MATCH: Create a helpful response based on hotel receptionist experience
-5. ALWAYS: List any templates you used in the "matched_templates" section
+5. ALWAYS: Apply the RESPONSE MODE instructions to modify your tone appropriately
+6. ALWAYS: List any templates you used in the "matched_templates" section
 
 RESPONSE STYLE:
 - Use natural, casual English (avoid overly formal language)
@@ -1143,7 +1152,7 @@ RESPONSE STYLE:
 - Keep it simple and easy to understand
 - Show genuine care and helpfulness
 - When using templates, make them sound natural and personal
-- FOLLOW THE RESPONSE MODE INSTRUCTIONS ABOVE
+- MOST IMPORTANT: FOLLOW THE RESPONSE MODE INSTRUCTIONS ABOVE STRICTLY
 
 TOPIC MATCHING EXAMPLES:
 - Guest asks about check-in → Use CHECK IN or EARLY CHECK IN templates
@@ -1155,7 +1164,7 @@ TOPIC MATCHING EXAMPLES:
 - Guest asks about room availability → Use HET PHONG if no rooms
 - Guest asks about payment options → Use NOT BOOKING template
 
-IMPORTANT: Your response should be what YOU (the receptionist) would say NEXT to continue the conversation, based on available templates when possible.
+CRITICAL: Your response should be what YOU (the receptionist) would say NEXT to continue the conversation, based on available templates when possible, BUT MODIFIED ACCORDING TO THE RESPONSE MODE.
 
 Return your analysis in this JSON format:
 {{
@@ -1163,7 +1172,7 @@ Return your analysis in this JSON format:
     "matched_templates": [
         {{"category": "Template category if used", "label": "Template label if used", "message": "Original template content if used"}}
     ],
-    "ai_response": "Your friendly, natural response based on templates when available, or original helpful response, following the specified response mode",
+    "ai_response": "Your friendly, natural response based on templates when available, or original helpful response, STRICTLY following the specified response mode",
     "used_config": {{
         "selected_template": {"true" if selected_template else "false"},
         "response_mode": "{response_mode}"

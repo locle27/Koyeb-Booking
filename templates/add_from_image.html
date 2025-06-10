@@ -102,40 +102,97 @@
                     spinner.style.display = 'none';
 
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || `Lỗi từ server: ${response.statusText}`);
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || `Lỗi từ server: ${response.status} ${response.statusText}`);
                     }
 
                     const extractedData = await response.json();
+                    console.log('Extracted data received:', extractedData); // Debug log
 
                     // === PHẦN SỬA LỖI QUAN TRỌNG NHẤT ===
-                    // Luôn kiểm tra dữ liệu trả về có phải là một mảng (Array) hay không trước khi dùng .length
-                    if (!Array.isArray(extractedData) || extractedData.length === 0) {
-                        messageBox.innerHTML = `<div class="error-message">Không tìm thấy đặt phòng nào trong ảnh hoặc có lỗi xảy ra.</div>`;
+                    // Xử lý trường hợp API trả về object với error message
+                    if (extractedData && extractedData.error) {
+                        messageBox.innerHTML = `<div class="error-message">Lỗi xử lý ảnh: ${extractedData.error}</div>`;
                         pasteArea.style.display = 'block';
                         return;
                     }
 
-                    // Hiển thị kết quả
-                    let tableHtml = '<table><thead><tr><th>Tên khách</th><th>Ngày đến</th><th>Ngày đi</th><th>Loại phòng</th><th>Tổng tiền</th><th>Ghi chú</th></tr></thead><tbody>';
+                    // Luôn kiểm tra dữ liệu trả về có phải là một mảng (Array) hay không trước khi dùng .length
+                    if (!extractedData || !Array.isArray(extractedData)) {
+                        console.log('Invalid response format, trying to extract from object...');
+                        
+                        // Kiểm tra nếu data được wrap trong object
+                        let bookingsArray = null;
+                        if (extractedData && typeof extractedData === 'object') {
+                            // Tìm array trong các properties của object
+                            for (const key in extractedData) {
+                                if (Array.isArray(extractedData[key])) {
+                                    bookingsArray = extractedData[key];
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (!bookingsArray || bookingsArray.length === 0) {
+                            messageBox.innerHTML = `<div class="error-message">
+                                Không tìm thấy đặt phòng nào trong ảnh. Vui lòng thử:
+                                <ul style="margin-top: 10px;">
+                                    <li>Chụp ảnh rõ nét hơn</li>
+                                    <li>Đảm bảo văn bản trong ảnh dễ đọc</li>
+                                    <li>Ảnh chứa thông tin đặt phòng hoàn chỉnh</li>
+                                </ul>
+                            </div>`;
+                            pasteArea.style.display = 'block';
+                            return;
+                        }
+                        
+                        // Sử dụng array tìm được
+                        console.log('Found bookings array in object:', bookingsArray);
+                        extractedData = bookingsArray;
+                    }
+
+                    if (extractedData.length === 0) {
+                        messageBox.innerHTML = `<div class="error-message">Không tìm thấy thông tin đặt phòng nào trong ảnh này.</div>`;
+                        pasteArea.style.display = 'block';
+                        return;
+                    }
+
+                    // Hiển thị kết quả với xử lý lỗi tốt hơn
+                    let tableHtml = '<table><thead><tr><th>Tên khách</th><th>Mã đặt phòng</th><th>Ngày đến</th><th>Ngày đi</th><th>Loại phòng</th><th>Tổng tiền</th><th>Trạng thái</th></tr></thead><tbody>';
                     let validBookings = [];
+                    let invalidCount = 0;
 
                     for (const booking of extractedData) {
                         // Nếu có lỗi trong từng booking, hiển thị lỗi đó
                         if (booking.error) {
-                            tableHtml += `<tr><td colspan="6" class="error-message">${booking.error}</td></tr>`;
+                            invalidCount++;
+                            tableHtml += `<tr style="background-color: #f8d7da;"><td colspan="7" class="error-message">❌ ${booking.error}</td></tr>`;
+                            continue;
+                        }
+                        
+                        // Validate required fields
+                        const hasRequiredFields = booking.guest_name && 
+                                                booking.check_in_date && 
+                                                booking.check_out_date;
+                        
+                        if (!hasRequiredFields) {
+                            invalidCount++;
+                            tableHtml += `<tr style="background-color: #f8d7da;">
+                                <td colspan="7" class="error-message">❌ Thiếu thông tin bắt buộc: ${booking.guest_name || 'Tên khách'}</td>
+                            </tr>`;
                             continue;
                         }
                         
                         validBookings.push(booking);
                         tableHtml += `
-                            <tr>
+                            <tr style="background-color: #d4edda;">
                                 <td>${booking.guest_name || 'N/A'}</td>
+                                <td>${booking.booking_id || 'Tự tạo'}</td>
                                 <td>${booking.check_in_date || 'N/A'}</td>
                                 <td>${booking.check_out_date || 'N/A'}</td>
                                 <td>${booking.room_type || 'N/A'}</td>
-                                <td>${booking.total_payment ? booking.total_payment.toLocaleString('vi-VN') : 'N/A'}</td>
-                                <td>${booking.commission ? 'Hoa hồng: ' + booking.commission.toLocaleString('vi-VN') : ''}</td>
+                                <td>${booking.total_payment ? booking.total_payment.toLocaleString('vi-VN') + ' VND' : 'N/A'}</td>
+                                <td>✅ Hợp lệ</td>
                             </tr>
                         `;
                     }
@@ -146,9 +203,22 @@
                     if (validBookings.length > 0) {
                         document.getElementById('extracted_json_input').value = JSON.stringify(validBookings);
                         saveForm.style.display = 'block';
-                        messageBox.innerHTML = `<div class="success-message">Đã trích xuất thành công ${validBookings.length} đặt phòng. Vui lòng kiểm tra và lưu lại.</div>`;
+                        
+                        let successMessage = `✅ Đã trích xuất thành công ${validBookings.length} đặt phòng hợp lệ`;
+                        if (invalidCount > 0) {
+                            successMessage += ` (${invalidCount} mục không hợp lệ)`;
+                        }
+                        successMessage += '. Kiểm tra thông tin và nhấn Lưu.';
+                        
+                        messageBox.innerHTML = `<div class="success-message">${successMessage}</div>`;
                     } else {
-                        messageBox.innerHTML = `<div class="error-message">Không có đặt phòng nào hợp lệ để lưu.</div>`;
+                        let errorMessage = `❌ Không có đặt phòng nào hợp lệ để lưu`;
+                        if (invalidCount > 0) {
+                            errorMessage += ` (${invalidCount} mục không hợp lệ)`;
+                        }
+                        errorMessage += `. Vui lòng thử với ảnh khác hoặc kiểm tra lại định dạng thông tin.`;
+                        
+                        messageBox.innerHTML = `<div class="error-message">${errorMessage}</div>`;
                     }
 
                 } catch (error) {
