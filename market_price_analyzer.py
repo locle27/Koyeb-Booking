@@ -85,7 +85,7 @@ class MarketPriceAnalyzer:
             return True
             
         except Exception as e:
-            print(f"ERROR: Lỗi khởi tạo crawler: {e}")
+            print(f"ERROR: Loi khoi tao crawler: {e}")
             return False
     
     async def crawl_booking_prices(self, booking_url: str, max_properties: int = 15) -> Dict:
@@ -99,7 +99,7 @@ class MarketPriceAnalyzer:
         Returns:
             Dict chứa thông tin properties và phân tích giá
         """
-        print(f"🔍 Bắt đầu crawl giá từ Booking.com (max: {max_properties} properties)")
+        print(f"Bat dau crawl gia tu Booking.com (max: {max_properties} properties)")
         
         if not self.crawler:
             success = await self.initialize_crawler()
@@ -159,7 +159,7 @@ class MarketPriceAnalyzer:
     
     async def _parse_html_fallback(self, html_content: str) -> List[Dict]:
         """Fallback parser sử dụng BeautifulSoup khi LLM extraction fail"""
-        print("🔄 Sử dụng HTML parser fallback...")
+        print("Su dung HTML parser fallback...")
         
         try:
             soup = BeautifulSoup(html_content, 'html.parser')
@@ -178,7 +178,7 @@ class MarketPriceAnalyzer:
                 elements = soup.select(selector)
                 if elements:
                     property_elements = elements
-                    print(f"✅ Tìm thấy {len(elements)} properties với selector: {selector}")
+                    print(f"Tim thay {len(elements)} properties voi selector: {selector}")
                     break
             
             for elem in property_elements[:15]:  # Giới hạn 15 properties
@@ -187,7 +187,7 @@ class MarketPriceAnalyzer:
                     if property_data:
                         properties.append(property_data)
                 except Exception as e:
-                    print(f"⚠️ Lỗi parse property: {e}")
+                    print(f"Loi parse property: {e}")
                     continue
             
             print(f"✅ Đã parse {len(properties)} properties thành công")

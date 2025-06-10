@@ -1441,8 +1441,8 @@ def api_analyze_market_prices():
         except (ValueError, TypeError):
             max_properties = 15
         
-        print(f"🔍 Analyzing market prices from: {booking_url}")
-        print(f"📊 Max properties to analyze: {max_properties}")
+        print(f"Analyzing market prices from: {booking_url}")
+        print(f"Max properties to analyze: {max_properties}")
         
         # Chạy analysis trong async context
         import asyncio
@@ -1466,16 +1466,16 @@ def api_analyze_market_prices():
         # Format for frontend
         formatted_result = format_price_analysis_for_display(analysis_result)
         
-        print(f"✅ Analysis completed: {formatted_result.get('success', False)}")
+        print(f"Analysis completed: {formatted_result.get('success', False)}")
         
         return jsonify(formatted_result)
         
     except Exception as e:
-        print(f"❌ Market analysis error: {e}")
+        print(f"Market analysis error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
-            "error": f"Lỗi phân tích: {str(e)}",
+            "error": f"Loi phan tich: {str(e)}",
             "success": False
         }), 500
 

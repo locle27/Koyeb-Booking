@@ -69,7 +69,7 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
         df = pd.DataFrame(data[1:], columns=data[0])
         
         # === SỬA LỖI: LỌC BỎ HÀNG TRỐNG ===
-        print(f"DEBUG: Dữ liệu ban đầu có {len(df)} hàng")
+        print(f"DEBUG: Du lieu ban dau co {len(df)} hang")
         
         # Loại bỏ hàng hoàn toàn trống
         df = df.dropna(how='all')
@@ -122,7 +122,7 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
             
         return df
     except Exception as e:
-        print(f"Lỗi khi import từ Google Sheet: {e}")
+        print(f"Loi khi import tu Google Sheet: {e}")
         raise
 
 def export_data_to_new_sheet(df: pd.DataFrame, gcp_creds_file_path: str, sheet_id: str) -> str:
@@ -530,7 +530,7 @@ def debug_message_templates_connection(sheet_id: str, gcp_creds_file_path: str):
 # ==============================================================================
 
 def create_demo_data() -> tuple[pd.DataFrame, pd.DataFrame]:
-    print("Tạo dữ liệu demo vì không thể tải từ Google Sheet.")
+    print("Tao du lieu demo vi khong the tai tu Google Sheet.")
     demo_data = {
         'Tên chỗ nghỉ': ['Home in Old Quarter', 'Old Quarter Home', 'Home in Old Quarter', 'Riverside Apartment'],
         'Tên người đặt': ['Demo User Alpha', 'Demo User Beta', 'Demo User Gamma', 'Demo User Delta'],
