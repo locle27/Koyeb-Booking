@@ -200,178 +200,99 @@ def dashboard():
     else:
         print("DEBUG: No monthly revenue data for chart")
 
-    # Tạo biểu đồ cột doanh thu đã thu vs chưa thu
-    collected_vs_uncollected_chart_json = {}
+    # ===== LOGIC MỚI: TÍNH TOÁN KHÁCH CHƯA THU TIỀN QUÁ HẠN =====
+    overdue_unpaid_guests = []
+    overdue_total_amount = 0
+    monthly_revenue_with_unpaid = []
     
-    # Tính toán doanh thu đã thu và chưa thu
     if not df.empty:
-        # Chuyển đổi start_date và end_date thành Timestamp để lọc
-        start_ts = pd.Timestamp(start_date)
-        end_ts = pd.Timestamp(end_date)
+        today = datetime.today().date()
         
-        # Lọc theo thời gian đã chọn
+        # Tìm khách chưa thu tiền quá hạn (đã check-in nhưng chưa thu tiền)
+        overdue_mask = (
+            (df['Check-in Date'].dt.date <= today) &  # Đã đến ngày check-in
+            (~df['Người thu tiền'].isin(['LOC LE', 'THAO LE'])) &  # Chưa thu tiền
+            (df['Tình trạng'] != 'Đã hủy')  # Không phải booking đã hủy
+        )
+        
+        overdue_df = df[overdue_mask].copy()
+        
+        if not overdue_df.empty:
+            # Tính số ngày quá hạn
+            overdue_df['days_overdue'] = (today - overdue_df['Check-in Date'].dt.date).dt.days
+            
+            # Sắp xếp theo số ngày quá hạn giảm dần
+            overdue_df = overdue_df.sort_values('days_overdue', ascending=False)
+            
+            # Chuyển thành list và tính tổng
+            overdue_unpaid_guests = overdue_df.to_dict('records')
+            overdue_total_amount = overdue_df['Tổng thanh toán'].sum()
+            
+            print(f"DEBUG: Found {len(overdue_unpaid_guests)} overdue unpaid guests, total: {overdue_total_amount:,.0f}đ")
+        
+        # Tính toán doanh thu theo tháng có bao gồm số khách chưa thu
         df_period = df[
-            (df['Check-in Date'] >= start_ts) & 
-            (df['Check-in Date'] <= end_ts) &
+            (df['Check-in Date'] >= pd.Timestamp(start_date)) & 
+            (df['Check-in Date'] <= pd.Timestamp(end_date)) &
             (df['Check-in Date'] <= pd.Timestamp.now())
         ].copy()
         
-        # Tính doanh thu đã thu (LOC LE và THAO LE)
-        collected_df = df_period[
-            df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE'])
-        ].copy()
-        
-        # Tính doanh thu chưa thu (các giá trị khác hoặc rỗng)
-        uncollected_df = df_period[
-            ~df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE']) |
-            df_period['Người thu tiền'].isna() |
-            (df_period['Người thu tiền'] == '')
-        ].copy()
-        
-        # Nhóm theo tháng
-        if not collected_df.empty:
-            collected_df['Month_Period'] = collected_df['Check-in Date'].dt.to_period('M')
-            collected_monthly = collected_df.groupby('Month_Period')['Tổng thanh toán'].sum().reset_index()
-            collected_monthly['Tháng'] = collected_monthly['Month_Period'].dt.strftime('%Y-%m')
-        else:
-            collected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán'])
-        
-        if not uncollected_df.empty:
-            uncollected_df['Month_Period'] = uncollected_df['Check-in Date'].dt.to_period('M')
-            uncollected_monthly = uncollected_df.groupby('Month_Period')['Tổng thanh toán'].sum().reset_index()
-            uncollected_monthly['Tháng'] = uncollected_monthly['Month_Period'].dt.strftime('%Y-%m')
-        else:
-            uncollected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán'])
-        
-        # Merge dữ liệu để có cả hai cột
-        if not collected_monthly.empty and not uncollected_monthly.empty:
-            merged_data = pd.merge(
-                collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'}),
-                uncollected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Chưa thu'}),
-                on='Tháng', how='outer'
-            ).fillna(0)
-        elif not collected_monthly.empty:
-            merged_data = collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'})
-            merged_data['Chưa thu'] = 0
-        elif not uncollected_monthly.empty:
-            merged_data = uncollected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Chưa thu'})
-            merged_data['Đã thu'] = 0
-        else:
-            merged_data = pd.DataFrame(columns=['Tháng', 'Đã thu', 'Chưa thu'])
-        
-        if not merged_data.empty:
-            # Sắp xếp theo tháng
-            merged_data = merged_data.sort_values('Tháng')
+        if not df_period.empty:
+            # Tính doanh thu đã thu (LOC LE và THAO LE)
+            collected_df = df_period[
+                df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE'])
+            ].copy()
             
-            # Tạo biểu đồ cột grouped chuyên nghiệp với gradient
-            fig_collected = px.bar(
-                merged_data, 
-                x='Tháng', 
-                y=['Đã thu', 'Chưa thu'],
-                title='💰 Doanh thu Đã thu vs Chưa thu',
-                color_discrete_map={
-                    'Đã thu': '#2ecc71',  # Xanh lá cho đã thu
-                    'Chưa thu': '#e74c3c'  # Đỏ cho chưa thu
-                },
-                text_auto=True
-            )
+            # Tính doanh thu chưa thu (các giá trị khác hoặc rỗng)
+            uncollected_df = df_period[
+                ~df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE'])
+            ].copy()
             
-            # Cải thiện text hiển thị trên cột với format đẹp hơn
-            fig_collected.update_traces(
-                texttemplate='%{y:,.0f}K',
-                textposition='outside',
-                textfont=dict(size=11, family='Arial', color='#2c3e50'),
-                hovertemplate='<b>%{fullData.name}</b><br>' +
-                             'Tháng: %{x}<br>' +
-                             'Số tiền: %{y:,.0f}đ<br>' +
-                             '<extra></extra>',
-                marker=dict(
-                    line=dict(color='rgba(255,255,255,0.6)', width=1)
-                )
-            )
+            # Nhóm theo tháng - Đã thu
+            if not collected_df.empty:
+                collected_df['Month_Period'] = collected_df['Check-in Date'].dt.to_period('M')
+                collected_monthly = collected_df.groupby('Month_Period').agg({
+                    'Tổng thanh toán': 'sum'
+                }).reset_index()
+                collected_monthly['Tháng'] = collected_monthly['Month_Period'].dt.strftime('%Y-%m')
+            else:
+                collected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán'])
             
-            # Layout chuyên nghiệp với gradient background
-            fig_collected.update_layout(
-                title={
-                    'text': '💰 Doanh thu Đã thu vs Chưa thu',
-                    'x': 0.5,
-                    'y': 0.95,
-                    'font': {'size': 18, 'family': 'Arial Black', 'color': '#2c3e50'}
-                },
-                xaxis_title='Tháng',
-                yaxis_title='Doanh thu (VND)',
-                plot_bgcolor='rgba(248,249,250,0.9)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font={'family': 'Arial, sans-serif', 'size': 12, 'color': '#2c3e50'},
-                margin=dict(l=80, r=30, t=80, b=60),
-                height=480,
-                showlegend=True,
-                legend=dict(
-                    orientation="h",
-                    yanchor="top",
-                    y=0.98,
-                    xanchor="center",
-                    x=0.5,
-                    bgcolor="rgba(255,255,255,0.9)",
-                    bordercolor="rgba(0,0,0,0.1)",
-                    borderwidth=1,
-                    font=dict(size=12, family='Arial')
-                ),
-                hovermode='x unified',
-                bargap=0.3,
-                bargroupgap=0.1
-            )
+            # Nhóm theo tháng - Chưa thu
+            if not uncollected_df.empty:
+                uncollected_df['Month_Period'] = uncollected_df['Check-in Date'].dt.to_period('M')
+                uncollected_monthly = uncollected_df.groupby('Month_Period').agg({
+                    'Tổng thanh toán': 'sum',
+                    'Số đặt phòng': 'count'  # Đếm số khách chưa thu
+                }).reset_index()
+                uncollected_monthly['Tháng'] = uncollected_monthly['Month_Period'].dt.strftime('%Y-%m')
+                uncollected_monthly = uncollected_monthly.rename(columns={'Số đặt phòng': 'Số khách chưa thu'})
+            else:
+                uncollected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán', 'Số khách chưa thu'])
             
-            # Cải thiện axes với grid đẹp hơn
-            fig_collected.update_xaxes(
-                showgrid=True,
-                gridwidth=1,
-                gridcolor='rgba(128,128,128,0.2)',
-                showline=True,
-                linewidth=2,
-                linecolor='rgba(128,128,128,0.5)',
-                tickfont=dict(size=11, family='Arial', color='#495057'),
-                title_font=dict(size=13, family='Arial Bold', color='#2c3e50')
-            )
+            # Merge dữ liệu
+            if not collected_monthly.empty and not uncollected_monthly.empty:
+                merged_data = pd.merge(
+                    collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'}),
+                    uncollected_monthly[['Tháng', 'Tổng thanh toán', 'Số khách chưa thu']].rename(columns={'Tổng thanh toán': 'Chưa thu'}),
+                    on='Tháng', how='outer'
+                ).fillna(0)
+            elif not collected_monthly.empty:
+                merged_data = collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'})
+                merged_data['Chưa thu'] = 0
+                merged_data['Số khách chưa thu'] = 0
+            elif not uncollected_monthly.empty:
+                merged_data = uncollected_monthly[['Tháng', 'Tổng thanh toán', 'Số khách chưa thu']].rename(columns={'Tổng thanh toán': 'Chưa thu'})
+                merged_data['Đã thu'] = 0
+            else:
+                merged_data = pd.DataFrame(columns=['Tháng', 'Đã thu', 'Chưa thu', 'Số khách chưa thu'])
             
-            fig_collected.update_yaxes(
-                showgrid=True,
-                gridwidth=1,
-                gridcolor='rgba(128,128,128,0.2)',
-                showline=True,
-                linewidth=2,
-                linecolor='rgba(128,128,128,0.5)',
-                tickformat=',.0f',
-                tickfont=dict(size=11, family='Arial', color='#495057'),
-                title_font=dict(size=13, family='Arial Bold', color='#2c3e50')
-            )
+            if not merged_data.empty:
+                # Sắp xếp theo tháng
+                merged_data = merged_data.sort_values('Tháng')
+                monthly_revenue_with_unpaid = merged_data.to_dict('records')
             
-            # Thêm annotation tổng kết
-            total_collected = merged_data['Đã thu'].sum()
-            total_uncollected = merged_data['Chưa thu'].sum()
-            collection_rate = (total_collected / (total_collected + total_uncollected) * 100) if (total_collected + total_uncollected) > 0 else 0
-            
-            fig_collected.add_annotation(
-                x=1, y=1, xref="paper", yref="paper",
-                text=f"Tỷ lệ thu: <b>{collection_rate:.1f}%</b>",
-                showarrow=False,
-                font=dict(size=14, family='Arial Bold', color='#ffffff'),
-                bgcolor='rgba(52, 152, 219, 0.8)',
-                bordercolor='rgba(52, 152, 219, 1)',
-                borderwidth=2,
-                borderpad=8,
-                xanchor='right',
-                yanchor='top'
-            )
-            
-            collected_vs_uncollected_chart_json = json.loads(fig_collected.to_json())
-            
-            # Tạo dữ liệu bảng để hiển thị
-            collected_vs_uncollected_table_data = merged_data.to_dict('records')
-            print(f"DEBUG: Collected vs Uncollected chart created successfully")
-        else:
-            print("DEBUG: No data for collected vs uncollected chart")
-            collected_vs_uncollected_table_data = []
+            print(f"DEBUG: Monthly revenue with unpaid data created: {len(monthly_revenue_with_unpaid)} months")
 
     # Tạo biểu đồ donut chart chuyên nghiệp cho người thu tiền
     collector_revenue_data = dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records')
@@ -457,8 +378,9 @@ def dashboard():
         weekly_guests_list=weekly_guests_list,
         monthly_collected_revenue_list=monthly_collected_revenue_list,
         monthly_revenue_chart_json=monthly_revenue_chart_json,
-        collected_vs_uncollected_chart_json=collected_vs_uncollected_chart_json,
-        collected_vs_uncollected_table_data=collected_vs_uncollected_table_data,
+        monthly_revenue_with_unpaid=monthly_revenue_with_unpaid,  # Dữ liệu mới
+        overdue_unpaid_guests=overdue_unpaid_guests,  # Khách quá hạn
+        overdue_total_amount=overdue_total_amount,  # Tổng tiền quá hạn
         collector_chart_json=collector_chart_data,
         collector_revenue_list=collector_revenue_list,
         start_date=start_date.strftime('%Y-%m-%d'),

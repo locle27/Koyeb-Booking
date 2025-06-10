@@ -34,6 +34,85 @@
         </div>
     </div>
 
+    <!-- ⚠️ KHÁCH CHƯA THU TIỀN QUÁ HẠN -->
+    {% if overdue_unpaid_guests and overdue_unpaid_guests|length > 0 %}
+    <div class="alert alert-danger border-0 shadow-lg mb-4" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h4 class="alert-heading text-white mb-2">
+                    <i class="fas fa-exclamation-triangle me-2"></i>⚠️ KHÁCH CHƯA THU TIỀN QUÁ HẠN
+                </h4>
+                <p class="text-white mb-0">{{ overdue_unpaid_guests|length }} khách đã check-in nhưng chưa thu tiền</p>
+            </div>
+            <div class="text-end">
+                <div class="text-white">
+                    <div class="h5 mb-0">{{ "{:,.0f}".format(overdue_total_amount) }}đ</div>
+                    <small>Tổng tiền chưa thu</small>
+                </div>
+            </div>
+        </div>
+        
+        <hr class="text-white-50 my-3">
+        
+        <div class="row">
+            {% for guest in overdue_unpaid_guests[:3] %}
+            <div class="col-md-4 mb-2">
+                <div class="card bg-white bg-opacity-90 border-0">
+                    <div class="card-body py-2 px-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1 text-dark">{{ guest['Tên người đặt'] }}</h6>
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar me-1"></i>{{ guest['Check-in Date'].strftime('%d/%m/%Y') }}
+                                    <span class="ms-2 badge bg-danger">{{ guest['days_overdue'] }} ngày</span>
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest['Tổng thanh toán']) }}đ</div>
+                                <small class="text-muted">ID: {{ guest['Số đặt phòng'] }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% if overdue_unpaid_guests|length > 3 %}
+        <div class="text-center mt-3">
+            <button class="btn btn-outline-light" onclick="toggleMoreOverdue()">
+                <i class="fas fa-chevron-down me-1"></i> Xem thêm {{ overdue_unpaid_guests|length - 3 }} khách
+            </button>
+        </div>
+        <div id="moreOverdueGuests" style="display: none;" class="mt-3">
+            <div class="row">
+                {% for guest in overdue_unpaid_guests[3:] %}
+                <div class="col-md-4 mb-2">
+                    <div class="card bg-white bg-opacity-90 border-0">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1 text-dark">{{ guest['Tên người đặt'] }}</h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>{{ guest['Check-in Date'].strftime('%d/%m/%Y') }}
+                                        <span class="ms-2 badge bg-danger">{{ guest['days_overdue'] }} ngày</span>
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest['Tổng thanh toán']) }}đ</div>
+                                    <small class="text-muted">ID: {{ guest['Số đặt phòng'] }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Key Metrics -->
     <div class="row">
         <div class="col-xl-3 col-md-6">
@@ -68,44 +147,33 @@
     <!-- Charts -->
     <!-- Biểu đồ doanh thu chuyên nghiệp -->
     <div class="row">
-        <div class="col-xl-8">
-            <div class="card mb-4 shadow-sm border-0">
-                <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <i class="fas fa-chart-bar me-2"></i>
-                            <span class="fw-bold">💰 Doanh thu Đã thu vs Chưa thu</span>
-                        </div>
-                        <div class="badge bg-light text-dark">Theo tháng</div>
-                    </div>
-                </div>
-                <div class="card-body p-0">
-                    <div id="collectedVsUncollectedChart" style="height: 480px;"></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-4">
+        <div class="col-xl-12">
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                    <i class="fas fa-chart-line me-2"></i>
-                    <span class="fw-bold">📈 Tổng doanh thu theo tháng</span>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-chart-line me-2"></i>
+                            <span class="fw-bold">📈 Doanh thu theo tháng (Tất cả thời gian)</span>
+                        </div>
+                        <div class="badge bg-light text-dark">Chi tiết đầy đủ</div>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <div id="monthlyRevenueChart" style="height: 380px;"></div>
+                    <div id="monthlyRevenueChart" style="height: 400px;"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Bảng chi tiết và phân tích -->
-    {% if collected_vs_uncollected_table_data %}
+    {% if monthly_revenue_with_unpaid %}
     <div class="row">
         <div class="col-xl-8">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-light">
                     <h6 class="mb-0">
                         <i class="fas fa-table me-1 text-primary"></i> 
-                        Chi tiết Doanh thu theo tháng
+                        Chi tiết Doanh thu theo tháng (Bao gồm khách chưa thu tiền)
                     </h6>
                 </div>
                 <div class="card-body">
@@ -122,6 +190,9 @@
                                     <th class="text-end border-0">
                                         <i class="fas fa-clock me-1 text-warning"></i>Chưa thu
                                     </th>
+                                    <th class="text-center border-0">
+                                        <i class="fas fa-users me-1 text-info"></i>Khách chưa thu
+                                    </th>
                                     <th class="text-end border-0">
                                         <i class="fas fa-coins me-1 text-info"></i>Tổng cộng
                                     </th>
@@ -131,7 +202,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for row in collected_vs_uncollected_table_data %}
+                                {% for row in monthly_revenue_with_unpaid %}
                                 <tr class="border-bottom">
                                     <td>
                                         <div class="fw-bold text-primary">{{ row['Tháng'] }}</div>
@@ -146,6 +217,17 @@
                                             {{ "{:,.0f}".format(row['Chưa thu'] | float) }}đ
                                         </div>
                                     </td>
+                                    <td class="text-center">
+                                        {% if row['Số khách chưa thu'] > 0 %}
+                                        <span class="badge bg-warning text-dark">
+                                            {{ row['Số khách chưa thu'] }} khách
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> Đã thu hết
+                                        </span>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end">
                                         <div class="fw-bold text-dark">
                                             {{ "{:,.0f}".format((row['Đã thu'] | float) + (row['Chưa thu'] | float)) }}đ
@@ -155,7 +237,8 @@
                                         {% set total = (row['Đã thu'] | float) + (row['Chưa thu'] | float) %}
                                         {% set percentage = (row['Đã thu'] | float) / total * 100 if total > 0 else 0 %}
                                         <div class="progress" style="height: 20px;">
-                                            <div class="progress-bar bg-success" role="progressbar" 
+                                            <div class="progress-bar {% if percentage >= 90 %}bg-success{% elif percentage >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                 role="progressbar" 
                                                  style="width: {{ percentage }}%;" 
                                                  aria-valuenow="{{ percentage }}" 
                                                  aria-valuemin="0" aria-valuemax="100">
@@ -221,32 +304,6 @@ document.addEventListener('DOMContentLoaded', function() {
             '<div class="text-center py-5"><i class="fas fa-chart-line fa-3x text-muted mb-3"></i><p class="text-muted">Không có dữ liệu để hiển thị biểu đồ</p></div>';
     }
 
-    // Collected vs Uncollected Revenue Chart
-    const collectedVsUncollectedChartData = {{ collected_vs_uncollected_chart_json | tojson | safe }};
-    console.log('Collected vs Uncollected chart data:', collectedVsUncollectedChartData);
-    
-    if (collectedVsUncollectedChartData && 
-        typeof collectedVsUncollectedChartData === 'object' && 
-        Object.keys(collectedVsUncollectedChartData).length > 0 &&
-        collectedVsUncollectedChartData.data && 
-        collectedVsUncollectedChartData.layout) {
-        try {
-            Plotly.newPlot('collectedVsUncollectedChart', collectedVsUncollectedChartData.data, collectedVsUncollectedChartData.layout, {
-                responsive: true,
-                displayModeBar: false
-            });
-            console.log('Collected vs Uncollected chart rendered successfully');
-        } catch (error) {
-            console.error('Error rendering collected vs uncollected chart:', error);
-            document.getElementById('collectedVsUncollectedChart').innerHTML = 
-                '<div class="alert alert-danger">Lỗi hiển thị biểu đồ: ' + error.message + '</div>';
-        }
-    } else {
-        console.log('No collected vs uncollected chart data available');
-        document.getElementById('collectedVsUncollectedChart').innerHTML = 
-            '<div class="text-center py-5"><i class="fas fa-chart-column fa-3x text-muted mb-3"></i><p class="text-muted">Không có dữ liệu để hiển thị biểu đồ doanh thu đã thu/chưa thu</p></div>';
-    }
-
     // Collector Revenue Pie Chart
     const collectorChartData = {{ collector_chart_json | tojson | safe }};
     console.log('Collector chart data:', collectorChartData);
@@ -277,17 +334,20 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('collectorChart').innerHTML = 
             '<div class="text-center py-5"><i class="fas fa-chart-pie fa-3x text-muted mb-3"></i><p class="text-muted">Không có dữ liệu người thu tiền</p></div>';
     }
-
-    // Debug: Log all data passed to template (comment out if not needed)
-    /*
-    console.log('=== Template Debug Data ===');
-    console.log('Monthly revenue list:', {{ monthly_revenue_list | tojson | safe }});
-    console.log('Monthly collected revenue list:', {{ monthly_collected_revenue_list | tojson | safe }});
-    console.log('Collector revenue list:', {{ collector_revenue_list | tojson | safe }});
-    console.log('Total revenue:', {{ total_revenue | tojson | safe }});
-    console.log('Total guests:', {{ total_guests | tojson | safe }});
-    console.log('=== End Debug Data ===');
-    */
 });
+
+// Toggle more overdue guests
+function toggleMoreOverdue() {
+    const moreOverdue = document.getElementById('moreOverdueGuests');
+    const button = event.target;
+    
+    if (moreOverdue.style.display === 'none') {
+        moreOverdue.style.display = 'block';
+        button.innerHTML = '<i class="fas fa-chevron-up me-1"></i> Thu gọn';
+    } else {
+        moreOverdue.style.display = 'none';
+        button.innerHTML = '<i class="fas fa-chevron-down me-1"></i> Xem thêm {{ overdue_unpaid_guests|length - 3 if overdue_unpaid_guests else 0 }} khách';
+    }
+}
 </script>
 {% endblock %}
