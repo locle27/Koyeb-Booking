@@ -17,6 +17,66 @@
         .ai-response{position:relative;background:white;border-radius:8px;padding:15px;border-left:4px solid #28a745;box-shadow:0 2px 4px rgba(0,0,0,0.05);}
         .analysis-info{background:#e3f2fd;border-radius:6px;padding:12px;margin-bottom:15px;font-size:0.9em;}
         .template-match{background:#fff3cd;border-radius:6px;padding:10px;margin:10px 0;border-left:3px solid #ffc107;}
+        
+        /* Enhanced Template Preview Styles */
+        #templatePreview {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: translateY(0);
+        }
+        #templatePreview.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        #templatePreview.hide {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        
+        /* Dropdown Enhanced Styles */
+        #specificTemplate {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        #specificTemplate:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        }
+        
+        /* Quick Preview Tooltip */
+        #quickPreviewTooltip {
+            transition: opacity 0.2s ease;
+            word-wrap: break-word;
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(4px);
+        }
+        
+        /* Template Preview Box Enhanced */
+        .alert.alert-light {
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+        }
+        
+        /* Copy Button in Preview */
+        .btn-outline-secondary {
+            transition: all 0.2s ease;
+        }
+        .btn-outline-secondary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        /* Debug Console Styles (for development) */
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            margin-top: 10px;
+            display: none; /* Hidden by default, can be shown for debugging */
+        }
     </style>
 </head>
 <body>
@@ -96,9 +156,16 @@
                             </div>
                             <div class="col-md-4">
                                 <label for="specificTemplate" class="form-label small mb-1">Mẫu cụ thể:</label>
-                                <select id="specificTemplate" class="form-select form-select-sm" disabled onchange="previewSelectedTemplate()">
+                                <select id="specificTemplate" class="form-select form-select-sm" disabled 
+                                        onchange="previewSelectedTemplate()" 
+                                        onmouseenter="enableHoverPreview()" 
+                                        onmouseleave="disableHoverPreview()">
                                     <option value="">Chọn category trước</option>
                                 </select>
+                                <!-- Quick preview tooltip -->
+                                <div id="quickPreviewTooltip" class="position-absolute bg-dark text-white p-2 rounded shadow" 
+                                     style="display: none; z-index: 1000; max-width: 300px; font-size: 0.8rem; top: 100%; left: 0;">
+                                </div>
                             </div>
                             <!-- Yes/No Mode -->
                             <div class="col-md-4">
@@ -213,6 +280,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             setupImageHandling();
             loadTemplateCategories(); // Load template options on page load
+            initializeRealtimePreview(); // Initialize realtime preview
+            
+            console.log('AI Chat Assistant page loaded successfully'); // Debug log
         });
         
         // Load template categories from API
@@ -251,47 +321,204 @@
             const specificSelect = document.getElementById('specificTemplate');
             const selectedCategory = categorySelect.value;
             
+            console.log('Loading templates for category:', selectedCategory); // Debug log
+            
             // Clear specific template dropdown
             specificSelect.innerHTML = '<option value="">Chọn mẫu cụ thể</option>';
             specificSelect.disabled = !selectedCategory;
             
             // Hide template preview
-            document.getElementById('templatePreview').style.display = 'none';
+            hideTemplatePreview();
             
             if (selectedCategory) {
                 // Filter templates by category
                 const categoryTemplates = allTemplates.filter(t => t.Category === selectedCategory);
+                console.log('Found templates:', categoryTemplates.length); // Debug log
                 
                 // Populate specific template dropdown
-                categoryTemplates.forEach(template => {
+                categoryTemplates.forEach((template, index) => {
                     const option = document.createElement('option');
                     option.value = JSON.stringify(template); // Store entire template as value
                     option.textContent = template.Label;
+                    option.setAttribute('data-template', JSON.stringify(template)); // Backup data attribute
                     specificSelect.appendChild(option);
                 });
                 
                 specificSelect.disabled = false;
+                
+                // Add event listener for better responsiveness
+                specificSelect.addEventListener('change', previewSelectedTemplate);
+                specificSelect.addEventListener('click', previewSelectedTemplate); // Extra trigger
             }
         }
         
-        // Preview selected template
+        // Hide template preview
+        function hideTemplatePreview() {
+            document.getElementById('templatePreview').style.display = 'none';
+        }
+        
+        // Preview selected template with enhanced debugging
         function previewSelectedTemplate() {
             const specificSelect = document.getElementById('specificTemplate');
             const previewDiv = document.getElementById('templatePreview');
             const previewContent = document.getElementById('templatePreviewContent');
             
+            console.log('Preview function called, selected value:', specificSelect.value); // Debug log
+            
+            if (specificSelect.value && specificSelect.value !== '') {
+                try {
+                    const template = JSON.parse(specificSelect.value);
+                    console.log('Parsed template:', template); // Debug log
+                    
+                    const previewHTML = `
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong class="text-primary">${template.Category} - ${template.Label}:</strong>
+                                <div class="mt-1">${template.Message}</div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="copyTemplatePreview()">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    `;
+                    
+                    previewContent.innerHTML = previewHTML;
+                    previewDiv.style.display = 'block';
+                    
+                    // Add smooth animation
+                    previewDiv.style.opacity = '0';
+                    setTimeout(() => {
+                        previewDiv.style.transition = 'opacity 0.3s ease';
+                        previewDiv.style.opacity = '1';
+                    }, 10);
+                    
+                    console.log('Preview displayed successfully'); // Debug log
+                    
+                } catch (error) {
+                    console.error('Error parsing template:', error);
+                    hideTemplatePreview();
+                    
+                    // Try to use data attribute as fallback
+                    const option = specificSelect.options[specificSelect.selectedIndex];
+                    if (option && option.hasAttribute('data-template')) {
+                        try {
+                            const fallbackTemplate = JSON.parse(option.getAttribute('data-template'));
+                            console.log('Using fallback template:', fallbackTemplate); // Debug log
+                            
+                            const previewHTML = `
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong class="text-primary">${fallbackTemplate.Category} - ${fallbackTemplate.Label}:</strong>
+                                        <div class="mt-1">${fallbackTemplate.Message}</div>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="copyTemplatePreview()">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            `;
+                            
+                            previewContent.innerHTML = previewHTML;
+                            previewDiv.style.display = 'block';
+                        } catch (fallbackError) {
+                            console.error('Fallback parsing also failed:', fallbackError);
+                        }
+                    }
+                }
+            } else {
+                hideTemplatePreview();
+            }
+        }
+        
+        // Copy template preview to clipboard
+        function copyTemplatePreview() {
+            const specificSelect = document.getElementById('specificTemplate');
             if (specificSelect.value) {
                 try {
                     const template = JSON.parse(specificSelect.value);
-                    previewContent.innerHTML = `<strong>${template.Category} - ${template.Label}:</strong><br>${template.Message}`;
-                    previewDiv.style.display = 'block';
+                    copyToClipboard(template.Message);
+                    showSuccess('Đã copy mẫu tin nhắn!');
                 } catch (error) {
-                    console.error('Error parsing template:', error);
-                    previewDiv.style.display = 'none';
+                    console.error('Error copying template:', error);
                 }
-            } else {
-                previewDiv.style.display = 'none';
             }
+        }
+        
+        // Enable hover preview for dropdown options
+        function enableHoverPreview() {
+            const specificSelect = document.getElementById('specificTemplate');
+            const tooltip = document.getElementById('quickPreviewTooltip');
+            
+            // Add event listeners for option hover (when dropdown is open)
+            specificSelect.addEventListener('mouseover', function(e) {
+                if (e.target.tagName === 'OPTION' && e.target.value) {
+                    showQuickPreview(e.target.value, e.target);
+                }
+            });
+            
+            // Also show preview when option is focused (keyboard navigation)
+            specificSelect.addEventListener('focus', function(e) {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption && selectedOption.value) {
+                    showQuickPreview(selectedOption.value, selectedOption);
+                }
+            });
+        }
+        
+        // Disable hover preview
+        function disableHoverPreview() {
+            hideQuickPreview();
+        }
+        
+        // Show quick preview tooltip
+        function showQuickPreview(templateValue, targetElement) {
+            if (!templateValue) return;
+            
+            try {
+                const template = JSON.parse(templateValue);
+                const tooltip = document.getElementById('quickPreviewTooltip');
+                
+                tooltip.innerHTML = `
+                    <div><strong>${template.Category} - ${template.Label}</strong></div>
+                    <div class="mt-1 text-light">${template.Message.substring(0, 100)}${template.Message.length > 100 ? '...' : ''}</div>
+                `;
+                
+                // Position tooltip
+                const selectRect = document.getElementById('specificTemplate').getBoundingClientRect();
+                tooltip.style.display = 'block';
+                tooltip.style.left = '0px';
+                tooltip.style.top = '100%';
+                
+            } catch (error) {
+                console.error('Error showing quick preview:', error);
+            }
+        }
+        
+        // Hide quick preview tooltip
+        function hideQuickPreview() {
+            const tooltip = document.getElementById('quickPreviewTooltip');
+            tooltip.style.display = 'none';
+        }
+        
+        // Enhanced template preview with real-time updates
+        function initializeRealtimePreview() {
+            const specificSelect = document.getElementById('specificTemplate');
+            
+            // Add input event for immediate response
+            specificSelect.addEventListener('input', function() {
+                previewSelectedTemplate();
+            });
+            
+            // Add click event for mobile devices
+            specificSelect.addEventListener('click', function() {
+                setTimeout(previewSelectedTemplate, 100); // Small delay for option selection
+            });
+            
+            // Keyboard navigation support
+            specificSelect.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    setTimeout(previewSelectedTemplate, 50);
+                }
+            });
         }
         
         // Get current AI configuration
