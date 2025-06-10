@@ -205,94 +205,123 @@ def dashboard():
     overdue_total_amount = 0
     monthly_revenue_with_unpaid = []
     
-    if not df.empty:
-        today = datetime.today().date()
-        
-        # Tìm khách chưa thu tiền quá hạn (đã check-in nhưng chưa thu tiền)
-        overdue_mask = (
-            (df['Check-in Date'].dt.date <= today) &  # Đã đến ngày check-in
-            (~df['Người thu tiền'].isin(['LOC LE', 'THAO LE'])) &  # Chưa thu tiền
-            (df['Tình trạng'] != 'Đã hủy')  # Không phải booking đã hủy
-        )
-        
-        overdue_df = df[overdue_mask].copy()
-        
-        if not overdue_df.empty:
-            # Tính số ngày quá hạn
-            overdue_df['days_overdue'] = (today - overdue_df['Check-in Date'].dt.date).dt.days
+    try:
+        if not df.empty and 'Check-in Date' in df.columns:
+            today = datetime.today().date()
             
-            # Sắp xếp theo số ngày quá hạn giảm dần
-            overdue_df = overdue_df.sort_values('days_overdue', ascending=False)
+            # Đảm bảo Check-in Date là datetime
+            if df['Check-in Date'].dtype == 'object':
+                df['Check-in Date'] = pd.to_datetime(df['Check-in Date'], errors='coerce')
             
-            # Chuyển thành list và tính tổng
-            overdue_unpaid_guests = overdue_df.to_dict('records')
-            overdue_total_amount = overdue_df['Tổng thanh toán'].sum()
+            # Tìm khách chưa thu tiền quá hạn (đã check-in nhưng chưa thu tiền)
+            try:
+                overdue_mask = (
+                    (df['Check-in Date'].dt.date <= today) &  # Đã đến ngày check-in
+                    (~df['Người thu tiền'].isin(['LOC LE', 'THAO LE'])) &  # Chưa thu tiền
+                    (df['Tình trạng'] != 'Đã hủy') &  # Không phải booking đã hủy
+                    (df['Check-in Date'].notna())  # Không phải NaT/None
+                )
+                
+                overdue_df = df[overdue_mask].copy()
+                
+                if not overdue_df.empty:
+                    # Tính số ngày quá hạn an toàn
+                    overdue_df['days_overdue'] = (today - overdue_df['Check-in Date'].dt.date).dt.days
+                    
+                    # Sắp xếp theo số ngày quá hạn giảm dần
+                    overdue_df = overdue_df.sort_values('days_overdue', ascending=False)
+                    
+                    # Chuyển thành list và tính tổng
+                    overdue_unpaid_guests = overdue_df.to_dict('records')
+                    
+                    # An toàn khi tính tổng
+                    if 'Tổng thanh toán' in overdue_df.columns:
+                        overdue_total_amount = pd.to_numeric(overdue_df['Tổng thanh toán'], errors='coerce').fillna(0).sum()
+                    
+                    print(f"DEBUG: Found {len(overdue_unpaid_guests)} overdue unpaid guests, total: {overdue_total_amount:,.0f}đ")
+                
+            except Exception as overdue_error:
+                print(f"WARNING: Error calculating overdue guests: {overdue_error}")
+                overdue_unpaid_guests = []
+                overdue_total_amount = 0
             
-            print(f"DEBUG: Found {len(overdue_unpaid_guests)} overdue unpaid guests, total: {overdue_total_amount:,.0f}đ")
-        
-        # Tính toán doanh thu theo tháng có bao gồm số khách chưa thu
-        df_period = df[
-            (df['Check-in Date'] >= pd.Timestamp(start_date)) & 
-            (df['Check-in Date'] <= pd.Timestamp(end_date)) &
-            (df['Check-in Date'] <= pd.Timestamp.now())
-        ].copy()
-        
-        if not df_period.empty:
-            # Tính doanh thu đã thu (LOC LE và THAO LE)
-            collected_df = df_period[
-                df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE'])
-            ].copy()
-            
-            # Tính doanh thu chưa thu (các giá trị khác hoặc rỗng)
-            uncollected_df = df_period[
-                ~df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE'])
-            ].copy()
-            
-            # Nhóm theo tháng - Đã thu
-            if not collected_df.empty:
-                collected_df['Month_Period'] = collected_df['Check-in Date'].dt.to_period('M')
-                collected_monthly = collected_df.groupby('Month_Period').agg({
-                    'Tổng thanh toán': 'sum'
-                }).reset_index()
-                collected_monthly['Tháng'] = collected_monthly['Month_Period'].dt.strftime('%Y-%m')
-            else:
-                collected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán'])
-            
-            # Nhóm theo tháng - Chưa thu
-            if not uncollected_df.empty:
-                uncollected_df['Month_Period'] = uncollected_df['Check-in Date'].dt.to_period('M')
-                uncollected_monthly = uncollected_df.groupby('Month_Period').agg({
-                    'Tổng thanh toán': 'sum',
-                    'Số đặt phòng': 'count'  # Đếm số khách chưa thu
-                }).reset_index()
-                uncollected_monthly['Tháng'] = uncollected_monthly['Month_Period'].dt.strftime('%Y-%m')
-                uncollected_monthly = uncollected_monthly.rename(columns={'Số đặt phòng': 'Số khách chưa thu'})
-            else:
-                uncollected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán', 'Số khách chưa thu'])
-            
-            # Merge dữ liệu
-            if not collected_monthly.empty and not uncollected_monthly.empty:
-                merged_data = pd.merge(
-                    collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'}),
-                    uncollected_monthly[['Tháng', 'Tổng thanh toán', 'Số khách chưa thu']].rename(columns={'Tổng thanh toán': 'Chưa thu'}),
-                    on='Tháng', how='outer'
-                ).fillna(0)
-            elif not collected_monthly.empty:
-                merged_data = collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'})
-                merged_data['Chưa thu'] = 0
-                merged_data['Số khách chưa thu'] = 0
-            elif not uncollected_monthly.empty:
-                merged_data = uncollected_monthly[['Tháng', 'Tổng thanh toán', 'Số khách chưa thu']].rename(columns={'Tổng thanh toán': 'Chưa thu'})
-                merged_data['Đã thu'] = 0
-            else:
-                merged_data = pd.DataFrame(columns=['Tháng', 'Đã thu', 'Chưa thu', 'Số khách chưa thu'])
-            
-            if not merged_data.empty:
-                # Sắp xếp theo tháng
-                merged_data = merged_data.sort_values('Tháng')
-                monthly_revenue_with_unpaid = merged_data.to_dict('records')
-            
-            print(f"DEBUG: Monthly revenue with unpaid data created: {len(monthly_revenue_with_unpaid)} months")
+            # Tính toán doanh thu theo tháng có bao gồm số khách chưa thu
+            try:
+                df_period = df[
+                    (df['Check-in Date'] >= pd.Timestamp(start_date)) & 
+                    (df['Check-in Date'] <= pd.Timestamp(end_date)) &
+                    (df['Check-in Date'] <= pd.Timestamp.now()) &
+                    (df['Check-in Date'].notna())
+                ].copy()
+                
+                if not df_period.empty:
+                    # Tính doanh thu đã thu (LOC LE và THAO LE)
+                    collected_df = df_period[
+                        df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE'])
+                    ].copy()
+                    
+                    # Tính doanh thu chưa thu (các giá trị khác hoặc rỗng)
+                    uncollected_df = df_period[
+                        ~df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE'])
+                    ].copy()
+                    
+                    # Nhóm theo tháng - Đã thu
+                    if not collected_df.empty:
+                        collected_df['Month_Period'] = collected_df['Check-in Date'].dt.to_period('M')
+                        collected_monthly = collected_df.groupby('Month_Period').agg({
+                            'Tổng thanh toán': 'sum'
+                        }).reset_index()
+                        collected_monthly['Tháng'] = collected_monthly['Month_Period'].dt.strftime('%Y-%m')
+                    else:
+                        collected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán'])
+                    
+                    # Nhóm theo tháng - Chưa thu
+                    if not uncollected_df.empty:
+                        uncollected_df['Month_Period'] = uncollected_df['Check-in Date'].dt.to_period('M')
+                        uncollected_monthly = uncollected_df.groupby('Month_Period').agg({
+                            'Tổng thanh toán': 'sum',
+                            'Số đặt phòng': 'count'  # Đếm số khách chưa thu
+                        }).reset_index()
+                        uncollected_monthly['Tháng'] = uncollected_monthly['Month_Period'].dt.strftime('%Y-%m')
+                        uncollected_monthly = uncollected_monthly.rename(columns={'Số đặt phòng': 'Số khách chưa thu'})
+                    else:
+                        uncollected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán', 'Số khách chưa thu'])
+                    
+                    # Merge dữ liệu
+                    if not collected_monthly.empty and not uncollected_monthly.empty:
+                        merged_data = pd.merge(
+                            collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'}),
+                            uncollected_monthly[['Tháng', 'Tổng thanh toán', 'Số khách chưa thu']].rename(columns={'Tổng thanh toán': 'Chưa thu'}),
+                            on='Tháng', how='outer'
+                        ).fillna(0)
+                    elif not collected_monthly.empty:
+                        merged_data = collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'})
+                        merged_data['Chưa thu'] = 0
+                        merged_data['Số khách chưa thu'] = 0
+                    elif not uncollected_monthly.empty:
+                        merged_data = uncollected_monthly[['Tháng', 'Tổng thanh toán', 'Số khách chưa thu']].rename(columns={'Tổng thanh toán': 'Chưa thu'})
+                        merged_data['Đã thu'] = 0
+                    else:
+                        merged_data = pd.DataFrame(columns=['Tháng', 'Đã thu', 'Chưa thu', 'Số khách chưa thu'])
+                    
+                    if not merged_data.empty:
+                        # Sắp xếp theo tháng
+                        merged_data = merged_data.sort_values('Tháng')
+                        monthly_revenue_with_unpaid = merged_data.to_dict('records')
+                    
+                    print(f"DEBUG: Monthly revenue with unpaid data created: {len(monthly_revenue_with_unpaid)} months")
+                    
+            except Exception as monthly_error:
+                print(f"WARNING: Error calculating monthly revenue with unpaid: {monthly_error}")
+                monthly_revenue_with_unpaid = []
+                
+    except Exception as main_error:
+        print(f"ERROR: Main calculation error: {main_error}")
+        import traceback
+        traceback.print_exc()
+        overdue_unpaid_guests = []
+        overdue_total_amount = 0
+        monthly_revenue_with_unpaid = []
 
     # Tạo biểu đồ donut chart chuyên nghiệp cho người thu tiền
     collector_revenue_data = dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records')

@@ -46,7 +46,7 @@
             </div>
             <div class="text-end">
                 <div class="text-white">
-                    <div class="h5 mb-0">{{ "{:,.0f}".format(overdue_total_amount) }}đ</div>
+                    <div class="h5 mb-0">{{ "{:,.0f}".format(overdue_total_amount if overdue_total_amount else 0) }}đ</div>
                     <small>Tổng tiền chưa thu</small>
                 </div>
             </div>
@@ -61,15 +61,24 @@
                     <div class="card-body py-2 px-3">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="mb-1 text-dark">{{ guest['Tên người đặt'] }}</h6>
+                                <h6 class="mb-1 text-dark">{{ guest.get('Tên người đặt', 'N/A') }}</h6>
                                 <small class="text-muted">
-                                    <i class="fas fa-calendar me-1"></i>{{ guest['Check-in Date'].strftime('%d/%m/%Y') }}
-                                    <span class="ms-2 badge bg-danger">{{ guest['days_overdue'] }} ngày</span>
+                                    <i class="fas fa-calendar me-1"></i>
+                                    {% if guest.get('Check-in Date') %}
+                                        {% if guest['Check-in Date'] is string %}
+                                            {{ guest['Check-in Date'] }}
+                                        {% else %}
+                                            {{ guest['Check-in Date'].strftime('%d/%m/%Y') if guest['Check-in Date'] else 'N/A' }}
+                                        {% endif %}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                    <span class="ms-2 badge bg-danger">{{ guest.get('days_overdue', 0) }} ngày</span>
                                 </small>
                             </div>
                             <div class="text-end">
-                                <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest['Tổng thanh toán']) }}đ</div>
-                                <small class="text-muted">ID: {{ guest['Số đặt phòng'] }}</small>
+                                <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest.get('Tổng thanh toán', 0) if guest.get('Tổng thanh toán') else 0) }}đ</div>
+                                <small class="text-muted">ID: {{ guest.get('Số đặt phòng', 'N/A') }}</small>
                             </div>
                         </div>
                     </div>
@@ -92,15 +101,24 @@
                         <div class="card-body py-2 px-3">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <h6 class="mb-1 text-dark">{{ guest['Tên người đặt'] }}</h6>
+                                    <h6 class="mb-1 text-dark">{{ guest.get('Tên người đặt', 'N/A') }}</h6>
                                     <small class="text-muted">
-                                        <i class="fas fa-calendar me-1"></i>{{ guest['Check-in Date'].strftime('%d/%m/%Y') }}
-                                        <span class="ms-2 badge bg-danger">{{ guest['days_overdue'] }} ngày</span>
+                                        <i class="fas fa-calendar me-1"></i>
+                                        {% if guest.get('Check-in Date') %}
+                                            {% if guest['Check-in Date'] is string %}
+                                                {{ guest['Check-in Date'] }}
+                                            {% else %}
+                                                {{ guest['Check-in Date'].strftime('%d/%m/%Y') if guest['Check-in Date'] else 'N/A' }}
+                                            {% endif %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                        <span class="ms-2 badge bg-danger">{{ guest.get('days_overdue', 0) }} ngày</span>
                                     </small>
                                 </div>
                                 <div class="text-end">
-                                    <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest['Tổng thanh toán']) }}đ</div>
-                                    <small class="text-muted">ID: {{ guest['Số đặt phòng'] }}</small>
+                                    <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest.get('Tổng thanh toán', 0) if guest.get('Tổng thanh toán') else 0) }}đ</div>
+                                    <small class="text-muted">ID: {{ guest.get('Số đặt phòng', 'N/A') }}</small>
                                 </div>
                             </div>
                         </div>
@@ -205,22 +223,23 @@
                                 {% for row in monthly_revenue_with_unpaid %}
                                 <tr class="border-bottom">
                                     <td>
-                                        <div class="fw-bold text-primary">{{ row['Tháng'] }}</div>
+                                        <div class="fw-bold text-primary">{{ row.get('Tháng', 'N/A') }}</div>
                                     </td>
                                     <td class="text-end">
                                         <div class="fw-bold text-success">
-                                            {{ "{:,.0f}".format(row['Đã thu'] | float) }}đ
+                                            {{ "{:,.0f}".format(row.get('Đã thu', 0) | float) }}đ
                                         </div>
                                     </td>
                                     <td class="text-end">
                                         <div class="fw-bold text-danger">
-                                            {{ "{:,.0f}".format(row['Chưa thu'] | float) }}đ
+                                            {{ "{:,.0f}".format(row.get('Chưa thu', 0) | float) }}đ
                                         </div>
                                     </td>
                                     <td class="text-center">
-                                        {% if row['Số khách chưa thu'] > 0 %}
+                                        {% set uncollected_count = row.get('Số khách chưa thu', 0) %}
+                                        {% if uncollected_count > 0 %}
                                         <span class="badge bg-warning text-dark">
-                                            {{ row['Số khách chưa thu'] }} khách
+                                            {{ uncollected_count }} khách
                                         </span>
                                         {% else %}
                                         <span class="badge bg-success">
@@ -229,13 +248,16 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-end">
+                                        {% set total = (row.get('Đã thu', 0) | float) + (row.get('Chưa thu', 0) | float) %}
                                         <div class="fw-bold text-dark">
-                                            {{ "{:,.0f}".format((row['Đã thu'] | float) + (row['Chưa thu'] | float)) }}đ
+                                            {{ "{:,.0f}".format(total) }}đ
                                         </div>
                                     </td>
                                     <td class="text-center">
-                                        {% set total = (row['Đã thu'] | float) + (row['Chưa thu'] | float) %}
-                                        {% set percentage = (row['Đã thu'] | float) / total * 100 if total > 0 else 0 %}
+                                        {% set collected = row.get('Đã thu', 0) | float %}
+                                        {% set uncollected = row.get('Chưa thu', 0) | float %}
+                                        {% set total = collected + uncollected %}
+                                        {% set percentage = (collected / total * 100) if total > 0 else 0 %}
                                         <div class="progress" style="height: 20px;">
                                             <div class="progress-bar {% if percentage >= 90 %}bg-success{% elif percentage >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
                                                  role="progressbar" 
