@@ -420,6 +420,11 @@
                             <i class="fas fa-microphone-alt me-1"></i>Dịch Giọng Nói
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'market_analysis_page' %}active{% endif %}" href="{{ url_for('market_analysis_page') }}">
+                            <i class="fas fa-chart-line me-1"></i>Phân tích Giá
+                        </a>
+                    </li>
                 </ul>
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
@@ -472,7 +477,8 @@
                 '{{ url_for("dashboard") }}',
                 '{{ url_for("view_bookings") }}',
                 '{{ url_for("ai_chat_assistant") }}',
-                '{{ url_for("voice_translator") }}'
+                '{{ url_for("voice_translator") }}',
+                '{{ url_for("market_analysis_page") }}'
             ];
             
             importantPages.forEach(url => {

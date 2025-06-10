@@ -29,3 +29,8 @@ Jinja2>=3.1.0,<4.0.0
 
 # Add requests for health check
 requests>=2.31.0,<3.0.0
+
+# Web Crawling for Market Price Analysis
+crawl4ai>=0.2.77
+playwright>=1.40.0
+lxml>=4.9.0,<5.0.0
