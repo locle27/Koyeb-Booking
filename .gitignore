@@ -1,9 +1,9 @@
-# Environment variables
+# Environment variables - ALWAYS SECURE
 .env
 .env.local
 .env.production
 
-# Google Cloud Credentials
+# Google Cloud Credentials - ALWAYS SECURE
 gcp_credentials.json
 *.json
 

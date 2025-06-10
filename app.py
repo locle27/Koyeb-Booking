@@ -1259,5 +1259,6 @@ Translation:
 
 # --- Chạy ứng dụng ---
 if __name__ == '__main__':
-    # Chạy trên cổng 8000 để debug trên Koyeb
-    app.run(host='0.0.0.0', port=8000, debug=False)
+    # Chạy trên cổng từ environment variable hoặc mặc định 8080 cho Koyeb
+    port = int(os.getenv("PORT", 8080))
+    app.run(host='0.0.0.0', port=port, debug=False)
