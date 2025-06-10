@@ -615,7 +615,7 @@ class MarketPriceAnalyzer:
                 decoded_param = unquote(param)
                 print(f"🔍 Parsing filter parameter: {decoded_param}")
                 
-                # Parse price filters like "price=VND-min-500000-1"
+                # Parse price filters like "price=VND-min-500000-1" or "price=VND-max-500000-1"
                 if 'price=' in decoded_param and 'VND' in decoded_param:
                     # Extract price range
                     price_part = decoded_param.split('price=')[1].split(';')[0]
@@ -627,20 +627,35 @@ class MarketPriceAnalyzer:
                             price_filter['min_price'] = int(min_match.group(1))
                             print(f"✅ Found min price: {price_filter['min_price']:,} VND")
                     
-                    # Handle max price: VND-max-2000000
+                    # Handle max price: VND-max-500000  
                     if 'max-' in price_part:
                         max_match = re.search(r'max-(\d+)', price_part)
                         if max_match:
                             price_filter['max_price'] = int(max_match.group(1))
                             print(f"✅ Found max price: {price_filter['max_price']:,} VND")
                     
-                    # Handle range: VND-500000-2000000
+                    # Handle range: VND-100000-500000 (min-max)
                     elif re.match(r'VND-\d+-\d+', price_part):
                         numbers = re.findall(r'\d+', price_part)
                         if len(numbers) >= 2:
                             price_filter['min_price'] = int(numbers[0])
                             price_filter['max_price'] = int(numbers[1])
                             print(f"✅ Found price range: {price_filter['min_price']:,} - {price_filter['max_price']:,} VND")
+                    
+                    # Special case: If only "min-" is specified but user wants "under X"
+                    # We'll detect this from context and convert
+                    elif 'min-' in price_part and not 'max-' in price_part:
+                        min_match = re.search(r'min-(\d+)', price_part)
+                        if min_match:
+                            specified_price = int(min_match.group(1))
+                            # If this is a "budget" price range (< 800k), assume user wants "under" not "over"
+                            if specified_price <= 800000:
+                                print(f"🔄 Converting min-{specified_price:,} to max-{specified_price:,} (budget range detected)")
+                                price_filter['max_price'] = specified_price
+                                price_filter['min_price'] = 0
+                            else:
+                                price_filter['min_price'] = specified_price
+                                print(f"✅ Using min price: {price_filter['min_price']:,} VND")
             
             return price_filter
             

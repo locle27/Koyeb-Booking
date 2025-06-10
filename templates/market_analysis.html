@@ -152,6 +152,146 @@
             <!-- Will be populated by JavaScript -->
         </div>
 
+        <!-- AI Pricing Analysis Section -->
+        <div class="row mb-4" id="aiAnalysisSection" style="display: none;">
+            <div class="col-12">
+                <div class="card shadow-sm border-primary">
+                    <div class="card-header bg-gradient-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-robot me-2"></i>AI Pricing Analyst - Budget Segment Insights
+                            </h5>
+                            <div>
+                                <input type="number" 
+                                       id="priceThresholdInput" 
+                                       class="form-control form-control-sm d-inline-block" 
+                                       style="width: 120px;" 
+                                       value="500000" 
+                                       min="100000" 
+                                       max="2000000" 
+                                       step="50000">
+                                <span class="text-white ms-1">₫</span>
+                                <button class="btn btn-light btn-sm ms-2" onclick="runAIAnalysis()" id="aiAnalyzeBtn">
+                                    <i class="fas fa-brain me-1"></i>Phân tích AI
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- AI Loading -->
+                        <div id="aiLoadingSection" style="display: none;">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary me-3" role="status">
+                                    <span class="visually-hidden">AI đang phân tích...</span>
+                                </div>
+                                <h6 class="text-primary mb-2">
+                                    <i class="fas fa-brain me-2"></i>AI đang phân tích thị trường...
+                                </h6>
+                                <p class="mb-0">Gemini AI đang tạo insights chuyên sâu về pricing strategy</p>
+                            </div>
+                        </div>
+
+                        <!-- AI Results -->
+                        <div id="aiResultsSection" style="display: none;">
+                            <!-- Market Overview Cards -->
+                            <div class="row mb-4" id="aiOverviewCards">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+
+                            <!-- Strategic Recommendations -->
+                            <div class="row mb-4">
+                                <div class="col-lg-6">
+                                    <div class="card border-success h-100">
+                                        <div class="card-header bg-success text-white">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-lightbulb me-2"></i>Cơ hội Pricing
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="pricingOpportunities">
+                                                <!-- Will be populated by JavaScript -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="card border-warning h-100">
+                                        <div class="card-header bg-warning text-dark">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-tasks me-2"></i>Strategic Recommendations
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="strategicRecommendations">
+                                                <!-- Will be populated by JavaScript -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Risk Analysis & Actionable Insights -->
+                            <div class="row mb-4">
+                                <div class="col-lg-6">
+                                    <div class="card border-danger h-100">
+                                        <div class="card-header bg-danger text-white">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>Risk Analysis
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="riskAnalysis">
+                                                <!-- Will be populated by JavaScript -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="card border-info h-100">
+                                        <div class="card-header bg-info text-white">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-rocket me-2"></i>Hành động Ngay lập tức
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="actionableInsights">
+                                                <!-- Will be populated by JavaScript -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- AI Confidence & Method -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="alert alert-info d-flex align-items-center">
+                                        <i class="fas fa-info-circle me-3 fs-5"></i>
+                                        <div>
+                                            <strong>AI Analysis Confidence:</strong> <span id="aiConfidence">-</span>
+                                            <br>
+                                            <small class="text-muted">
+                                                Analysis timestamp: <span id="aiTimestamp">-</span> | 
+                                                Method: <span id="aiMethod">-</span>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI Error Section -->
+                        <div id="aiErrorSection" class="alert alert-danger" style="display: none;">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Lỗi AI Analysis
+                            </h6>
+                            <p id="aiErrorMessage" class="mb-0"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Price Analysis Chart -->
         <div class="row mb-4">
             <div class="col-lg-8">
@@ -262,11 +402,54 @@
     background: #f8f9fa;
     border-radius: 0 8px 8px 0;
 }
+
+/* AI Analysis Styling */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.ai-opportunity-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.ai-opportunity-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.ai-insight-item {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.ai-recommendation-item {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+#priceThresholdInput {
+    background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(255,255,255,0.5);
+    color: #333;
+}
+
+#priceThresholdInput:focus {
+    background: white;
+    border-color: #fff;
+    box-shadow: 0 0 0 0.2rem rgba(255,255,255,0.25);
+}
 </style>
 
 <script>
 let currentAnalysisData = null;
 let priceChart = null;
+const GOOGLE_API_KEY = "{{ GOOGLE_API_KEY if GOOGLE_API_KEY else '' }}"; // Check if API key available
 
 // Form submission
 document.getElementById('analysisForm').addEventListener('submit', function(e) {
@@ -364,7 +547,251 @@ async function analyzeMarketPrices() {
     }
 }
 
-// Display results
+// AI Pricing Analysis Functions
+async function runAIAnalysis() {
+    if (!currentAnalysisData || !currentAnalysisData.properties) {
+        showError('Vui lòng chạy Market Analysis trước khi sử dụng AI Analyst');
+        return;
+    }
+    
+    const priceThreshold = parseInt(document.getElementById('priceThresholdInput').value) || 500000;
+    
+    try {
+        showAILoading();
+        hideAIError();
+        
+        const response = await fetch('/api/ai_pricing_analysis', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                properties: currentAnalysisData.properties,
+                price_threshold: priceThreshold
+            })
+        });
+        
+        const result = await response.json();
+        
+        hideAILoading();
+        
+        if (result.success) {
+            displayAIResults(result);
+        } else {
+            showAIError(result.error || 'Lỗi không xác định trong AI analysis');
+        }
+        
+    } catch (error) {
+        hideAILoading();
+        showAIError('Lỗi kết nối AI: ' + error.message);
+    }
+}
+
+function displayAIResults(aiData) {
+    console.log('Displaying AI results:', aiData);
+    
+    // Show AI section
+    document.getElementById('aiAnalysisSection').style.display = 'block';
+    document.getElementById('aiResultsSection').style.display = 'block';
+    
+    // Update overview cards
+    updateAIOverviewCards(aiData);
+    
+    // Update pricing opportunities
+    updatePricingOpportunities(aiData.ai_analysis?.pricing_opportunities || []);
+    
+    // Update strategic recommendations
+    updateStrategicRecommendations(aiData.ai_analysis?.strategic_recommendations || []);
+    
+    // Update risk analysis
+    updateRiskAnalysis(aiData.ai_analysis?.risk_analysis || {});
+    
+    // Update actionable insights
+    updateActionableInsights(aiData.ai_analysis?.actionable_insights || []);
+    
+    // Update metadata
+    document.getElementById('aiConfidence').textContent = aiData.ai_confidence || 'Medium';
+    document.getElementById('aiTimestamp').textContent = new Date(aiData.analysis_timestamp).toLocaleString();
+    document.getElementById('aiMethod').textContent = aiData.method || 'gemini_ai_analysis';
+    
+    // Scroll to AI section
+    document.getElementById('aiAnalysisSection').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+    });
+}
+
+function updateAIOverviewCards(aiData) {
+    const stats = aiData.segment_statistics || {};
+    const market = aiData.ai_analysis?.market_overview || {};
+    const competitive = aiData.ai_analysis?.competitive_analysis || {};
+    
+    const cardsHtml = `
+        <div class="col-md-3">
+            <div class="card text-center bg-primary text-white h-100">
+                <div class="card-body">
+                    <i class="fas fa-filter fa-2x mb-2"></i>
+                    <h4>${stats.total_properties || 0}</h4>
+                    <p class="mb-0">Properties < ${(aiData.price_threshold / 1000).toFixed(0)}k₫</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-success text-white h-100">
+                <div class="card-body">
+                    <i class="fas fa-chart-line fa-2x mb-2"></i>
+                    <h4>${formatPrice(stats.avg_price || 0)}</h4>
+                    <p class="mb-0">Avg Budget Price</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-info text-white h-100">
+                <div class="card-body">
+                    <i class="fas fa-users fa-2x mb-2"></i>
+                    <h4>${competitive.competition_level || 'High'}</h4>
+                    <p class="mb-0">Competition</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-warning text-dark h-100">
+                <div class="card-body">
+                    <i class="fas fa-heartbeat fa-2x mb-2"></i>
+                    <h4>${market.segment_health || 'Good'}</h4>
+                    <p class="mb-0">Segment Health</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('aiOverviewCards').innerHTML = cardsHtml;
+}
+
+function updatePricingOpportunities(opportunities) {
+    if (!opportunities || opportunities.length === 0) {
+        document.getElementById('pricingOpportunities').innerHTML = 
+            '<p class="text-muted">Không có cơ hội pricing được xác định.</p>';
+        return;
+    }
+    
+    const opportunitiesHtml = opportunities.map((opp, index) => `
+        <div class="mb-3 p-3 border rounded bg-light">
+            <h6 class="text-success">
+                <i class="fas fa-lightbulb me-2"></i>${opp.opportunity || 'Opportunity ' + (index + 1)}
+            </h6>
+            <p class="mb-2"><strong>Lý do:</strong> ${opp.rationale || 'N/A'}</p>
+            <p class="mb-2"><strong>Thực hiện:</strong> ${opp.implementation || 'N/A'}</p>
+            <p class="mb-0"><strong>Tác động:</strong> ${opp.expected_impact || 'N/A'}</p>
+        </div>
+    `).join('');
+    
+    document.getElementById('pricingOpportunities').innerHTML = opportunitiesHtml;
+}
+
+function updateStrategicRecommendations(recommendations) {
+    if (!recommendations || recommendations.length === 0) {
+        document.getElementById('strategicRecommendations').innerHTML = 
+            '<p class="text-muted">Không có strategic recommendations.</p>';
+        return;
+    }
+    
+    const recommendationsHtml = recommendations.map((rec, index) => {
+        const priorityColor = rec.priority === 'High' ? 'danger' : 
+                            rec.priority === 'Medium' ? 'warning' : 'success';
+        
+        return `
+            <div class="mb-3 p-3 border rounded bg-light">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0">
+                        <i class="fas fa-tasks me-2"></i>${rec.strategy || 'Strategy ' + (index + 1)}
+                    </h6>
+                    <span class="badge bg-${priorityColor}">${rec.priority || 'Medium'}</span>
+                </div>
+                <p class="mb-2"><strong>Thời gian:</strong> ${rec.timeframe || 'N/A'}</p>
+                <p class="mb-0"><strong>Metrics:</strong> ${rec.success_metrics || 'N/A'}</p>
+            </div>
+        `;
+    }).join('');
+    
+    document.getElementById('strategicRecommendations').innerHTML = recommendationsHtml;
+}
+
+function updateRiskAnalysis(riskAnalysis) {
+    let riskHtml = '';
+    
+    if (riskAnalysis.pricing_risks && riskAnalysis.pricing_risks.length > 0) {
+        riskHtml += '<h6><i class="fas fa-exclamation-triangle me-2"></i>Pricing Risks:</h6>';
+        riskHtml += '<ul class="mb-3">';
+        riskAnalysis.pricing_risks.forEach(risk => {
+            riskHtml += `<li>${risk}</li>`;
+        });
+        riskHtml += '</ul>';
+    }
+    
+    if (riskAnalysis.mitigation_strategies && riskAnalysis.mitigation_strategies.length > 0) {
+        riskHtml += '<h6><i class="fas fa-shield-alt me-2"></i>Mitigation Strategies:</h6>';
+        riskHtml += '<ul class="mb-0">';
+        riskAnalysis.mitigation_strategies.forEach(strategy => {
+            riskHtml += `<li>${strategy}</li>`;
+        });
+        riskHtml += '</ul>';
+    }
+    
+    if (!riskHtml) {
+        riskHtml = '<p class="text-muted">Không có risk analysis chi tiết.</p>';
+    }
+    
+    document.getElementById('riskAnalysis').innerHTML = riskHtml;
+}
+
+function updateActionableInsights(insights) {
+    if (!insights || insights.length === 0) {
+        document.getElementById('actionableInsights').innerHTML = 
+            '<p class="text-muted">Không có actionable insights.</p>';
+        return;
+    }
+    
+    const insightsHtml = insights.map((insight, index) => `
+        <div class="d-flex align-items-start mb-3">
+            <div class="badge bg-info rounded-circle me-3 d-flex align-items-center justify-content-center" 
+                 style="width: 30px; height: 30px; font-size: 14px;">
+                ${index + 1}
+            </div>
+            <div class="flex-grow-1">
+                <p class="mb-0">${insight}</p>
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('actionableInsights').innerHTML = insightsHtml;
+}
+
+// AI UI Control Functions
+function showAILoading() {
+    document.getElementById('aiLoadingSection').style.display = 'block';
+    document.getElementById('aiResultsSection').style.display = 'none';
+    document.getElementById('aiErrorSection').style.display = 'none';
+    document.getElementById('aiAnalyzeBtn').disabled = true;
+    document.getElementById('aiAnalysisSection').style.display = 'block';
+}
+
+function hideAILoading() {
+    document.getElementById('aiLoadingSection').style.display = 'none';
+    document.getElementById('aiAnalyzeBtn').disabled = false;
+}
+
+function showAIError(message) {
+    document.getElementById('aiErrorMessage').textContent = message;
+    document.getElementById('aiErrorSection').style.display = 'block';
+    document.getElementById('aiResultsSection').style.display = 'none';
+}
+
+function hideAIError() {
+    document.getElementById('aiErrorSection').style.display = 'none';
+}
+
+// Auto-trigger AI analysis when market analysis completes successfully
 function displayResults(data) {
     const summary = data.summary || {};
     const properties = data.properties || [];
@@ -385,6 +812,28 @@ function displayResults(data) {
     
     // Show results
     document.getElementById('resultsSection').style.display = 'block';
+    
+    // *** NEW: Auto-trigger AI analysis if we have properties ***
+    if (properties && properties.length > 0) {
+        // Set reasonable price threshold based on data
+        const prices = properties.map(p => p.price_vnd || 0).filter(p => p > 0);
+        if (prices.length > 0) {
+            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+            // Set threshold slightly below average to capture budget segment
+            const suggestedThreshold = Math.round(avgPrice * 0.8 / 50000) * 50000; // Round to nearest 50k
+            document.getElementById('priceThresholdInput').value = Math.max(300000, Math.min(1000000, suggestedThreshold));
+        }
+        
+        // Show AI section with call-to-action
+        document.getElementById('aiAnalysisSection').style.display = 'block';
+        
+        // Auto-run AI analysis after 2 seconds
+        setTimeout(() => {
+            if (GOOGLE_API_KEY) { // Only if API key is available
+                runAIAnalysis();
+            }
+        }, 2000);
+    }
     
     // Scroll to results
     document.getElementById('resultsSection').scrollIntoView({ 

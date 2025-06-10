@@ -40,6 +40,9 @@ from market_price_analyzer import (
     MarketPriceAnalyzer
 )
 
+# Import AI Pricing Analyst
+from ai_pricing_analyst import analyze_budget_pricing_with_ai
+
 # Cấu hình
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
@@ -1405,7 +1408,7 @@ def import_templates():
 @app.route('/market_analysis')
 def market_analysis_page():
     """Trang Market Price Analysis - Phân tích giá thị trường"""
-    return render_template('market_analysis.html')
+    return render_template('market_analysis.html', GOOGLE_API_KEY=bool(GOOGLE_API_KEY))
 
 @app.route('/api/analyze_market_prices', methods=['POST'])
 def api_analyze_market_prices():
@@ -1468,6 +1471,50 @@ def api_analyze_market_prices():
         traceback.print_exc()
         return jsonify({
             "error": f"Lỗi phân tích: {str(e)}",
+            "success": False
+        }), 500
+
+@app.route('/api/ai_pricing_analysis', methods=['POST'])
+def api_ai_pricing_analysis():
+    """API endpoint để phân tích pricing với AI - tập trung vào budget segment"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Không có dữ liệu trong request"}), 400
+        
+        properties = data.get('properties', [])
+        price_threshold = data.get('price_threshold', 500000)
+        
+        if not properties:
+            return jsonify({"error": "Không có dữ liệu properties để phân tích"}), 400
+        
+        # Validate price_threshold
+        try:
+            price_threshold = int(price_threshold)
+            if price_threshold < 0:
+                price_threshold = 500000
+        except (ValueError, TypeError):
+            price_threshold = 500000
+        
+        print(f"🤖 AI analyzing {len(properties)} properties with threshold {price_threshold:,}₫")
+        
+        # Gọi AI Pricing Analyst
+        ai_analysis = analyze_budget_pricing_with_ai(
+            properties=properties,
+            price_threshold=price_threshold,
+            google_api_key=GOOGLE_API_KEY
+        )
+        
+        print(f"✅ AI Analysis completed: {ai_analysis.get('success', False)}")
+        
+        return jsonify(ai_analysis)
+        
+    except Exception as e:
+        print(f"❌ AI Pricing Analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Lỗi AI analysis: {str(e)}",
             "success": False
         }), 500
 
