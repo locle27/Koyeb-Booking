@@ -1,42 +1,4 @@
-# Multi-stage build for optimized Koyeb deployment
-FROM python:3.11-slim as base
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8080
-
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    curl \
-    build-essential \
-    chromium \
-    chromium-driver \
-    && rm -rf /var/lib/apt/lists/*
-
-# Upgrade pip first
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
-
-# Copy requirements files
-COPY requirements*.txt ./
-COPY start_conditional.sh ./
-
-# Try conditional installation approach
-RUN chmod +x start_conditional.sh
-
-# Fallback installation strategy
-RUN pip install --no-cache-dir --timeout=300 -r requirements.txt || \
-    (echo "Full install failed, trying production..." && \
-     pip install --no-cache-dir --timeout=300 -r requirements-production.txt) || \
-    (echo "Production install failed, using minimal..." && \
-     pip install --no-cache-dir --timeout=300 -r requirements-minimal.txt)
-
-# Production stage
-FROM python:3.11-slim as production
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -47,14 +9,38 @@ ENV FLASK_ENV=production
 
 WORKDIR /app
 
-# Install only runtime dependencies
+# Install system dependencies (minimal for faster build)
 RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
     curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from base stage
-COPY --from=base /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=base /usr/local/bin /usr/local/bin
+# Upgrade pip
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Copy requirements files
+COPY requirements*.txt ./
+
+# Multi-step installation strategy with specific error handling
+RUN echo "🚀 Trying installation strategy..." && \
+    (echo "Step 1: Trying latest crawl4ai version..." && \
+     pip install --no-cache-dir --timeout=300 -r requirements-latest.txt && \
+     echo "✅ Latest version installed successfully!" && \
+     export MARKET_ANALYSIS_MODE=latest) || \
+    (echo "Step 2: Trying stable crawl4ai version..." && \
+     pip install --no-cache-dir --timeout=300 -r requirements.txt && \
+     echo "✅ Stable version installed successfully!" && \
+     export MARKET_ANALYSIS_MODE=stable) || \
+    (echo "Step 3: Trying production mode (no crawl4ai)..." && \
+     pip install --no-cache-dir --timeout=300 -r requirements-production.txt && \
+     echo "✅ Production mode installed successfully!" && \
+     export MARKET_ANALYSIS_MODE=demo) || \
+    (echo "Step 4: Using minimal requirements..." && \
+     pip install --no-cache-dir --timeout=300 -r requirements-minimal.txt && \
+     echo "✅ Minimal install completed!" && \
+     export MARKET_ANALYSIS_MODE=disabled)
 
 # Copy application files
 COPY . .
@@ -69,5 +55,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/ || exit 1
 
-# Run the application
+# Run the application directly
 CMD ["python", "app.py"]
