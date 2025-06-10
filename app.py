@@ -748,6 +748,43 @@ def delete_multiple_bookings():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
 
+@app.route('/voice_translator')
+def voice_translator():
+    """Trang Voice Translator - Dịch giọng nói"""
+    return render_template('voice_translator.html')
+
+@app.route('/api/translate', methods=['POST'])
+def translate_text():
+    """API endpoint để dịch văn bản sử dụng Google Translate"""
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({"error": "Không có văn bản để dịch"}), 400
+        
+        text = data.get('text', '').strip()
+        source_lang = data.get('source_lang', 'vi')  # Default Vietnamese
+        target_lang = data.get('target_lang', 'en')  # Default English
+        
+        if not text:
+            return jsonify({"error": "Văn bản trống"}), 400
+        
+        # Gọi function dịch thuật
+        translated_text = translate_with_google_api(text, source_lang, target_lang)
+        
+        return jsonify({
+            "original_text": text,
+            "translated_text": translated_text,
+            "source_language": source_lang,
+            "target_language": target_lang,
+            "success": True
+        })
+        
+    except Exception as e:
+        print(f"Translation API error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Lỗi dịch thuật: {str(e)}"}), 500
+
 @app.route('/ai_chat_assistant')
 def ai_chat_assistant():
     """Trang AI Chat Assistant - Lễ tân thông minh"""
@@ -1126,7 +1163,102 @@ Return your analysis in this JSON format:
             "ai_response": ""
         }
 
+# --- Hàm Voice Translation ---
+def translate_with_google_api(text, source_lang='vi', target_lang='en'):
+    """
+    Dịch văn bản sử dụng Google Translate API hoặc fallback methods
+    """
+    try:
+        # Method 1: Try using Google Translate API if available
+        if GOOGLE_API_KEY:
+            import requests
+            
+            # Google Translate API endpoint
+            url = f"https://translation.googleapis.com/language/translate/v2?key={GOOGLE_API_KEY}"
+            
+            payload = {
+                'q': text,
+                'source': source_lang,
+                'target': target_lang,
+                'format': 'text'
+            }
+            
+            response = requests.post(url, data=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'data' in result and 'translations' in result['data']:
+                    translated = result['data']['translations'][0]['translatedText']
+                    print(f"✅ Google Translate API success: {text[:50]}... → {translated[:50]}...")
+                    return translated
+                else:
+                    print("❌ Google Translate API: Invalid response format")
+            else:
+                print(f"❌ Google Translate API error: {response.status_code}")
+        
+        # Method 2: Fallback to Gemini AI for translation
+        print("🔄 Fallback to Gemini AI translation...")
+        return translate_with_gemini_ai(text, source_lang, target_lang)
+        
+    except Exception as e:
+        print(f"❌ Google Translate error: {e}, falling back to Gemini")
+        return translate_with_gemini_ai(text, source_lang, target_lang)
+
+def translate_with_gemini_ai(text, source_lang='vi', target_lang='en'):
+    """
+    Fallback translation using Gemini AI
+    """
+    try:
+        if not GOOGLE_API_KEY:
+            return "Translation unavailable: No API key configured"
+        
+        # Language mapping for better prompts
+        lang_names = {
+            'vi': 'Vietnamese',
+            'en': 'English',
+            'zh': 'Chinese',
+            'ja': 'Japanese',
+            'ko': 'Korean',
+            'fr': 'French',
+            'de': 'German',
+            'es': 'Spanish'
+        }
+        
+        source_name = lang_names.get(source_lang, source_lang)
+        target_name = lang_names.get(target_lang, target_lang)
+        
+        prompt = f"""
+You are a professional translator. Translate the following {source_name} text to {target_name}.
+
+Rules:
+- Provide ONLY the translation, no explanations
+- Keep the same tone and style  
+- Make it natural and conversational
+- For Vietnamese to English: use casual, friendly English suitable for hotel/tourism context
+
+Text to translate: "{text}"
+
+Translation:
+"""
+        
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        response = model.generate_content(prompt)
+        translated = response.text.strip()
+        
+        # Clean up the response (remove quotes if present)
+        if translated.startswith('"') and translated.endswith('"'):
+            translated = translated[1:-1]
+        
+        print(f"✅ Gemini AI translation: {text[:50]}... → {translated[:50]}...")
+        return translated
+        
+    except Exception as e:
+        print(f"❌ Gemini translation error: {e}")
+        # Last resort: return original with note
+        return f"[Translation Error] {text}"
+
 # --- Chạy ứng dụng ---
 if __name__ == '__main__':
-    # Chạy trên cổng 8000 để debug trên Koyeb
-    app.run(host='0.0.0.0', port=8000, debug=False)
+    # Chạy trên cổng từ environment variable hoặc mặc định 8080 cho Koyeb
+    port = int(os.getenv("PORT", 8080))
+    app.run(host='0.0.0.0', port=port, debug=False)

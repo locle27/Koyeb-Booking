@@ -23,3 +23,9 @@ max = 1
 [services.web.env]
 PORT = "8080"
 FLASK_ENV = "production"
+GOOGLE_API_KEY = "AIzaSyA-0V4VgrJbnzQWueDVI9pSOoH_V2EMUg4"
+FLASK_SECRET_KEY = "a_very_strong_and_random_secret_key_for_testing_12345"
+DEFAULT_SHEET_ID = "13kQETOUGCVUwUqZrxeLy-WAj3b17SugI4L8Oq09SX2w"
+WORKSHEET_NAME = "BookingManager"
+MESSAGE_TEMPLATE_WORKSHEET = "MessageTemplate"
+GCP_CREDS_FILE_PATH = "gcp_credentials.json"
