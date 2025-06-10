@@ -529,30 +529,42 @@ class MarketPriceAnalyzer:
                 print(f"WARNING: Cleanup error (non-critical): {e}")
     
     def _generate_demo_data(self, max_properties: int, source_url: str) -> Dict:
-        """Generate realistic demo data based on Hanoi Old Quarter market research"""
+        """Generate realistic demo data based on Hanoi Old Quarter market research with URL filtering"""
         print("📋 Generating demo data for Hanoi Old Quarter hotels...")
         
+        # Parse price filters from URL
+        price_filter = self._parse_price_filter_from_url(source_url)
+        print(f"💰 Detected price filter: {price_filter}")
+        
         # Realistic demo properties based on actual Hanoi market
-        demo_properties = [
-            {'name': 'Hanoi Old Quarter Hotel', 'price_vnd': 850000, 'rating': '8.5', 'location': 'Hàng Bạc'},
-            {'name': 'Heritage Line Hotel', 'price_vnd': 1200000, 'rating': '8.8', 'location': 'Hàng Gai'},
-            {'name': 'Golden Lotus Hotel', 'price_vnd': 650000, 'rating': '8.2', 'location': 'Hàng Bông'},
-            {'name': 'Thang Long Opera Hotel', 'price_vnd': 1800000, 'rating': '9.1', 'location': 'Gần Nhà hát Lớn'},
+        all_demo_properties = [
+            {'name': 'Memory Hostel', 'price_vnd': 380000, 'rating': '7.8', 'location': 'Bảo Khánh'},
             {'name': 'Old Quarter Backpackers', 'price_vnd': 450000, 'rating': '7.9', 'location': 'Tạ Hiện'},
-            {'name': 'Hanoi Boutique Hotel & Spa', 'price_vnd': 980000, 'rating': '8.6', 'location': 'Hàng Tre'},
-            {'name': 'La Siesta Classic Hanoi', 'price_vnd': 1350000, 'rating': '8.9', 'location': 'Hàng Bè'},
-            {'name': 'Mai Gallery Designer Hotel', 'price_vnd': 750000, 'rating': '8.3', 'location': 'Hàng Hành'},
-            {'name': 'Essence Palace Hotel', 'price_vnd': 1100000, 'rating': '8.7', 'location': 'Hàng Bông'},
             {'name': 'Hanoi Graceful Hotel', 'price_vnd': 580000, 'rating': '8.0', 'location': 'Hàng Ngang'},
-            {'name': 'Church Boutique Hotel', 'price_vnd': 920000, 'rating': '8.4', 'location': 'Hàng Trống'},
+            {'name': 'Golden Lotus Hotel', 'price_vnd': 650000, 'rating': '8.2', 'location': 'Hàng Bông'},
             {'name': 'Rising Dragon Palace Hotel', 'price_vnd': 680000, 'rating': '8.1', 'location': 'Cầu Gỗ'},
-            {'name': 'Medallion Hanoi Hotel', 'price_vnd': 1450000, 'rating': '9.0', 'location': 'Hàng Bạc'},
             {'name': 'Splendid Star Suite Hotel', 'price_vnd': 720000, 'rating': '8.2', 'location': 'Hàng Bông'},
-            {'name': 'Memory Hostel', 'price_vnd': 380000, 'rating': '7.8', 'location': 'Bảo Khánh'}
+            {'name': 'Mai Gallery Designer Hotel', 'price_vnd': 750000, 'rating': '8.3', 'location': 'Hàng Hành'},
+            {'name': 'Hanoi Old Quarter Hotel', 'price_vnd': 850000, 'rating': '8.5', 'location': 'Hàng Bạc'},
+            {'name': 'Church Boutique Hotel', 'price_vnd': 920000, 'rating': '8.4', 'location': 'Hàng Trống'},
+            {'name': 'Hanoi Boutique Hotel & Spa', 'price_vnd': 980000, 'rating': '8.6', 'location': 'Hàng Tre'},
+            {'name': 'Essence Palace Hotel', 'price_vnd': 1100000, 'rating': '8.7', 'location': 'Hàng Bông'},
+            {'name': 'Heritage Line Hotel', 'price_vnd': 1200000, 'rating': '8.8', 'location': 'Hàng Gai'},
+            {'name': 'La Siesta Classic Hanoi', 'price_vnd': 1350000, 'rating': '8.9', 'location': 'Hàng Bè'},
+            {'name': 'Medallion Hanoi Hotel', 'price_vnd': 1450000, 'rating': '9.0', 'location': 'Hàng Bạc'},
+            {'name': 'Thang Long Opera Hotel', 'price_vnd': 1800000, 'rating': '9.1', 'location': 'Gần Nhà hát Lớn'},
+            {'name': 'Hanoi Luxury Suite', 'price_vnd': 2200000, 'rating': '9.2', 'location': 'Hàng Bạc'},
+            {'name': 'Grand Plaza Hanoi', 'price_vnd': 2800000, 'rating': '9.3', 'location': 'Gần Opera House'},
+            {'name': 'Imperial Hotel Hanoi', 'price_vnd': 3200000, 'rating': '9.4', 'location': 'Trung tâm Phố Cổ'}
         ]
         
+        # Apply price filtering
+        filtered_properties = self._apply_price_filter(all_demo_properties, price_filter)
+        
         # Limit to requested number
-        demo_properties = demo_properties[:max_properties]
+        demo_properties = filtered_properties[:max_properties]
+        
+        print(f"✅ Filtered from {len(all_demo_properties)} to {len(demo_properties)} properties based on price filter")
         
         # Clean and format
         cleaned_properties = []
@@ -569,6 +581,10 @@ class MarketPriceAnalyzer:
         
         analysis = self._analyze_prices(cleaned_properties)
         
+        filter_note = ""
+        if price_filter['min_price'] or price_filter['max_price']:
+            filter_note = f" (Lọc giá: {price_filter['min_price']/1000:.0f}k - {price_filter['max_price']/1000:.0f}k VND)" if price_filter['max_price'] else f" (Lọc giá tối thiểu: {price_filter['min_price']/1000:.0f}k VND)"
+        
         return {
             'success': True,
             'total_properties': len(cleaned_properties),
@@ -577,8 +593,76 @@ class MarketPriceAnalyzer:
             'crawl_timestamp': datetime.now().isoformat(),
             'source_url': source_url,
             'method': 'demo_data',
-            'note': 'Dữ liệu demo dựa trên nghiên cứu thị trường Khu Phố Cổ Hà Nội thực tế - Representative market data for Hanoi Old Quarter'
+            'note': f'Dữ liệu demo dựa trên nghiên cứu thị trường Khu Phố Cổ Hà Nội{filter_note} - Representative market data for Hanoi Old Quarter'
         }
+    
+    def _parse_price_filter_from_url(self, url: str) -> Dict:
+        """Parse price filter from Booking.com URL parameters"""
+        try:
+            from urllib.parse import urlparse, parse_qs, unquote
+            
+            parsed_url = urlparse(url)
+            query_params = parse_qs(parsed_url.query)
+            
+            price_filter = {
+                'min_price': 0,
+                'max_price': float('inf')
+            }
+            
+            # Check for nflt parameter (Booking.com filter format)
+            nflt_params = query_params.get('nflt', [])
+            for param in nflt_params:
+                decoded_param = unquote(param)
+                print(f"🔍 Parsing filter parameter: {decoded_param}")
+                
+                # Parse price filters like "price=VND-min-500000-1"
+                if 'price=' in decoded_param and 'VND' in decoded_param:
+                    # Extract price range
+                    price_part = decoded_param.split('price=')[1].split(';')[0]
+                    
+                    # Handle min price: VND-min-500000
+                    if 'min-' in price_part:
+                        min_match = re.search(r'min-(\d+)', price_part)
+                        if min_match:
+                            price_filter['min_price'] = int(min_match.group(1))
+                            print(f"✅ Found min price: {price_filter['min_price']:,} VND")
+                    
+                    # Handle max price: VND-max-2000000
+                    if 'max-' in price_part:
+                        max_match = re.search(r'max-(\d+)', price_part)
+                        if max_match:
+                            price_filter['max_price'] = int(max_match.group(1))
+                            print(f"✅ Found max price: {price_filter['max_price']:,} VND")
+                    
+                    # Handle range: VND-500000-2000000
+                    elif re.match(r'VND-\d+-\d+', price_part):
+                        numbers = re.findall(r'\d+', price_part)
+                        if len(numbers) >= 2:
+                            price_filter['min_price'] = int(numbers[0])
+                            price_filter['max_price'] = int(numbers[1])
+                            print(f"✅ Found price range: {price_filter['min_price']:,} - {price_filter['max_price']:,} VND")
+            
+            return price_filter
+            
+        except Exception as e:
+            print(f"⚠️ Error parsing price filter: {e}")
+            return {'min_price': 0, 'max_price': float('inf')}
+    
+    def _apply_price_filter(self, properties: List[Dict], price_filter: Dict) -> List[Dict]:
+        """Apply price filter to properties list"""
+        min_price = price_filter.get('min_price', 0)
+        max_price = price_filter.get('max_price', float('inf'))
+        
+        filtered = []
+        for prop in properties:
+            price = prop.get('price_vnd', 0)
+            if min_price <= price <= max_price:
+                filtered.append(prop)
+        
+        print(f"💰 Price filter applied: {min_price:,} - {max_price:,} VND")
+        print(f"📊 Properties after filter: {len(filtered)}/{len(properties)}")
+        
+        return filtered
     
     def _parse_booking_alternative(self, html_content: str) -> List[Dict]:
         """Alternative parsing method for booking.com"""

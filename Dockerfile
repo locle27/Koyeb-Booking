@@ -23,24 +23,16 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 # Copy requirements files
 COPY requirements*.txt ./
 
-# Multi-step installation strategy with specific error handling
-RUN echo "🚀 Trying installation strategy..." && \
-    (echo "Step 1: Trying latest crawl4ai version..." && \
-     pip install --no-cache-dir --timeout=300 -r requirements-latest.txt && \
-     echo "✅ Latest version installed successfully!" && \
-     export MARKET_ANALYSIS_MODE=latest) || \
-    (echo "Step 2: Trying stable crawl4ai version..." && \
-     pip install --no-cache-dir --timeout=300 -r requirements.txt && \
-     echo "✅ Stable version installed successfully!" && \
-     export MARKET_ANALYSIS_MODE=stable) || \
-    (echo "Step 3: Trying production mode (no crawl4ai)..." && \
-     pip install --no-cache-dir --timeout=300 -r requirements-production.txt && \
-     echo "✅ Production mode installed successfully!" && \
-     export MARKET_ANALYSIS_MODE=demo) || \
-    (echo "Step 4: Using minimal requirements..." && \
-     pip install --no-cache-dir --timeout=300 -r requirements-minimal.txt && \
-     echo "✅ Minimal install completed!" && \
-     export MARKET_ANALYSIS_MODE=disabled)
+# Emergency install with minimal dependencies
+RUN echo "🚨 Emergency deployment mode..." && \
+    (echo "Trying emergency minimal requirements..." && \
+     pip install --no-cache-dir --timeout=300 -r requirements-emergency.txt && \
+     echo "✅ Emergency install successful!" && \
+     export MARKET_ANALYSIS_MODE=demo_only) || \
+    (echo "Trying production requirements..." && \
+     pip install --no-cache-dir --timeout=300 -r requirements-production.txt) || \
+    (echo "Final fallback to minimal..." && \
+     pip install --no-cache-dir --timeout=300 -r requirements-minimal.txt)
 
 # Copy application files
 COPY . .
