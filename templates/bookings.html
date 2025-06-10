@@ -277,23 +277,41 @@
                     </td>
                     <td style="padding: 4px 8px; min-width: 90px;">
                         <div class="text-center">
-                            <div class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.8rem;">
-                                <i class="fas fa-calendar-check fa-xs me-1"></i>
-                                <strong>{{ booking['Check-in Date'].strftime('%d/%m/%y') if booking['Check-in Date'] and pd.notna(booking['Check-in Date']) else 'N/A' }}</strong>
-                            </div>
-                            {% if booking['Check-in Date'] and pd.notna(booking['Check-in Date']) %}
-                            <small class="text-muted d-block">{{ booking['Check-in Date'].strftime('%A') if booking['Check-in Date'] and pd.notna(booking['Check-in Date']) else '' }}</small>
+                            {% set checkin_date = booking.get('Check-in Date') %}
+                            {% if checkin_date|is_valid_date %}
+                                <div class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.8rem;">
+                                    <i class="fas fa-calendar-check fa-xs me-1"></i>
+                                    <strong>{{ checkin_date|safe_date_format('%d/%m/%y') }}</strong>
+                                </div>
+                                {% set day_name = checkin_date|safe_day_name %}
+                                {% if day_name %}
+                                <small class="text-muted d-block">{{ day_name }}</small>
+                                {% endif %}
+                            {% else %}
+                                <div class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1" style="font-size: 0.8rem;">
+                                    <i class="fas fa-calendar-question fa-xs me-1"></i>
+                                    <strong>N/A</strong>
+                                </div>
                             {% endif %}
                         </div>
                     </td>
                     <td style="padding: 4px 8px; min-width: 90px;">
                         <div class="text-center">
-                            <div class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.8rem;">
-                                <i class="fas fa-calendar-times fa-xs me-1"></i>
-                                <strong>{{ booking['Check-out Date'].strftime('%d/%m/%y') if booking['Check-out Date'] and pd.notna(booking['Check-out Date']) else 'N/A' }}</strong>
-                            </div>
-                            {% if booking['Check-out Date'] and pd.notna(booking['Check-out Date']) %}
-                            <small class="text-muted d-block">{{ booking['Check-out Date'].strftime('%A') if booking['Check-out Date'] and pd.notna(booking['Check-out Date']) else '' }}</small>
+                            {% set checkout_date = booking.get('Check-out Date') %}
+                            {% if checkout_date|is_valid_date %}
+                                <div class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.8rem;">
+                                    <i class="fas fa-calendar-times fa-xs me-1"></i>
+                                    <strong>{{ checkout_date|safe_date_format('%d/%m/%y') }}</strong>
+                                </div>
+                                {% set day_name = checkout_date|safe_day_name %}
+                                {% if day_name %}
+                                <small class="text-muted d-block">{{ day_name }}</small>
+                                {% endif %}
+                            {% else %}
+                                <div class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1" style="font-size: 0.8rem;">
+                                    <i class="fas fa-calendar-question fa-xs me-1"></i>
+                                    <strong>N/A</strong>
+                                </div>
                             {% endif %}
                         </div>
                     </td>

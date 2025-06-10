@@ -55,6 +55,92 @@ def inject_dev_mode():
 def inject_pandas():
     return dict(pd=pd)
 
+# Custom Jinja2 filters cho ngày tháng
+@app.template_filter('safe_date_format')
+def safe_date_format(date_value, format_string='%d/%m/%y'):
+    """
+    Safely format date values, handling None, NaT, and string values
+    """
+    try:
+        if date_value is None:
+            return 'N/A'
+        
+        # Handle string representations
+        if isinstance(date_value, str):
+            if date_value.lower() in ['nat', 'none', 'null', '', 'n/a']:
+                return 'N/A'
+            # Try to parse string as date
+            try:
+                date_value = pd.to_datetime(date_value)
+            except:
+                return date_value  # Return original string if can't parse
+        
+        # Handle pandas NaT
+        if pd.isna(date_value):
+            return 'N/A'
+            
+        # Handle datetime objects
+        if hasattr(date_value, 'strftime'):
+            return date_value.strftime(format_string)
+        
+        return str(date_value)
+        
+    except Exception as e:
+        print(f"Error formatting date {date_value}: {e}")
+        return 'Error'
+
+@app.template_filter('safe_day_name')
+def safe_day_name(date_value):
+    """
+    Safely get day name from date value
+    """
+    try:
+        if date_value is None or pd.isna(date_value):
+            return ''
+        
+        if isinstance(date_value, str):
+            if date_value.lower() in ['nat', 'none', 'null', '', 'n/a']:
+                return ''
+            try:
+                date_value = pd.to_datetime(date_value)
+            except:
+                return ''
+        
+        if hasattr(date_value, 'strftime'):
+            return date_value.strftime('%A')
+        
+        return ''
+        
+    except Exception as e:
+        print(f"Error getting day name for {date_value}: {e}")
+        return ''
+
+@app.template_filter('is_valid_date')
+def is_valid_date(date_value):
+    """
+    Check if date value is valid
+    """
+    try:
+        if date_value is None:
+            return False
+        
+        if isinstance(date_value, str):
+            if date_value.lower() in ['nat', 'none', 'null', '', 'n/a']:
+                return False
+            try:
+                pd.to_datetime(date_value)
+                return True
+            except:
+                return False
+        
+        if pd.isna(date_value):
+            return False
+            
+        return hasattr(date_value, 'strftime')
+        
+    except:
+        return False
+
 # --- Lấy thông tin từ .env ---
 GCP_CREDS_FILE_PATH = os.getenv("GCP_CREDS_FILE_PATH")
 DEFAULT_SHEET_ID = os.getenv("DEFAULT_SHEET_ID")
@@ -868,6 +954,78 @@ def collect_payment():
 def voice_translator():
     """Trang Voice Translator - Dịch giọng nói"""
     return render_template('voice_translator.html')
+
+@app.route('/api/debug_booking/<booking_id>')
+def debug_booking(booking_id):
+    """Debug endpoint để kiểm tra dữ liệu booking cụ thể"""
+    try:
+        df, _ = load_data()
+        if df.empty:
+            return jsonify({"error": "No data available"})
+        
+        # Find the specific booking
+        booking_df = df[df['Số đặt phòng'] == booking_id]
+        if booking_df.empty:
+            return jsonify({"error": f"Booking {booking_id} not found"})
+        
+        booking = booking_df.iloc[0]
+        
+        debug_info = {
+            "booking_id": booking_id,
+            "raw_data": {},
+            "processed_data": {},
+            "column_info": {}
+        }
+        
+        # Raw data
+        for col in df.columns:
+            raw_value = booking[col]
+            debug_info["raw_data"][col] = {
+                "value": str(raw_value),
+                "type": str(type(raw_value)),
+                "is_null": pd.isna(raw_value) if hasattr(pd, 'isna') else (raw_value is None),
+                "repr": repr(raw_value)
+            }
+        
+        # Specific focus on date columns
+        for date_col in ['Check-in Date', 'Check-out Date']:
+            if date_col in booking.index:
+                date_value = booking[date_col]
+                debug_info["processed_data"][date_col] = {
+                    "original_value": str(date_value),
+                    "type": str(type(date_value)),
+                    "is_datetime": hasattr(date_value, 'strftime'),
+                    "is_pandas_nat": pd.isna(date_value) if hasattr(pd, 'isna') else False,
+                    "is_none": date_value is None,
+                    "str_value": str(date_value),
+                    "repr_value": repr(date_value)
+                }
+                
+                # Try to format if possible
+                try:
+                    if hasattr(date_value, 'strftime'):
+                        debug_info["processed_data"][date_col]["formatted"] = date_value.strftime('%d/%m/%y')
+                        debug_info["processed_data"][date_col]["day_name"] = date_value.strftime('%A')
+                    else:
+                        debug_info["processed_data"][date_col]["formatted"] = "Cannot format - no strftime"
+                except Exception as e:
+                    debug_info["processed_data"][date_col]["format_error"] = str(e)
+        
+        # Column info
+        for col in df.columns:
+            col_data = df[col]
+            debug_info["column_info"][col] = {
+                "dtype": str(col_data.dtype),
+                "null_count": col_data.isna().sum(),
+                "total_count": len(col_data),
+                "unique_count": col_data.nunique(),
+                "sample_values": col_data.head(3).tolist()
+            }
+        
+        return jsonify(debug_info)
+        
+    except Exception as e:
+        return jsonify({"error": f"Debug error: {str(e)}"})
 
 @app.route('/api/translate', methods=['POST'])
 def translate_text():

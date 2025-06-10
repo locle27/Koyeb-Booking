@@ -83,9 +83,26 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
         # Điều này loại bỏ mọi sự mơ hồ và sửa lỗi "dừng ở ngày 13".
         # Chúng ta sẽ sử dụng các cột này trong toàn bộ ứng dụng.
         if 'Check-in Date' in df.columns:
+            print(f"DEBUG: Processing Check-in Date column. Sample values: {df['Check-in Date'].head().tolist()}")
             df['Check-in Date'] = pd.to_datetime(df['Check-in Date'], format='%Y-%m-%d', errors='coerce')
+            # Debug: Check for any NaT values after conversion
+            nat_count = df['Check-in Date'].isna().sum()
+            if nat_count > 0:
+                print(f"WARNING: {nat_count} Check-in Date values could not be parsed")
+                # Print problematic values
+                problematic = df[df['Check-in Date'].isna()]['Số đặt phòng'].tolist()[:5]
+                print(f"DEBUG: Problematic booking IDs: {problematic}")
+                
         if 'Check-out Date' in df.columns:
+            print(f"DEBUG: Processing Check-out Date column. Sample values: {df['Check-out Date'].head().tolist()}")
             df['Check-out Date'] = pd.to_datetime(df['Check-out Date'], format='%Y-%m-%d', errors='coerce')
+            # Debug: Check for any NaT values after conversion
+            nat_count = df['Check-out Date'].isna().sum()
+            if nat_count > 0:
+                print(f"WARNING: {nat_count} Check-out Date values could not be parsed")
+                # Print problematic values
+                problematic = df[df['Check-out Date'].isna()]['Số đặt phòng'].tolist()[:5]
+                print(f"DEBUG: Problematic booking IDs: {problematic}")
             
         return df
     except Exception as e:
