@@ -974,7 +974,8 @@ def debug_booking(booking_id):
             "booking_id": booking_id,
             "raw_data": {},
             "processed_data": {},
-            "column_info": {}
+            "column_info": {},
+            "date_issues": []
         }
         
         # Raw data
@@ -1000,6 +1001,15 @@ def debug_booking(booking_id):
                     "str_value": str(date_value),
                     "repr_value": repr(date_value)
                 }
+                
+                # Check for issues
+                if pd.isna(date_value):
+                    debug_info["date_issues"].append({
+                        "column": date_col,
+                        "issue": "Missing/NULL date - shows as NaT",
+                        "solution": f"Add proper date in Google Sheets for booking {booking_id}",
+                        "severity": "high"
+                    })
                 
                 # Try to format if possible
                 try:
@@ -1027,7 +1037,78 @@ def debug_booking(booking_id):
     except Exception as e:
         return jsonify({"error": f"Debug error: {str(e)}"})
 
-@app.route('/api/translate', methods=['POST'])
+@app.route('/api/check_data_issues')
+def check_data_issues():
+    """API endpoint để kiểm tra tất cả các vấn đề về dữ liệu"""
+    try:
+        df, _ = load_data()
+        if df.empty:
+            return jsonify({"error": "No data available"})
+        
+        issues = []
+        
+        # Check for missing dates
+        for index, booking in df.iterrows():
+            booking_id = booking.get('Số đặt phòng', f'Row_{index}')
+            guest_name = booking.get('Tên người đặt', 'Unknown')
+            
+            # Check Check-in Date
+            checkin_date = booking.get('Check-in Date')
+            if pd.isna(checkin_date):
+                issues.append({
+                    "booking_id": booking_id,
+                    "guest_name": guest_name,
+                    "issue_type": "missing_checkin_date",
+                    "issue": "Missing Check-in Date",
+                    "severity": "high",
+                    "column": "Check-in Date",
+                    "current_value": str(checkin_date)
+                })
+            
+            # Check Check-out Date  
+            checkout_date = booking.get('Check-out Date')
+            if pd.isna(checkout_date):
+                issues.append({
+                    "booking_id": booking_id,
+                    "guest_name": guest_name,
+                    "issue_type": "missing_checkout_date", 
+                    "issue": "Missing Check-out Date",
+                    "severity": "high",
+                    "column": "Check-out Date",
+                    "current_value": str(checkout_date)
+                })
+            
+            # Check for other potential issues
+            total_payment = booking.get('Tổng thanh toán', 0)
+            if pd.isna(total_payment) or total_payment == 0:
+                issues.append({
+                    "booking_id": booking_id,
+                    "guest_name": guest_name,
+                    "issue_type": "missing_payment",
+                    "issue": "Missing or zero payment amount",
+                    "severity": "medium",
+                    "column": "Tổng thanh toán", 
+                    "current_value": str(total_payment)
+                })
+        
+        return jsonify({
+            "total_bookings": len(df),
+            "total_issues": len(issues),
+            "issues": issues,
+            "summary": {
+                "missing_checkin": len([i for i in issues if i["issue_type"] == "missing_checkin_date"]),
+                "missing_checkout": len([i for i in issues if i["issue_type"] == "missing_checkout_date"]),
+                "missing_payment": len([i for i in issues if i["issue_type"] == "missing_payment"])
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Check issues error: {str(e)}"})
+
+@app.route('/data_health')
+def data_health_dashboard():
+    """Trang dashboard để kiểm tra và fix dữ liệu"""
+    return render_template('data_health.html')
 def translate_text():
     """API endpoint để dịch văn bản sử dụng Google Translate"""
     try:
