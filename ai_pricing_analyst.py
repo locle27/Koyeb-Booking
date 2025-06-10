@@ -60,6 +60,8 @@ class AIPricingAnalyst:
         except Exception as e:
             print(f"AI Price Range Analysis error: {e}")
             return self._fallback_range_analysis(properties, min_price, max_price)
+    
+    def analyze_budget_segment(self, properties: List[Dict], price_threshold: int = 500000) -> Dict:
         """
         Phân tích segment giá dưới ngưỡng cụ thể với AI
         
@@ -70,38 +72,12 @@ class AIPricingAnalyst:
         Returns:
             Dict chứa AI insights và recommendations
         """
-        try:
-            if not self.google_api_key:
-                return self._fallback_analysis(properties, price_threshold)
-            
-            # Filter properties dưới ngưỡng giá
-            budget_properties = [
-                prop for prop in properties 
-                if prop.get('price_vnd', 0) <= price_threshold
-            ]
-            
-            if not budget_properties:
-                return {
-                    'success': False,
-                    'message': f'Không có property nào dưới {price_threshold:,}₫',
-                    'ai_insights': [],
-                    'recommendations': []
-                }
-            
-            # Chuẩn bị data context cho AI
-            analysis_context = self._prepare_ai_context(budget_properties, price_threshold)
-            
-            # Gọi Gemini AI
-            ai_response = self._call_gemini_ai(analysis_context)
-            
-            # Parse và format response
-            formatted_response = self._format_ai_response(ai_response, budget_properties, price_threshold)
-            
-            return formatted_response
-            
-        except Exception as e:
-            print(f"AI Pricing Analysis error: {e}")
-            return self._fallback_analysis(properties, price_threshold)
+        # Delegate to range analysis with 0 to threshold
+        return self.analyze_price_range_segment(
+            properties=properties,
+            min_price=0,
+            max_price=price_threshold
+        )
     
     def _prepare_ai_context(self, budget_properties: List[Dict], price_threshold: int) -> str:
         """Chuẩn bị context data cho AI analysis"""
@@ -626,6 +602,8 @@ Focus on actionable insights specific to this exact price range that a hotel own
             ],
             "range_confidence": "Low"
         })
+    
+    def _generate_fallback_ai_response(self) -> str:
         """Generate fallback response when AI call fails"""
         return json.dumps({
             "market_overview": {
