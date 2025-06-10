@@ -882,6 +882,11 @@ def ai_chat_analyze():
         image_header, image_b64_data = data['image_b64'].split(',', 1)
         image_bytes = base64.b64decode(image_b64_data)
         
+        # Lấy AI configuration từ request (nếu có)
+        ai_config = data.get('ai_config', {})
+        selected_template = ai_config.get('selectedTemplate')
+        response_mode = ai_config.get('responseMode', 'auto')
+        
         # Đọc templates MỚI NHẤT trực tiếp từ Google Sheets
         print("🔄 Đang tải templates mới nhất từ Google Sheets...")
         try:
@@ -902,8 +907,8 @@ def ai_chat_analyze():
                 templates = []
                 print("❌ Không có templates nào available")
         
-        # Phân tích ảnh với AI sử dụng templates mới nhất
-        result = analyze_chat_image_with_ai(image_bytes, templates)
+        # Phân tích ảnh với AI sử dụng AI configuration
+        result = analyze_chat_image_with_ai(image_bytes, templates, selected_template, response_mode)
         
         return jsonify(result)
         
@@ -1044,19 +1049,58 @@ def export_templates_route():
     return redirect(url_for('get_templates_page'))
 
 # --- Hàm AI Chat Analysis ---
-def analyze_chat_image_with_ai(image_bytes, templates):
+def analyze_chat_image_with_ai(image_bytes, templates, selected_template=None, response_mode='auto'):
     """
     Phân tích ảnh đoạn chat và tạo phản hồi AI với vai trò lễ tân khách sạn
+    
+    Args:
+        image_bytes: Dữ liệu ảnh
+        templates: Danh sách tất cả templates
+        selected_template: Template được chọn cụ thể (nếu có)
+        response_mode: 'auto', 'yes', hoặc 'no'
     """
     try:
         if not GOOGLE_API_KEY:
             return {"error": "Google API key chưa được cấu hình"}
         
         # Chuẩn bị context từ templates
-        templates_context = "\n".join([
-            f"- {t.get('Category', '')} - {t.get('Label', '')}: {t.get('Message', '')}"
-            for t in templates if isinstance(t, dict)
-        ])
+        if selected_template:
+            # Nếu có template được chọn cụ thể, ưu tiên nó
+            templates_context = f"SELECTED TEMPLATE (USE THIS PRIMARILY):\n- {selected_template.get('Category', '')} - {selected_template.get('Label', '')}: {selected_template.get('Message', '')}\n\n"
+            templates_context += "OTHER AVAILABLE TEMPLATES:\n" + "\n".join([
+                f"- {t.get('Category', '')} - {t.get('Label', '')}: {t.get('Message', '')}"
+                for t in templates if isinstance(t, dict) and t != selected_template
+            ])
+        else:
+            # Sử dụng tất cả templates như trước
+            templates_context = "\n".join([
+                f"- {t.get('Category', '')} - {t.get('Label', '')}: {t.get('Message', '')}"
+                for t in templates if isinstance(t, dict)
+            ])
+        
+        # Tạo hướng dẫn cho response mode
+        if response_mode == 'yes':
+            response_mode_instruction = """
+RESPONSE MODE: POSITIVE/YES MODE
+- Always respond in a POSITIVE, HELPFUL, and ACCOMMODATING manner
+- Say YES whenever possible and offer solutions
+- Be enthusiastic and supportive
+- Example: "Absolutely! We'd be happy to help with that..."
+"""
+        elif response_mode == 'no':
+            response_mode_instruction = """
+RESPONSE MODE: NEGATIVE/NO MODE  
+- Politely decline or explain why something isn't available
+- Be apologetic but professional
+- Offer alternatives when possible
+- Example: "I'm sorry, but unfortunately we don't have that available. However, we can offer..."
+"""
+        else:
+            response_mode_instruction = """
+RESPONSE MODE: AUTO MODE
+- Respond naturally based on the guest's request and available services
+- Be honest about what's available or not available
+"""
         
         # Tạo prompt cho AI
         prompt = f"""
@@ -1067,12 +1111,14 @@ HOTEL INFO:
 - Location: 118 Hang Bac Street, Hoan Kiem District, Hanoi (Old Quarter)
 - Type: Budget hostel/guesthouse in Hanoi's historic center
 
+{response_mode_instruction}
+
 AVAILABLE MESSAGE TEMPLATES:
 {templates_context}
 
 TEMPLATE USAGE PRIORITY (VERY IMPORTANT):
 1. FIRST: Analyze the guest's last message and identify the topic/need
-2. SEARCH: Look through ALL available templates to find any that relate to the topic
+2. {"USE SELECTED TEMPLATE: The user has specifically chosen a template to use as the primary response base" if selected_template else "SEARCH: Look through ALL available templates to find any that relate to the topic"}
 3. IF MATCH FOUND: Use the relevant template as your BASE response, then adapt it to sound natural and conversational
 4. IF NO MATCH: Create a helpful response based on hotel receptionist experience
 5. ALWAYS: List any templates you used in the "matched_templates" section
@@ -1083,6 +1129,7 @@ RESPONSE STYLE:
 - Keep it simple and easy to understand
 - Show genuine care and helpfulness
 - When using templates, make them sound natural and personal
+- FOLLOW THE RESPONSE MODE INSTRUCTIONS ABOVE
 
 TOPIC MATCHING EXAMPLES:
 - Guest asks about check-in → Use CHECK IN or EARLY CHECK IN templates
@@ -1102,7 +1149,11 @@ Return your analysis in this JSON format:
     "matched_templates": [
         {{"category": "Template category if used", "label": "Template label if used", "message": "Original template content if used"}}
     ],
-    "ai_response": "Your friendly, natural response based on templates when available, or original helpful response"
+    "ai_response": "Your friendly, natural response based on templates when available, or original helpful response, following the specified response mode",
+    "used_config": {{
+        "selected_template": {"true" if selected_template else "false"},
+        "response_mode": "{response_mode}"
+    }}
 }}
 """
         
@@ -1136,6 +1187,10 @@ Return your analysis in this JSON format:
                 result.setdefault('analysis_info', 'Đã phân tích nội dung chat')
                 result.setdefault('matched_templates', [])
                 result.setdefault('ai_response', ai_text)
+                result.setdefault('used_config', {
+                    'selected_template': bool(selected_template),
+                    'response_mode': response_mode
+                })
                 
                 return result
             else:
@@ -1143,7 +1198,11 @@ Return your analysis in this JSON format:
                 return {
                     "analysis_info": "Đã phân tích nội dung chat từ ảnh",
                     "matched_templates": [],
-                    "ai_response": ai_text
+                    "ai_response": ai_text,
+                    "used_config": {
+                        'selected_template': bool(selected_template),
+                        'response_mode': response_mode
+                    }
                 }
                 
         except json.JSONDecodeError:
@@ -1151,7 +1210,11 @@ Return your analysis in this JSON format:
             return {
                 "analysis_info": "Đã phân tích nội dung chat từ ảnh",
                 "matched_templates": [],
-                "ai_response": ai_text
+                "ai_response": ai_text,
+                "used_config": {
+                    'selected_template': bool(selected_template),
+                    'response_mode': response_mode
+                }
             }
         
     except Exception as e:
@@ -1160,7 +1223,11 @@ Return your analysis in this JSON format:
             "error": f"Lỗi khi phân tích với AI: {str(e)}",
             "analysis_info": "",
             "matched_templates": [],
-            "ai_response": ""
+            "ai_response": "",
+            "used_config": {
+                'selected_template': bool(selected_template) if selected_template else False,
+                'response_mode': response_mode
+            }
         }
 
 # --- Hàm Voice Translation ---
