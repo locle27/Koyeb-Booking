@@ -333,22 +333,21 @@
             if (selectedCategory) {
                 // Filter templates by category
                 const categoryTemplates = allTemplates.filter(t => t.Category === selectedCategory);
-                console.log('Found templates:', categoryTemplates.length); // Debug log
+                console.log('Found templates:', categoryTemplates); // Debug log
                 
-                // Populate specific template dropdown
+                // Populate specific template dropdown - FIX: Don't stringify, use index
                 categoryTemplates.forEach((template, index) => {
                     const option = document.createElement('option');
-                    option.value = JSON.stringify(template); // Store entire template as value
-                    option.textContent = template.Label;
-                    option.setAttribute('data-template', JSON.stringify(template)); // Backup data attribute
+                    option.value = index.toString(); // Use index instead of stringified JSON
+                    option.textContent = template.Label; // Show label properly
+                    option.setAttribute('data-category', selectedCategory);
+                    option.setAttribute('data-template-index', index.toString());
                     specificSelect.appendChild(option);
                 });
                 
+                // Store category templates for later access
+                specificSelect.categoryTemplates = categoryTemplates;
                 specificSelect.disabled = false;
-                
-                // Add event listener for better responsiveness
-                specificSelect.addEventListener('change', previewSelectedTemplate);
-                specificSelect.addEventListener('click', previewSelectedTemplate); // Extra trigger
             }
         }
         
@@ -359,70 +358,49 @@
         
         // Preview selected template with enhanced debugging
         function previewSelectedTemplate() {
+            const categorySelect = document.getElementById('templateCategory');
             const specificSelect = document.getElementById('specificTemplate');
             const previewDiv = document.getElementById('templatePreview');
             const previewContent = document.getElementById('templatePreviewContent');
             
             console.log('Preview function called, selected value:', specificSelect.value); // Debug log
             
-            if (specificSelect.value && specificSelect.value !== '') {
+            if (specificSelect.value && specificSelect.value !== '' && specificSelect.categoryTemplates) {
                 try {
-                    const template = JSON.parse(specificSelect.value);
-                    console.log('Parsed template:', template); // Debug log
+                    const templateIndex = parseInt(specificSelect.value);
+                    const template = specificSelect.categoryTemplates[templateIndex];
                     
-                    const previewHTML = `
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <strong class="text-primary">${template.Category} - ${template.Label}:</strong>
-                                <div class="mt-1">${template.Message}</div>
+                    console.log('Selected template:', template); // Debug log
+                    
+                    if (template) {
+                        const previewHTML = `
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong class="text-primary">${template.Category} - ${template.Label}:</strong>
+                                    <div class="mt-1">${template.Message}</div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="copyTemplatePreview()">
+                                    <i class="fas fa-copy"></i>
+                                </button>
                             </div>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="copyTemplatePreview()">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                    `;
-                    
-                    previewContent.innerHTML = previewHTML;
-                    previewDiv.style.display = 'block';
-                    
-                    // Add smooth animation
-                    previewDiv.style.opacity = '0';
-                    setTimeout(() => {
-                        previewDiv.style.transition = 'opacity 0.3s ease';
-                        previewDiv.style.opacity = '1';
-                    }, 10);
-                    
-                    console.log('Preview displayed successfully'); // Debug log
+                        `;
+                        
+                        previewContent.innerHTML = previewHTML;
+                        previewDiv.style.display = 'block';
+                        
+                        // Add smooth animation
+                        previewDiv.style.opacity = '0';
+                        setTimeout(() => {
+                            previewDiv.style.transition = 'opacity 0.3s ease';
+                            previewDiv.style.opacity = '1';
+                        }, 10);
+                        
+                        console.log('Preview displayed successfully'); // Debug log
+                    }
                     
                 } catch (error) {
-                    console.error('Error parsing template:', error);
+                    console.error('Error getting template:', error);
                     hideTemplatePreview();
-                    
-                    // Try to use data attribute as fallback
-                    const option = specificSelect.options[specificSelect.selectedIndex];
-                    if (option && option.hasAttribute('data-template')) {
-                        try {
-                            const fallbackTemplate = JSON.parse(option.getAttribute('data-template'));
-                            console.log('Using fallback template:', fallbackTemplate); // Debug log
-                            
-                            const previewHTML = `
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <strong class="text-primary">${fallbackTemplate.Category} - ${fallbackTemplate.Label}:</strong>
-                                        <div class="mt-1">${fallbackTemplate.Message}</div>
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="copyTemplatePreview()">
-                                        <i class="fas fa-copy"></i>
-                                    </button>
-                                </div>
-                            `;
-                            
-                            previewContent.innerHTML = previewHTML;
-                            previewDiv.style.display = 'block';
-                        } catch (fallbackError) {
-                            console.error('Fallback parsing also failed:', fallbackError);
-                        }
-                    }
                 }
             } else {
                 hideTemplatePreview();
@@ -432,11 +410,14 @@
         // Copy template preview to clipboard
         function copyTemplatePreview() {
             const specificSelect = document.getElementById('specificTemplate');
-            if (specificSelect.value) {
+            if (specificSelect.value && specificSelect.categoryTemplates) {
                 try {
-                    const template = JSON.parse(specificSelect.value);
-                    copyToClipboard(template.Message);
-                    showSuccess('Đã copy mẫu tin nhắn!');
+                    const templateIndex = parseInt(specificSelect.value);
+                    const template = specificSelect.categoryTemplates[templateIndex];
+                    if (template && template.Message) {
+                        copyToClipboard(template.Message);
+                        showSuccess('Đã copy mẫu tin nhắn!');
+                    }
                 } catch (error) {
                     console.error('Error copying template:', error);
                 }
@@ -528,11 +509,12 @@
             const responseModeRadios = document.getElementsByName('responseMode');
             
             let selectedTemplate = null;
-            if (specificSelect.value) {
+            if (specificSelect.value && specificSelect.categoryTemplates) {
                 try {
-                    selectedTemplate = JSON.parse(specificSelect.value);
+                    const templateIndex = parseInt(specificSelect.value);
+                    selectedTemplate = specificSelect.categoryTemplates[templateIndex];
                 } catch (error) {
-                    console.error('Error parsing selected template:', error);
+                    console.error('Error getting selected template:', error);
                 }
             }
             

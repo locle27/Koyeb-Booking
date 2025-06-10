@@ -229,33 +229,76 @@ def dashboard():
                         # Filter to only rows with valid dates first
                         df_valid = df_work[valid_dates_mask].copy()
                         
+                        print(f"DEBUG: Total records with valid dates: {len(df_valid)}")
+                        print(f"DEBUG: Today's date: {today}")
+                        
+                        # Debug: Check what collectors exist
+                        collectors = df_valid['Người thu tiền'].unique()
+                        print(f"DEBUG: Unique collectors: {collectors}")
+                        
                         # Now create overdue mask on clean data
-                        overdue_mask = (
-                            (df_valid['Check-in Date'].dt.date <= today) &  # Past check-in date
-                            (~df_valid['Người thu tiền'].isin(['LOC LE', 'THAO LE'])) &  # Not collected
-                            (df_valid['Tình trạng'] != 'Đã hủy')  # Not cancelled
-                        )
+                        past_checkin = df_valid['Check-in Date'].dt.date <= today
+                        
+                        # Handle null collectors better - include nan, N/A, empty string, None
+                        collected_values = ['LOC LE', 'THAO LE']
+                        collector_series = df_valid['Người thu tiền'].fillna('').astype(str)
+                        not_collected = ~collector_series.isin(collected_values)
+                        
+                        not_cancelled = df_valid['Tình trạng'] != 'Đã hủy'
+                        
+                        print(f"DEBUG: Past check-in: {past_checkin.sum()} records")
+                        print(f"DEBUG: Not collected: {not_collected.sum()} records") 
+                        print(f"DEBUG: Not cancelled: {not_cancelled.sum()} records")
+                        
+                        overdue_mask = past_checkin & not_collected & not_cancelled
+                        print(f"DEBUG: Combined overdue mask: {overdue_mask.sum()} records")
                         
                         overdue_df = df_valid[overdue_mask].copy()
                         
                         if not overdue_df.empty:
-                            # Calculate overdue days
-                            overdue_df['days_overdue'] = (today - overdue_df['Check-in Date'].dt.date).dt.days
+                            # Calculate overdue days safely - convert date to days manually
+                            try:
+                                checkin_dates = overdue_df['Check-in Date'].dt.date
+                                days_overdue_list = []
+                                for date in checkin_dates:
+                                    try:
+                                        days = (today - date).days
+                                        days_overdue_list.append(max(0, days))  # Ensure non-negative
+                                    except:
+                                        days_overdue_list.append(0)  # Fallback for any date issues
+                                        
+                                overdue_df['days_overdue'] = days_overdue_list
+                                print(f"DEBUG: Days overdue calculated: {days_overdue_list}")
+                                
+                            except Exception as days_error:
+                                print(f"DEBUG: Error calculating days: {days_error}")
+                                overdue_df['days_overdue'] = 0  # Fallback
                             
                             # Sort by overdue days descending
                             overdue_df = overdue_df.sort_values('days_overdue', ascending=False)
                             
-                            # Convert to list and calculate total
-                            overdue_unpaid_guests = overdue_df.to_dict('records')
-                            
-                            # Safe sum calculation
+                            # Safe sum calculation BEFORE converting to dict
                             if 'Tổng thanh toán' in overdue_df.columns:
                                 overdue_total_amount = pd.to_numeric(overdue_df['Tổng thanh toán'], errors='coerce').fillna(0).sum()
                             
+                            # Convert to list AFTER all calculations
+                            overdue_unpaid_guests = overdue_df.to_dict('records')
+                            
+                            # DEBUG: Print detailed info about overdue guests
                             print(f"DEBUG: Found {len(overdue_unpaid_guests)} overdue unpaid guests, total: {overdue_total_amount:,.0f}d")
+                            for i, guest in enumerate(overdue_unpaid_guests[:3]):  # Print first 3
+                                print(f"DEBUG Guest {i+1}: {guest.get('Tên người đặt', 'N/A')} - {guest.get('days_overdue', 0)} days - {guest.get('Tổng thanh toán', 0)}d")
+                                print(f"  Check-in: {guest.get('Check-in Date')}, Collector: '{guest.get('Người thu tiền', 'N/A')}'")
+                        else:
+                            print("DEBUG: No overdue guests found after filtering")
+                            
+                    else:
+                        print("DEBUG: No valid dates found in data")
                 
             except Exception as overdue_error:
                 print(f"WARNING: Error calculating overdue guests: {overdue_error}")
+                import traceback
+                traceback.print_exc()
                 overdue_unpaid_guests = []
                 overdue_total_amount = 0
             
@@ -410,6 +453,12 @@ def dashboard():
     }
 
     collector_revenue_list = dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records')
+
+    # DEBUG: Print what we're sending to template
+    print(f"DEBUG: Sending to template - overdue_unpaid_guests count: {len(overdue_unpaid_guests)}")
+    print(f"DEBUG: Sending to template - overdue_total_amount: {overdue_total_amount}")
+    if overdue_unpaid_guests:
+        print(f"DEBUG: First overdue guest: {overdue_unpaid_guests[0].get('Tên người đặt', 'N/A')}")
 
     return render_template(
         'dashboard.html',

@@ -35,6 +35,18 @@
     </div>
 
     <!-- ⚠️ KHÁCH CHƯA THU TIỀN QUÁ HẠN -->
+    <!-- DEBUG: Check template variables -->
+    {% if dev_mode %}
+    <div class="alert alert-warning">
+        <strong>DEBUG INFO:</strong><br>
+        overdue_unpaid_guests count: {{ overdue_unpaid_guests|length if overdue_unpaid_guests else 'None' }}<br>
+        overdue_total_amount: {{ overdue_total_amount if overdue_total_amount else 'None' }}<br>
+        {% if overdue_unpaid_guests and overdue_unpaid_guests|length > 0 %}
+        First guest: {{ overdue_unpaid_guests[0].get('Tên người đặt', 'N/A') if overdue_unpaid_guests[0] else 'No first guest' }}
+        {% endif %}
+    </div>
+    {% endif %}
+    
     {% if overdue_unpaid_guests and overdue_unpaid_guests|length > 0 %}
     <div class="alert alert-danger border-0 shadow-lg mb-4" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
         <div class="d-flex align-items-center justify-content-between">
