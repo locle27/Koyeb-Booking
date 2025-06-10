@@ -41,7 +41,7 @@ from market_price_analyzer import (
 )
 
 # Import AI Pricing Analyst
-from ai_pricing_analyst import analyze_budget_pricing_with_ai
+from ai_pricing_analyst import analyze_budget_pricing_with_ai, analyze_price_range_with_ai
 
 # Cấu hình
 BASE_DIR = Path(__file__).resolve().parent
@@ -1160,6 +1160,11 @@ def translate_text():
         traceback.print_exc()
         return jsonify({"error": f"Lỗi dịch thuật: {str(e)}"}), 500
 
+@app.route('/ai_assistant')
+def ai_assistant_hub():
+    """Trang AI Assistant Hub - Kết hợp AI Chat Assistant và Voice Translator"""
+    return render_template('ai_assistant.html')
+
 @app.route('/ai_chat_assistant')
 def ai_chat_assistant():
     """Trang AI Chat Assistant - Lễ tân thông minh"""
@@ -1476,34 +1481,59 @@ def api_analyze_market_prices():
 
 @app.route('/api/ai_pricing_analysis', methods=['POST'])
 def api_ai_pricing_analysis():
-    """API endpoint để phân tích pricing với AI - tập trung vào budget segment"""
+    """API endpoint để phân tích pricing với AI - support cả threshold và price range"""
     try:
         data = request.get_json()
         if not data:
             return jsonify({"error": "Không có dữ liệu trong request"}), 400
         
         properties = data.get('properties', [])
-        price_threshold = data.get('price_threshold', 500000)
         
         if not properties:
             return jsonify({"error": "Không có dữ liệu properties để phân tích"}), 400
         
-        # Validate price_threshold
-        try:
-            price_threshold = int(price_threshold)
-            if price_threshold < 0:
+        # Check if this is range-based or threshold-based analysis
+        min_price = data.get('min_price')
+        max_price = data.get('max_price')
+        price_threshold = data.get('price_threshold')
+        
+        if min_price is not None and max_price is not None:
+            # Range-based analysis
+            try:
+                min_price = int(min_price)
+                max_price = int(max_price)
+                if min_price < 0 or max_price < 0 or min_price >= max_price:
+                    return jsonify({"error": "Invalid price range"}), 400
+            except (ValueError, TypeError):
+                return jsonify({"error": "Invalid price range format"}), 400
+            
+            print(f"🤖 AI analyzing {len(properties)} properties in range {min_price:,}₫ - {max_price:,}₫")
+            
+            # Gọi AI Range Analyst
+            ai_analysis = analyze_price_range_with_ai(
+                properties=properties,
+                min_price=min_price,
+                max_price=max_price,
+                google_api_key=GOOGLE_API_KEY
+            )
+            
+        else:
+            # Threshold-based analysis (legacy)
+            try:
+                price_threshold = int(price_threshold) if price_threshold else 500000
+                if price_threshold < 0:
+                    price_threshold = 500000
+            except (ValueError, TypeError):
                 price_threshold = 500000
-        except (ValueError, TypeError):
-            price_threshold = 500000
-        
-        print(f"🤖 AI analyzing {len(properties)} properties with threshold {price_threshold:,}₫")
-        
-        # Gọi AI Pricing Analyst
-        ai_analysis = analyze_budget_pricing_with_ai(
-            properties=properties,
-            price_threshold=price_threshold,
-            google_api_key=GOOGLE_API_KEY
-        )
+            
+            print(f"🤖 AI analyzing {len(properties)} properties with threshold {price_threshold:,}₫")
+            
+            # Gọi AI Pricing Analyst (legacy)
+            ai_analysis = analyze_budget_pricing_with_ai(
+                properties=properties,
+                price_threshold=price_threshold,
+                google_api_key=GOOGLE_API_KEY
+            )
         
         print(f"✅ AI Analysis completed: {ai_analysis.get('success', False)}")
         

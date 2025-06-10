@@ -648,14 +648,10 @@ class MarketPriceAnalyzer:
                         min_match = re.search(r'min-(\d+)', price_part)
                         if min_match:
                             specified_price = int(min_match.group(1))
-                            # If this is a "budget" price range (< 800k), assume user wants "under" not "over"
-                            if specified_price <= 800000:
-                                print(f"🔄 Converting min-{specified_price:,} to max-{specified_price:,} (budget range detected)")
-                                price_filter['max_price'] = specified_price
-                                price_filter['min_price'] = 0
-                            else:
-                                price_filter['min_price'] = specified_price
-                                print(f"✅ Using min price: {price_filter['min_price']:,} VND")
+                            # Booking.com min-X means >= X, so we keep it as min_price
+                            price_filter['min_price'] = specified_price
+                            print(f"✅ URL specifies min price (>=): {price_filter['min_price']:,} VND")
+                            print(f"ℹ️  NOTE: This will show properties ABOVE {specified_price:,} VND, not below")
             
             return price_filter
             
