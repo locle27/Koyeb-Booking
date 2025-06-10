@@ -1,0 +1,37 @@
+# Production Requirements - Optimized for Koyeb deployment
+# Core Flask stack
+flask==2.3.3
+gunicorn==21.2.0
+Werkzeug>=2.3.0,<3.0.0
+Jinja2>=3.1.0,<4.0.0
+
+# Data handling
+pandas>=2.0.0,<3.0.0
+numpy>=1.21.0,<2.0.0
+openpyxl>=3.1.0,<4.0.0
+xlrd==2.0.1
+
+# Google APIs - Core for booking management
+google-api-python-client>=2.100.0,<3.0.0
+google-auth-httplib2>=0.1.0,<1.0.0
+google-auth-oauthlib>=1.0.0,<2.0.0
+gspread>=5.10.0,<6.0.0
+google-generativeai>=0.3.0,<1.0.0
+
+# Essential utilities
+python-dotenv>=1.0.0,<2.0.0
+python-dateutil>=2.8.0,<3.0.0
+requests>=2.31.0
+plotly>=5.15.0,<6.0.0
+
+# Basic web scraping fallback (lighter than crawl4ai)
+beautifulsoup4>=4.12.0,<5.0.0
+lxml>=5.3.0
+
+# Image processing
+Pillow>=10.0.0,<11.0.0
+PyPDF2>=3.0.0,<4.0.0
+
+# Market analysis - conditional import
+# crawl4ai==0.3.75  # Comment out for production if needed
+# playwright>=1.40.0  # Heavy dependency

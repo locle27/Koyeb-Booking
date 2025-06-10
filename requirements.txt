@@ -28,9 +28,9 @@ Werkzeug>=2.3.0,<3.0.0
 Jinja2>=3.1.0,<4.0.0
 
 # Add requests for health check
-requests>=2.31.0,<3.0.0
+requests>=2.31.0
 
 # Web Crawling for Market Price Analysis
-crawl4ai>=0.2.77
+crawl4ai==0.3.75
 playwright>=1.40.0
-lxml>=4.9.0,<5.0.0
+lxml>=5.3.0
