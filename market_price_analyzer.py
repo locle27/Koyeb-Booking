@@ -25,6 +25,14 @@ except ImportError:
         print("⚠️ WARNING: crawl4ai not available - Market Price Analyzer will use fallback mode")
         print("   This is normal in production environments to reduce memory usage")
 
+try:
+    import google.generativeai as genai
+    GENAI_AVAILABLE = True
+    print("✅ Google Generative AI imported successfully")
+except ImportError:
+    GENAI_AVAILABLE = False
+    print("⚠️ WARNING: google.generativeai not available - AI features will be limited")
+
 # Lightweight fallback imports
 import requests
 from bs4 import BeautifulSoup
