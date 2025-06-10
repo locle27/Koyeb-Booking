@@ -728,30 +728,45 @@
         function addMobileEventListeners() {
             const recordButton = document.getElementById('recordButton');
             
-            // Add touch events for better mobile support
-            recordButton.addEventListener('touchstart', function(e) {
-                e.preventDefault(); // Prevent default touch behavior
-                recordButton.style.transform = 'scale(0.95)';
-            });
+            // Remove existing event listeners first
+            recordButton.removeEventListener('click', toggleRecording);
+            recordButton.removeEventListener('touchstart', handleTouchStart);
+            recordButton.removeEventListener('touchend', handleTouchEnd);
             
-            recordButton.addEventListener('touchend', function(e) {
-                e.preventDefault();
-                recordButton.style.transform = 'scale(1)';
-                toggleRecording();
-            });
+            // Add touch events for better mobile support
+            recordButton.addEventListener('touchstart', handleTouchStart, {passive: false});
+            recordButton.addEventListener('touchend', handleTouchEnd, {passive: false});
             
             // Also keep click event for desktop
-            recordButton.addEventListener('click', function(e) {
-                // Only process click if it's not from touch
-                if (e.pointerType !== 'touch') {
-                    toggleRecording();
-                }
-            });
+            recordButton.addEventListener('click', handleClick);
             
             // Prevent double events on mobile
-            recordButton.addEventListener('touchcancel', function(e) {
-                recordButton.style.transform = 'scale(1)';
-            });
+            recordButton.addEventListener('touchcancel', handleTouchCancel);
+        }
+        
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const recordButton = document.getElementById('recordButton');
+            recordButton.style.transform = 'scale(0.95)';
+        }
+        
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            const recordButton = document.getElementById('recordButton');
+            recordButton.style.transform = 'scale(1)';
+            toggleRecording();
+        }
+        
+        function handleTouchCancel(e) {
+            const recordButton = document.getElementById('recordButton');
+            recordButton.style.transform = 'scale(1)';
+        }
+        
+        function handleClick(e) {
+            // Only process click if it's not from touch
+            if (e.pointerType !== 'touch') {
+                toggleRecording();
+            }
         }
         
         // Update status indicator
@@ -909,9 +924,16 @@
             }
         }
         
-        // Navigation
+        // Navigation function - ensure it works properly
         function goToHome() {
-            window.location.href = '/';
+            console.log('Navigating to home page...');
+            try {
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Navigation error:', error);
+                // Fallback
+                window.location = '/';
+            }
         }
         
         // Initialize on page load with mobile optimizations
@@ -926,7 +948,7 @@
             
             // Check for speech recognition support
             if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                document.getElementById('statusText').textContent = 'Trình duyệt không hỗ trợ nhận diện giọng nói';
+                updateStatus('ready', 'Trình duyệt không hỗ trợ nhận diện giọng nói');
                 document.getElementById('recordButton').disabled = true;
                 
                 // Show alternative message for mobile browsers
@@ -945,7 +967,10 @@
                     await requestMicrophonePermission();
                     
                     // Pre-initialize recognition for faster first use
-                    initializeSpeechRecognition();
+                    if (!recognitionInitialized) {
+                        const initialized = initializeSpeechRecognition();
+                        console.log('Pre-initialization result:', initialized);
+                    }
                 }, 1000);
             }
             
@@ -967,8 +992,10 @@
             if (isMobileDevice()) {
                 // Show mobile instructions
                 const mobileInstructions = document.getElementById('mobileInstructions');
-                mobileInstructions.classList.remove('d-none');
-                mobileInstructions.style.display = 'block';
+                if (mobileInstructions) {
+                    mobileInstructions.classList.remove('d-none');
+                    mobileInstructions.style.display = 'block';
+                }
                 
                 // Adjust button size for mobile
                 const recordButton = document.getElementById('recordButton');
@@ -986,6 +1013,8 @@
                 // Show mobile-specific status
                 updatePermissionStatus('Chạm vào nút microphone để bắt đầu');
             }
+            
+            console.log('Voice translator initialization complete');
         });
         
         // Detect mobile device

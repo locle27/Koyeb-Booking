@@ -79,6 +79,10 @@
                             <div class="text-end">
                                 <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest.get('Tổng thanh toán', 0) if guest.get('Tổng thanh toán') else 0) }}đ</div>
                                 <small class="text-muted">ID: {{ guest.get('Số đặt phòng', 'N/A') }}</small>
+                                <button class="btn btn-success btn-sm mt-1 w-100" 
+                                        onclick="openCollectModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('Tổng thanh toán', 0) }})">
+                                    <i class="fas fa-money-bill-wave me-1"></i>Thu tiền
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -119,6 +123,10 @@
                                 <div class="text-end">
                                     <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest.get('Tổng thanh toán', 0) if guest.get('Tổng thanh toán') else 0) }}đ</div>
                                     <small class="text-muted">ID: {{ guest.get('Số đặt phòng', 'N/A') }}</small>
+                                    <button class="btn btn-success btn-sm mt-1 w-100" 
+                                            onclick="openCollectModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('Tổng thanh toán', 0) }})">
+                                        <i class="fas fa-money-bill-wave me-1"></i>Thu tiền
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -292,6 +300,61 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Modal Thu Tiền -->
+<div class="modal fade" id="collectPaymentModal" tabindex="-1" aria-labelledby="collectPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="collectPaymentModalLabel">
+                    <i class="fas fa-money-bill-wave me-2"></i>Thu Tiền Khách Hàng
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="collectPaymentForm">
+                    <div class="mb-3">
+                        <label class="form-label">Tên khách hàng:</label>
+                        <div class="fw-bold text-primary" id="modalGuestName"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mã đặt phòng:</label>
+                        <div class="fw-bold text-muted" id="modalBookingId"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tổng số tiền cần thu:</label>
+                        <div class="fw-bold text-danger fs-5" id="modalTotalAmount"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="collectedAmount" class="form-label">Số tiền thực thu (VND):</label>
+                        <input type="number" class="form-control" id="collectedAmount" 
+                               placeholder="Nhập số tiền đã thu" min="0" step="1000">
+                        <div class="form-text">Có thể thu một phần hoặc toàn bộ số tiền</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="collectorName" class="form-label">Người thu tiền:</label>
+                        <select class="form-select" id="collectorName" required>
+                            <option value="">Chọn người thu tiền</option>
+                            <option value="LOC LE">LOC LE</option>
+                            <option value="THAO LE">THAO LE</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="paymentNote" class="form-label">Ghi chú (tuỳ chọn):</label>
+                        <textarea class="form-control" id="paymentNote" rows="2" 
+                                  placeholder="Ghi chú về việc thu tiền..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-success" id="confirmCollectBtn" onclick="collectPayment()">
+                    <i class="fas fa-check me-1"></i>Xác nhận thu tiền
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -369,6 +432,117 @@ function toggleMoreOverdue() {
     } else {
         moreOverdue.style.display = 'none';
         button.innerHTML = '<i class="fas fa-chevron-down me-1"></i> Xem thêm {{ overdue_unpaid_guests|length - 3 if overdue_unpaid_guests else 0 }} khách';
+    }
+}
+
+// Global variables cho modal
+let currentBookingId = '';
+let currentTotalAmount = 0;
+
+// Mở modal thu tiền
+function openCollectModal(bookingId, guestName, totalAmount) {
+    currentBookingId = bookingId;
+    currentTotalAmount = totalAmount;
+    
+    // Cập nhật thông tin modal
+    document.getElementById('modalGuestName').textContent = guestName;
+    document.getElementById('modalBookingId').textContent = bookingId;
+    document.getElementById('modalTotalAmount').textContent = totalAmount.toLocaleString('vi-VN') + 'đ';
+    
+    // Reset form
+    document.getElementById('collectedAmount').value = totalAmount;
+    document.getElementById('collectorName').value = '';
+    document.getElementById('paymentNote').value = '';
+    
+    // Hiển thị modal
+    const modal = new bootstrap.Modal(document.getElementById('collectPaymentModal'));
+    modal.show();
+}
+
+// Xử lý thu tiền
+async function collectPayment() {
+    const collectedAmount = parseInt(document.getElementById('collectedAmount').value) || 0;
+    const collectorName = document.getElementById('collectorName').value;
+    const paymentNote = document.getElementById('paymentNote').value;
+    
+    // Validate
+    if (!collectorName) {
+        alert('Vui lòng chọn người thu tiền!');
+        return;
+    }
+    
+    if (collectedAmount <= 0) {
+        alert('Vui lòng nhập số tiền hợp lệ!');
+        return;
+    }
+    
+    if (collectedAmount > currentTotalAmount) {
+        if (!confirm(`Số tiền thu (${collectedAmount.toLocaleString('vi-VN')}đ) lớn hơn số tiền cần thu (${currentTotalAmount.toLocaleString('vi-VN')}đ). Bạn có chắc chắn?`)) {
+            return;
+        }
+    }
+    
+    // Hiển thị loading
+    const confirmBtn = document.getElementById('confirmCollectBtn');
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang xử lý...';
+    confirmBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/collect_payment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                booking_id: currentBookingId,
+                collected_amount: collectedAmount,
+                collector_name: collectorName,
+                payment_note: paymentNote
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Thành công - đóng modal và reload trang
+            const modal = bootstrap.Modal.getInstance(document.getElementById('collectPaymentModal'));
+            modal.hide();
+            
+            // Hiển thị thông báo thành công
+            const successAlert = document.createElement('div');
+            successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed';
+            successAlert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            successAlert.innerHTML = `
+                <strong>✅ Thu tiền thành công!</strong><br>
+                Đã thu ${collectedAmount.toLocaleString('vi-VN')}đ từ khách ${document.getElementById('modalGuestName').textContent}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(successAlert);
+            
+            // Tự động ẩn sau 5 giây
+            setTimeout(() => {
+                if (successAlert.parentNode) {
+                    successAlert.remove();
+                }
+            }, 5000);
+            
+            // Reload trang sau 2 giây để cập nhật dữ liệu
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+            
+        } else {
+            alert('Lỗi: ' + (result.message || 'Không thể thu tiền'));
+        }
+        
+    } catch (error) {
+        console.error('Payment collection error:', error);
+        alert('Lỗi kết nối. Vui lòng thử lại!');
+    } finally {
+        // Reset button
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
     }
 }
 </script>

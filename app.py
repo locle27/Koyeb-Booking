@@ -762,6 +762,68 @@ def delete_multiple_bookings():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
 
+@app.route('/api/collect_payment', methods=['POST'])
+def collect_payment():
+    """API endpoint để thu tiền từ khách hàng"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'Không có dữ liệu'}), 400
+        
+        booking_id = data.get('booking_id')
+        collected_amount = data.get('collected_amount')
+        collector_name = data.get('collector_name')
+        payment_note = data.get('payment_note', '')
+        
+        # Validate input
+        if not booking_id:
+            return jsonify({'success': False, 'message': 'Thiếu mã đặt phòng'}), 400
+            
+        if not collector_name:
+            return jsonify({'success': False, 'message': 'Thiếu tên người thu tiền'}), 400
+            
+        if not collected_amount or collected_amount <= 0:
+            return jsonify({'success': False, 'message': 'Số tiền thu không hợp lệ'}), 400
+        
+        # Cập nhật thông tin trong Google Sheets
+        new_data = {
+            'Người thu tiền': collector_name,
+        }
+        
+        # Thêm ghi chú nếu có
+        if payment_note:
+            new_data['Ghi chú thu tiền'] = f"Thu {collected_amount:,.0f}đ - {payment_note}"
+        
+        success = update_row_in_gsheet(
+            sheet_id=DEFAULT_SHEET_ID,
+            gcp_creds_file_path=GCP_CREDS_FILE_PATH,
+            worksheet_name=WORKSHEET_NAME,
+            booking_id=booking_id,
+            new_data=new_data
+        )
+        
+        if success:
+            # Xóa cache để cập nhật dữ liệu
+            load_data.cache_clear()
+            return jsonify({
+                'success': True, 
+                'message': f'Đã thu thành công {collected_amount:,.0f}đ từ {booking_id}'
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'message': 'Không thể cập nhật thông tin trên Google Sheets'
+            })
+            
+    except Exception as e:
+        print(f"Collect payment error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False, 
+            'message': f'Lỗi server: {str(e)}'
+        }), 500
+
 @app.route('/voice_translator')
 def voice_translator():
     """Trang Voice Translator - Dịch giọng nói"""
