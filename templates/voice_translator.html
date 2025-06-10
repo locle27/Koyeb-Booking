@@ -2,11 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#667eea">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Voice Translator - Dịch Giọng Nói</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -31,13 +27,7 @@
             color: white;
             font-size: 2.5rem;
             transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
             cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
         }
         .record-button:hover {
             transform: scale(1.05);
@@ -59,53 +49,6 @@
             0% { transform: scale(1); }
             100% { transform: scale(1.1); }
         }
-        
-        /* Mobile optimizations */
-        @media (max-width: 768px) {
-            .voice-container {
-                padding: 10px 0;
-            }
-            .main-card {
-                margin: 0 10px;
-                padding: 20px 15px !important;
-            }
-            .record-button {
-                width: 100px;
-                height: 100px;
-                font-size: 2rem;
-            }
-            .language-select {
-                font-size: 14px;
-                padding: 8px 12px;
-            }
-            .text-area {
-                min-height: 100px;
-                font-size: 16px; /* Prevent zoom on iOS */
-            }
-            .translate-btn {
-                width: 100%;
-                padding: 15px;
-                font-size: 16px;
-            }
-            .feature-card {
-                margin-bottom: 15px;
-            }
-            .col-md-6 {
-                margin-bottom: 20px;
-            }
-        }
-        
-        /* Touch feedback */
-        .record-button:focus {
-            outline: 3px solid rgba(255, 107, 107, 0.3);
-            outline-offset: 2px;
-        }
-        
-        /* Better mobile textarea */
-        .text-area:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
         .language-select {
             background: rgba(255, 255, 255, 0.9);
             border: 2px solid #e3f2fd;
@@ -119,6 +62,11 @@
             border-radius: 15px;
             min-height: 120px;
             resize: vertical;
+            font-size: 16px;
+        }
+        .text-area:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
         .translate-btn {
             background: linear-gradient(135deg, #28a745, #20c997);
@@ -127,10 +75,18 @@
             padding: 12px 30px;
             font-weight: 600;
             transition: all 0.3s ease;
+            color: white;
         }
         .translate-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+            color: white;
+        }
+        .translate-btn:disabled {
+            background: #6c757d;
+            transform: none;
+            box-shadow: none;
+            color: white;
         }
         .result-area {
             background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
@@ -180,6 +136,27 @@
             background: linear-gradient(135deg, #667eea, #764ba2);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .voice-container {
+                padding: 10px 0;
+            }
+            .main-card {
+                margin: 0 10px;
+                padding: 20px 15px !important;
+            }
+            .record-button {
+                width: 100px;
+                height: 100px;
+                font-size: 2rem;
+            }
+            .translate-btn {
+                width: 100%;
+                padding: 15px;
+                font-size: 16px;
+            }
         }
     </style>
 </head>
@@ -234,38 +211,27 @@
                     </div>
                 </div>
 
-                <!-- Voice Recording Section -->
+                <!-- Voice Recording and Text Input Section -->
                 <div class="row mb-4">
                     <div class="col-md-6">
-                        <!-- Mobile Instructions -->
-                        <div id="mobileInstructions" class="alert alert-info d-none" style="display: none;">
-                            <i class="fas fa-mobile-alt"></i>
-                            <strong>Lưu ý cho điện thoại:</strong>
-                            <ul class="mb-0 mt-2">
-                                <li>Cần cho phép truy cập microphone khi được hỏi</li>
-                                <li>Sử dụng Chrome, Edge hoặc Safari để có kết quả tốt nhất</li>
-                                <li>Nói rõ ràng và không quá nhanh</li>
-                                <li>Nhấn nút đỏ để dừng ghi âm</li>
-                            </ul>
-                        </div>
-                        
+                        <!-- Voice Recording -->
                         <div class="text-center p-4" style="border: 2px dashed #dee2e6; border-radius: 15px;">
                             <h5 class="mb-3">
                                 <span id="statusIndicator" class="status-indicator status-ready"></span>
                                 <span id="statusText">Sẵn sàng ghi âm</span>
                             </h5>
-                            <button id="recordButton" class="record-button mb-3">
+                            <button id="recordButton" class="record-button mb-3" onclick="toggleRecording()">
                                 <i class="fas fa-microphone"></i>
                             </button>
                             <div>
                                 <small class="text-muted">Nhấn để bắt đầu/dừng ghi âm</small>
                             </div>
                             
-                            <!-- Permission status -->
-                            <div id="permissionStatus" class="mt-2" style="display: none;">
+                            <!-- Support Info -->
+                            <div id="supportInfo" class="mt-2">
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    <span id="permissionText"></span>
+                                    <span id="supportText">Đang kiểm tra hỗ trợ microphone...</span>
                                 </small>
                             </div>
                         </div>
@@ -277,7 +243,7 @@
                             </label>
                             <textarea id="recognizedText" class="form-control text-area" 
                                 placeholder="Văn bản từ giọng nói sẽ hiển thị ở đây..."
-                                oninput="enableTranslateButton()"></textarea>
+                                oninput="checkTranslateButton()" readonly></textarea>
                         </div>
                     </div>
                     
@@ -289,12 +255,12 @@
                             </label>
                             <textarea id="manualText" class="form-control text-area" 
                                 placeholder="Nhập văn bản cần dịch ở đây..."
-                                oninput="syncWithRecognized()"></textarea>
+                                oninput="syncTextAndCheck()"></textarea>
                         </div>
                         
                         <!-- Translate Button -->
                         <div class="text-center mb-3">
-                            <button id="translateButton" class="btn translate-btn" onclick="translateText()" disabled>
+                            <button id="translateButton" class="btn translate-btn" onclick="translateText()">
                                 <i class="fas fa-language"></i> Dịch Ngay
                             </button>
                         </div>
@@ -336,96 +302,143 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Back to Home -->
+                <div class="text-center mt-4">
+                    <a href="/" class="btn btn-outline-primary">
+                        <i class="fas fa-home"></i> Về trang chủ
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Global variables
         let recognition = null;
         let isRecording = false;
         let finalTranscript = '';
-        let microphonePermission = false;
-        let restartTimeout = null;
-        let recognitionInitialized = false;
-        let lastLanguage = '';
-        let gracefulStop = false;
         
-        // Check if app is running on HTTPS (required for microphone on mobile)
-        function checkHTTPS() {
-            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                const httpsWarning = document.createElement('div');
-                httpsWarning.className = 'alert alert-warning m-3';
-                httpsWarning.innerHTML = `
-                    <i class="fas fa-exclamation-triangle"></i> 
-                    <strong>Cảnh báo:</strong> Microphone cần HTTPS để hoạt động trên mobile. 
-                    Vui lòng truy cập qua HTTPS.
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Voice translator initializing...');
+            checkSpeechRecognitionSupport();
+            checkTranslateButton(); // Initial button state check
+        });
+        
+        // Check speech recognition support
+        function checkSpeechRecognitionSupport() {
+            const supportText = document.getElementById('supportText');
+            const recordButton = document.getElementById('recordButton');
+            
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                supportText.innerHTML = '✅ Hỗ trợ nhận diện giọng nói';
+                initializeSpeechRecognition();
+            } else {
+                supportText.innerHTML = '❌ Trình duyệt không hỗ trợ nhận diện giọng nói';
+                recordButton.disabled = true;
+                recordButton.innerHTML = '<i class="fas fa-times"></i>';
+                
+                // Show alternative message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-warning mt-3';
+                alertDiv.innerHTML = `
+                    <i class="fas fa-info-circle"></i> 
+                    <strong>Gợi ý:</strong> Sử dụng Chrome, Edge hoặc Safari để có nhận diện giọng nói.
+                    Bạn vẫn có thể nhập văn bản thủ công để dịch.
                 `;
-                document.body.insertBefore(httpsWarning, document.body.firstChild);
-                return false;
+                document.querySelector('.main-card').appendChild(alertDiv);
             }
-            return true;
         }
         
-        // Request microphone permission explicitly (important for mobile)
-        async function requestMicrophonePermission() {
+        // Initialize Speech Recognition
+        function initializeSpeechRecognition() {
             try {
-                updatePermissionStatus('Đang kiểm tra quyền microphone...');
+                const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+                recognition = new SpeechRecognition();
                 
-                if (navigator.permissions) {
-                    const permission = await navigator.permissions.query({ name: 'microphone' });
-                    console.log('Microphone permission status:', permission.state);
+                // Configuration
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                recognition.maxAlternatives = 1;
+                recognition.lang = getLanguageCode(document.getElementById('sourceLanguage').value);
+                
+                // Event handlers
+                recognition.onstart = function() {
+                    console.log('Speech recognition started');
+                    updateStatus('listening', 'Đang nghe...');
+                    document.getElementById('recordButton').innerHTML = '<i class="fas fa-stop"></i>';
+                    document.getElementById('recordButton').classList.add('recording');
+                    isRecording = true;
+                };
+                
+                recognition.onresult = function(event) {
+                    let interimTranscript = '';
+                    let newFinalTranscript = '';
                     
-                    if (permission.state === 'granted') {
-                        microphonePermission = true;
-                        updatePermissionStatus('✅ Đã có quyền microphone');
-                        return true;
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            newFinalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
                     }
-                }
+                    
+                    if (newFinalTranscript) {
+                        finalTranscript += newFinalTranscript;
+                    }
+                    
+                    const fullText = finalTranscript + interimTranscript;
+                    document.getElementById('recognizedText').value = fullText;
+                    document.getElementById('manualText').value = fullText;
+                    checkTranslateButton();
+                };
                 
-                // Fallback: try to access microphone directly
-                updatePermissionStatus('Đang xin quyền truy cập microphone...');
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                stream.getTracks().forEach(track => track.stop()); // Stop immediately
-                microphonePermission = true;
-                console.log('Microphone permission granted');
-                updatePermissionStatus('✅ Microphone đã sẵn sàng');
-                return true;
+                recognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    
+                    let errorMessage = 'Lỗi nhận diện giọng nói';
+                    switch(event.error) {
+                        case 'not-allowed':
+                            errorMessage = 'Cần cấp quyền microphone';
+                            break;
+                        case 'no-speech':
+                            errorMessage = 'Không nghe thấy giọng nói';
+                            break;
+                        case 'audio-capture':
+                            errorMessage = 'Không thể truy cập microphone';
+                            break;
+                        case 'network':
+                            errorMessage = 'Lỗi mạng';
+                            break;
+                        default:
+                            errorMessage = `Lỗi: ${event.error}`;
+                    }
+                    
+                    updateStatus('ready', errorMessage);
+                    resetRecordButton();
+                };
+                
+                recognition.onend = function() {
+                    console.log('Speech recognition ended');
+                    isRecording = false;
+                    updateStatus('ready', 'Sẵn sàng ghi âm');
+                    resetRecordButton();
+                };
+                
+                console.log('Speech recognition initialized successfully');
                 
             } catch (error) {
-                console.error('Microphone permission error:', error);
-                
-                let errorMessage = 'Không thể truy cập microphone. ';
-                if (error.name === 'NotAllowedError') {
-                    errorMessage = '❌ Cần cho phép truy cập microphone trong cài đặt trình duyệt';
-                } else if (error.name === 'NotFoundError') {
-                    errorMessage = '❌ Không tìm thấy microphone trên thiết bị';
-                } else {
-                    errorMessage = '❌ ' + error.message;
-                }
-                
-                updateStatus('ready', errorMessage);
-                updatePermissionStatus(errorMessage);
-                return false;
+                console.error('Failed to initialize speech recognition:', error);
+                document.getElementById('supportText').innerHTML = '❌ Lỗi khởi tạo nhận diện giọng nói';
             }
         }
         
-        // Update permission status display
-        function updatePermissionStatus(message) {
-            const permissionStatus = document.getElementById('permissionStatus');
-            const permissionText = document.getElementById('permissionText');
-            
-            if (message) {
-                permissionText.textContent = message;
-                permissionStatus.style.display = 'block';
-            } else {
-                permissionStatus.style.display = 'none';
-            }
-        }
-        
-        // Get language code suitable for mobile browsers
-        function getMobileLanguageCode(langCode) {
-            const mobileLangMap = {
+        // Get language code for speech recognition
+        function getLanguageCode(langCode) {
+            const langMap = {
                 'vi': 'vi-VN',
                 'en': 'en-US', 
                 'zh': 'zh-CN',
@@ -435,330 +448,36 @@
                 'de': 'de-DE',
                 'es': 'es-ES'
             };
-            return mobileLangMap[langCode] || langCode;
+            return langMap[langCode] || langCode;
         }
         
-        // Safely stop recognition
-        function safeStopRecognition() {
-            if (recognition && isRecording) {
-                console.log('Safely stopping recognition...');
-                gracefulStop = true;
-                clearTimeout(restartTimeout);
-                restartTimeout = null;
-                
-                try {
-                    recognition.stop();
-                } catch (error) {
-                    console.warn('Error stopping recognition:', error);
-                }
-                
-                isRecording = false;
-                setTimeout(() => {
-                    gracefulStop = false;
-                }, 100);
-            }
-        }
-        
-        // Safely start recognition  
-        function safeStartRecognition() {
-            if (!recognition || !recognitionInitialized) {
-                console.log('Recognition not initialized, initializing first...');
-                const initialized = initializeSpeechRecognition();
-                if (!initialized) {
-                    return false;
-                }
-            }
-            
-            if (isRecording) {
-                console.log('Already recording, stopping first...');
-                safeStopRecognition();
-                return false;
-            }
-            
-            try {
-                console.log('Starting recognition...');
-                gracefulStop = false;
-                
-                // Update language if changed
-                const sourceLang = document.getElementById('sourceLanguage').value;
-                const newLangCode = getMobileLanguageCode(sourceLang);
-                if (lastLanguage !== newLangCode) {
-                    recognition.lang = newLangCode;
-                    lastLanguage = newLangCode;
-                    console.log('Updated recognition language to:', newLangCode);
-                }
-                
-                // Clear previous transcript
-                finalTranscript = '';
-                document.getElementById('recognizedText').value = '';
-                document.getElementById('manualText').value = '';
-                
-                recognition.start();
-                return true;
-                
-            } catch (error) {
-                console.error('Error starting recognition:', error);
-                updateStatus('ready', 'Lỗi khởi động: ' + error.message);
-                resetRecordButton();
-                return false;
-            }
-        }
-            if (!checkHTTPS()) {
-                return false;
-            }
-            
-        // Initialize Speech Recognition with mobile optimizations
-        function initializeSpeechRecognition() {
-            if (!checkHTTPS()) {
-                return false;
-            }
-            
-            // Clean up existing recognition
-            if (recognition) {
-                console.log('Cleaning up existing recognition...');
-                try {
-                    recognition.abort();
-                } catch (e) {}
-                recognition = null;
-                recognitionInitialized = false;
-            }
-            
-            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-                const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-                recognition = new SpeechRecognition();
-                
-                // Mobile-optimized settings
-                recognition.continuous = false; // Better for mobile
-                recognition.interimResults = true;
-                recognition.maxAlternatives = 1;
-                
-                // Set language with mobile-specific codes
-                const sourceLang = document.getElementById('sourceLanguage').value;
-                recognition.lang = getMobileLanguageCode(sourceLang);
-                lastLanguage = recognition.lang;
-                
-                recognition.onstart = function() {
-                    console.log('Speech recognition started successfully');
-                    updateStatus('listening', 'Đang nghe...');
-                    document.getElementById('recordButton').innerHTML = '<i class="fas fa-stop"></i>';
-                    document.getElementById('recordButton').classList.add('recording');
-                    isRecording = true;
-                    
-                    // Mobile auto-restart timer (shorter for better compatibility)
-                    clearTimeout(restartTimeout);
-                    restartTimeout = setTimeout(() => {
-                        if (isRecording && !gracefulStop) {
-                            console.log('Auto-restarting recognition for mobile compatibility');
-                            try {
-                                recognition.stop();
-                                setTimeout(() => {
-                                    if (isRecording && !gracefulStop) {
-                                        recognition.start();
-                                    }
-                                }, 200);
-                            } catch (error) {
-                                console.warn('Auto-restart error:', error);
-                            }
-                        }
-                    }, 8000); // Reduced timeout for better mobile support
-                };
-                
-                recognition.onresult = function(event) {
-                    let interimTranscript = '';
-                    let tempFinal = '';
-                    
-                    for (let i = event.resultIndex; i < event.results.length; i++) {
-                        const transcript = event.results[i][0].transcript;
-                        if (event.results[i].isFinal) {
-                            tempFinal += transcript;
-                        } else {
-                            interimTranscript += transcript;
-                        }
-                    }
-                    
-                    if (tempFinal) {
-                        finalTranscript += tempFinal;
-                    }
-                    
-                    const fullText = finalTranscript + interimTranscript;
-                    document.getElementById('recognizedText').value = fullText;
-                    document.getElementById('manualText').value = fullText;
-                    enableTranslateButton();
-                    
-                    console.log('Recognition result:', fullText);
-                };
-                
-                recognition.onerror = function(event) {
-                    console.error('Speech recognition error:', event.error, event);
-                    clearTimeout(restartTimeout);
-                    restartTimeout = null;
-                    
-                    let errorMessage = 'Lỗi nhận diện giọng nói';
-                    let shouldReset = true;
-                    
-                    switch(event.error) {
-                        case 'not-allowed':
-                            errorMessage = 'Cần cấp quyền microphone. Vui lòng tải lại trang và cho phép.';
-                            microphonePermission = false;
-                            break;
-                        case 'no-speech':
-                            errorMessage = 'Không nghe thấy giọng nói. Thử lại...';
-                            shouldReset = false; // Don't reset, let user try again quickly
-                            break;
-                        case 'audio-capture':
-                            errorMessage = 'Không thể truy cập microphone. Kiểm tra kết nối microphone.';
-                            break;
-                        case 'network':
-                            errorMessage = 'Lỗi mạng. Kiểm tra kết nối internet.';
-                            break;
-                        case 'service-not-allowed':
-                            errorMessage = 'Dịch vụ không khả dụng. Thử lại sau.';
-                            break;
-                        case 'aborted':
-                            if (!gracefulStop) {
-                                errorMessage = 'Ghi âm bị gián đoạn. Thử lại...';
-                            } else {
-                                shouldReset = false; // Graceful stop, don't show error
-                            }
-                            break;
-                        default:
-                            errorMessage = `Lỗi: ${event.error}`;
-                    }
-                    
-                    if (shouldReset && !gracefulStop) {
-                        updateStatus('ready', errorMessage);
-                        resetRecordButton();
-                    }
-                };
-                
-                recognition.onend = function() {
-                    console.log('Speech recognition ended, gracefulStop:', gracefulStop, 'isRecording:', isRecording);
-                    clearTimeout(restartTimeout);
-                    restartTimeout = null;
-                    
-                    if (gracefulStop) {
-                        // User intentionally stopped
-                        isRecording = false;
-                        updateStatus('ready', 'Đã dừng ghi âm');
-                        resetRecordButton();
-                        return;
-                    }
-                    
-                    if (isRecording) {
-                        // Unexpected end, try to restart (mobile browsers often auto-stop)
-                        console.log('Unexpected end, attempting restart...');
-                        setTimeout(() => {
-                            if (isRecording && !gracefulStop) {
-                                try {
-                                    console.log('Restarting recognition after unexpected end');
-                                    recognition.start();
-                                } catch (error) {
-                                    console.error('Failed to restart recognition:', error);
-                                    isRecording = false;
-                                    updateStatus('ready', 'Ghi âm kết thúc. Thử lại nếu cần.');
-                                    resetRecordButton();
-                                }
-                            }
-                        }, 200); // Longer delay for mobile stability
-                    } else {
-                        updateStatus('ready', 'Sẵn sàng ghi âm');
-                        resetRecordButton();
-                    }
-                };
-                
-                recognitionInitialized = true;
-                console.log('Speech recognition initialized successfully');
-                return true;
-                
-            } else {
-                const errorMsg = 'Trình duyệt không hỗ trợ nhận diện giọng nói. Vui lòng sử dụng Chrome, Edge hoặc Safari mới nhất.';
-                updateStatus('ready', errorMsg);
-                document.getElementById('recordButton').disabled = true;
-                return false;
-            }
-        }
-        
-        // Toggle recording with mobile optimizations
-        async function toggleRecording() {
-            console.log('Toggle recording called, isRecording:', isRecording);
-            
-            // Prevent double-clicks
-            const recordButton = document.getElementById('recordButton');
-            if (recordButton.disabled) {
-                console.log('Button disabled, ignoring click');
+        // Toggle recording
+        function toggleRecording() {
+            if (!recognition) {
+                alert('Speech recognition không khả dụng!');
                 return;
-            }
-            
-            recordButton.disabled = true;
-            setTimeout(() => { recordButton.disabled = false; }, 1000); // Re-enable after 1 second
-            
-            if (!microphonePermission) {
-                updateStatus('processing', 'Đang xin quyền microphone...');
-                const hasPermission = await requestMicrophonePermission();
-                if (!hasPermission) {
-                    return;
-                }
             }
             
             if (isRecording) {
                 // Stop recording
-                console.log('Stopping recording...');
-                safeStopRecognition();
+                recognition.stop();
             } else {
                 // Start recording
-                console.log('Starting recording...');
-                updateStatus('processing', 'Đang khởi động...');
-                
-                const started = safeStartRecognition();
-                if (!started) {
-                    updateStatus('ready', 'Không thể khởi động ghi âm. Thử lại...');
-                    resetRecordButton();
+                try {
+                    // Update language
+                    recognition.lang = getLanguageCode(document.getElementById('sourceLanguage').value);
+                    
+                    // Clear previous transcript
+                    finalTranscript = '';
+                    document.getElementById('recognizedText').value = '';
+                    document.getElementById('manualText').value = '';
+                    
+                    // Start recognition
+                    recognition.start();
+                } catch (error) {
+                    console.error('Error starting recognition:', error);
+                    alert('Lỗi khởi động ghi âm: ' + error.message);
                 }
-            }
-        }
-        
-        // Add touch event support for mobile
-        function addMobileEventListeners() {
-            const recordButton = document.getElementById('recordButton');
-            
-            // Remove existing event listeners first
-            recordButton.removeEventListener('click', toggleRecording);
-            recordButton.removeEventListener('touchstart', handleTouchStart);
-            recordButton.removeEventListener('touchend', handleTouchEnd);
-            
-            // Add touch events for better mobile support
-            recordButton.addEventListener('touchstart', handleTouchStart, {passive: false});
-            recordButton.addEventListener('touchend', handleTouchEnd, {passive: false});
-            
-            // Also keep click event for desktop
-            recordButton.addEventListener('click', handleClick);
-            
-            // Prevent double events on mobile
-            recordButton.addEventListener('touchcancel', handleTouchCancel);
-        }
-        
-        function handleTouchStart(e) {
-            e.preventDefault();
-            const recordButton = document.getElementById('recordButton');
-            recordButton.style.transform = 'scale(0.95)';
-        }
-        
-        function handleTouchEnd(e) {
-            e.preventDefault();
-            const recordButton = document.getElementById('recordButton');
-            recordButton.style.transform = 'scale(1)';
-            toggleRecording();
-        }
-        
-        function handleTouchCancel(e) {
-            const recordButton = document.getElementById('recordButton');
-            recordButton.style.transform = 'scale(1)';
-        }
-        
-        function handleClick(e) {
-            // Only process click if it's not from touch
-            if (e.pointerType !== 'touch') {
-                toggleRecording();
             }
         }
         
@@ -777,12 +496,21 @@
             document.getElementById('recordButton').classList.remove('recording');
         }
         
-        // Enable translate button when text is available
-        function enableTranslateButton() {
+        // Sync manual text with recognized text
+        function syncTextAndCheck() {
+            const manualText = document.getElementById('manualText').value;
+            document.getElementById('recognizedText').value = manualText;
+            finalTranscript = manualText;
+            checkTranslateButton();
+        }
+        
+        // Check and update translate button state
+        function checkTranslateButton() {
             const recognizedText = document.getElementById('recognizedText').value.trim();
             const manualText = document.getElementById('manualText').value.trim();
             const translateButton = document.getElementById('translateButton');
             
+            // Enable button if there's any text
             if (recognizedText || manualText) {
                 translateButton.disabled = false;
                 translateButton.classList.remove('btn-secondary');
@@ -792,18 +520,6 @@
                 translateButton.classList.add('btn-secondary');
                 translateButton.classList.remove('translate-btn');
             }
-        }
-        
-        // Sync manual text with recognized text
-        function syncWithRecognized() {
-            const manualText = document.getElementById('manualText').value;
-            const recognizedText = document.getElementById('recognizedText');
-            
-            if (manualText) {
-                recognizedText.value = manualText;
-                finalTranscript = manualText;
-            }
-            enableTranslateButton();
         }
         
         // Translate text
@@ -867,7 +583,7 @@
             } finally {
                 // Reset button
                 translateButton.innerHTML = originalText;
-                translateButton.disabled = false;
+                checkTranslateButton(); // Re-enable if text is available
             }
         }
         
@@ -913,107 +629,8 @@
             
             // Update recognition language if initialized
             if (recognition) {
-                recognition.lang = sourceSelect.value;
+                recognition.lang = getLanguageCode(sourceSelect.value);
             }
-        }
-        
-        // Navigation function - ensure it works properly
-        function goToHome() {
-            console.log('Navigating to home page...');
-            try {
-                window.location.href = '/';
-            } catch (error) {
-                console.error('Navigation error:', error);
-                // Fallback
-                window.location = '/';
-            }
-        }
-        
-        // Initialize on page load with mobile optimizations
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Page loaded, initializing...');
-            
-            // Check HTTPS requirement
-            checkHTTPS();
-            
-            // Add mobile event listeners
-            addMobileEventListeners();
-            
-            // Check for speech recognition support
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                updateStatus('ready', 'Trình duyệt không hỗ trợ nhận diện giọng nói');
-                document.getElementById('recordButton').disabled = true;
-                
-                // Show alternative message for mobile browsers
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-info mt-3';
-                alertDiv.innerHTML = `
-                    <i class="fas fa-info-circle"></i> 
-                    <strong>Gợi ý:</strong> Sử dụng Chrome, Edge hoặc Safari để có trải nghiệm tốt nhất với Voice Recognition.
-                    Bạn vẫn có thể nhập văn bản thủ công để dịch.
-                `;
-                document.querySelector('.main-card').appendChild(alertDiv);
-            } else {
-                // Pre-request microphone permission on page load for smoother UX
-                setTimeout(async () => {
-                    console.log('Pre-requesting microphone permission...');
-                    await requestMicrophonePermission();
-                    
-                    // Pre-initialize recognition for faster first use
-                    if (!recognitionInitialized) {
-                        const initialized = initializeSpeechRecognition();
-                        console.log('Pre-initialization result:', initialized);
-                    }
-                }, 1000);
-            }
-            
-            // Enable translate button check
-            enableTranslateButton();
-            
-            // Add focus events for better mobile keyboard handling
-            const textAreas = document.querySelectorAll('textarea');
-            textAreas.forEach(textarea => {
-                textarea.addEventListener('focus', function() {
-                    // Small delay to ensure mobile keyboard appears before scrolling
-                    setTimeout(() => {
-                        this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 300);
-                });
-            });
-            
-            // Mobile-specific improvements
-            if (isMobileDevice()) {
-                // Show mobile instructions
-                const mobileInstructions = document.getElementById('mobileInstructions');
-                if (mobileInstructions) {
-                    mobileInstructions.classList.remove('d-none');
-                    mobileInstructions.style.display = 'block';
-                }
-                
-                // Adjust button size for mobile
-                const recordButton = document.getElementById('recordButton');
-                recordButton.style.width = '100px';
-                recordButton.style.height = '100px';
-                recordButton.style.fontSize = '2rem';
-                
-                // Add haptic feedback for mobile
-                if ('vibrate' in navigator) {
-                    recordButton.addEventListener('touchstart', () => {
-                        navigator.vibrate(50); // Short vibration
-                    });
-                }
-                
-                // Show mobile-specific status
-                updatePermissionStatus('Chạm vào nút microphone để bắt đầu');
-            }
-            
-            console.log('Voice translator initialization complete');
-        });
-        
-        // Detect mobile device
-        function isMobileDevice() {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                   (window.innerWidth <= 768);
         }
     </script>
 </body>
