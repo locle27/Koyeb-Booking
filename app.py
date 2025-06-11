@@ -542,11 +542,19 @@ def save_extracted_bookings():
                 load_data.cache_clear()
                 print("[CACHE] Cache cleared successfully after saving")
                 
-                # Verify data was saved by checking fresh data
+                # Verify data was saved by checking fresh data  
                 print("[VERIFY] Loading fresh data to verify save...")
                 fresh_df, _ = load_data()
-                recent_bookings = fresh_df[fresh_df['Số đặt phòng'].isin(saved_booking_ids)] if not fresh_df.empty else pd.DataFrame()
-                print(f"[VERIFY] Found {len(recent_bookings)} newly saved bookings in fresh data")
+                if not fresh_df.empty:
+                    print(f"[VERIFY] Total bookings in fresh data: {len(fresh_df)}")
+                    print(f"[VERIFY] Looking for booking IDs: {saved_booking_ids}")
+                    print(f"[VERIFY] Sample booking IDs in sheet: {fresh_df['Số đặt phòng'].head().tolist()}")
+                    recent_bookings = fresh_df[fresh_df['Số đặt phòng'].isin(saved_booking_ids)]
+                    print(f"[VERIFY] Found {len(recent_bookings)} newly saved bookings in fresh data")
+                    if len(recent_bookings) > 0:
+                        print(f"[VERIFY] Success! New booking found: {recent_bookings['Tên người đặt'].tolist()}")
+                else:
+                    print("[VERIFY] Fresh data is empty")
                 
                 success_message = f'[SUCCESS] Đã lưu thành công {len(formatted_bookings)} đặt phòng mới!'
                 if errors:
