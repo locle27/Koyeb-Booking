@@ -170,6 +170,19 @@ function processPhoto(imageData) {
     .then(response => response.json())
     .then(data => {
         document.getElementById('photo-processing').style.display = 'none';
+        
+        // Check if multiple bookings were extracted
+        if (data.bookings && Array.isArray(data.bookings) && data.bookings.length > 1) {
+            // Multiple bookings detected - redirect to dedicated page
+            alert(`🎉 Tìm thấy ${data.bookings.length} booking! Chuyển tới trang xử lý đa booking...`);
+            
+            // Store data in sessionStorage and redirect
+            sessionStorage.setItem('extractedBookings', JSON.stringify(data));
+            window.location.href = '/bookings/add_from_image';
+            return;
+        }
+        
+        // Single booking - auto-fill form as before
         if (data.bookings && data.bookings[0] && !data.bookings[0].error) {
             const booking = data.bookings[0];
             // Auto-fill form
