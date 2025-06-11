@@ -22,12 +22,20 @@ class EmailReminderService:
         self.email_password = os.getenv("EMAIL_PASSWORD", "")
         self.reminder_email = os.getenv("REMINDER_EMAIL", "loc22100302@gmail.com")
         
+        # Check if email reminders are explicitly disabled
+        self.enabled = os.getenv("EMAIL_REMINDERS_ENABLED", "true").lower() != "false"
+        
         # Add properties for test compatibility
         self.from_email = self.email_user
         self.to_emails = [self.reminder_email]
-        self.smtp_configured = bool(self.email_user and self.email_password)
+        self.smtp_configured = bool(self.email_user and self.email_password and self.enabled)
         
-        print(f"[EMAIL] Email service initialized - SMTP configured: {self.smtp_configured}")
+        if not self.enabled:
+            print("[EMAIL] Email reminders DISABLED via EMAIL_REMINDERS_ENABLED=false")
+        elif not self.smtp_configured:
+            print("[EMAIL] Email service initialized - SMTP NOT configured (missing EMAIL_USER/PASSWORD)")
+        else:
+            print(f"[EMAIL] Email service initialized - SMTP configured: {self.smtp_configured}")
         
     def _create_checkin_reminder_email(self, booking_data: Dict):
         """Create check-in reminder email content for testing"""
@@ -60,6 +68,7 @@ class EmailReminderService:
         return subject, body
         
     def send_email(self, subject: str, body: str, to_email: str = None) -> bool:
+    def send_email(self, subject: str, body: str, to_email: str = None) -> bool:
         """
         Gửi email với subject và body được chỉ định
         
@@ -72,12 +81,19 @@ class EmailReminderService:
             bool: True nếu gửi thành công, False nếu có lỗi
         """
         try:
+            # Check if email is disabled
+            if not self.enabled:
+                print(f"[EMAIL] SKIPPED (disabled): {subject}")
+                return True  # Return True to not break the flow
+            
             if not to_email:
                 to_email = self.reminder_email
                 
             # Kiểm tra cấu hình email
             if not self.email_user or not self.email_password:
-                print("❌ Email configuration missing. Please check EMAIL_USER and EMAIL_PASSWORD in .env")
+                print(f"[EMAIL] SKIPPED (no config): {subject}")
+                print("   💡 To enable emails: Set EMAIL_USER and EMAIL_PASSWORD in .env")
+                print("   📝 Guide: Use Gmail App Password, not real password!")
                 return False
             
             # Tạo message
@@ -96,11 +112,13 @@ class EmailReminderService:
                 server.login(self.email_user, self.email_password)
                 server.send_message(msg)
                 
-            print(f"✅ Email sent successfully to {to_email}")
+            print(f"[EMAIL] ✅ Sent successfully to {to_email}: {subject}")
             return True
             
         except Exception as e:
-            print(f"❌ Error sending email: {str(e)}")
+            print(f"[EMAIL] ❌ Error sending: {str(e)}")
+            print(f"   Subject: {subject}")
+            print("   💡 Check EMAIL_USER and EMAIL_PASSWORD in .env")
             return False
     
     def send_checkin_reminder(self, booking_data: Dict) -> bool:
