@@ -169,13 +169,70 @@ def export_data_to_new_sheet(df: pd.DataFrame, gcp_creds_file_path: str, sheet_i
     return worksheet_name
 
 def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_file_path: str, sheet_id: str, worksheet_name: str):
-    gc = _get_gspread_client(gcp_creds_file_path)
-    spreadsheet = gc.open_by_key(sheet_id)
-    worksheet = spreadsheet.worksheet(worksheet_name)
-    header = worksheet.row_values(1)
-    rows_to_append = [[booking.get(col, '') for col in header] for booking in bookings]
-    if rows_to_append:
-        worksheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
+    """
+    Enhanced version với debug chi tiết để fix vấn đề mapping columns
+    """
+    try:
+        print(f"🔄 Starting append {len(bookings)} bookings to Google Sheet")
+        
+        gc = _get_gspread_client(gcp_creds_file_path)
+        spreadsheet = gc.open_by_key(sheet_id)
+        worksheet = spreadsheet.worksheet(worksheet_name)
+        
+        # Debug: Print first booking structure
+        if bookings:
+            print(f"📝 Sample booking data keys: {list(bookings[0].keys())}")
+        
+        # Get header from Google Sheet
+        header = worksheet.row_values(1)
+        print(f"📊 Google Sheet header: {header}")
+        
+        # Debug: Check for missing columns
+        missing_columns = []
+        for booking in bookings:
+            for key in booking.keys():
+                if key not in header:
+                    missing_columns.append(key)
+        
+        if missing_columns:
+            print(f"⚠️ WARNING: Keys in booking data not found in sheet header: {set(missing_columns)}")
+        
+        # Create rows with proper mapping
+        rows_to_append = []
+        for i, booking in enumerate(bookings):
+            row = []
+            for col in header:
+                value = booking.get(col, '')
+                # Special handling for dates - ensure proper format
+                if 'Date' in col and value:
+                    # Ensure date is in YYYY-MM-DD format
+                    try:
+                        if isinstance(value, str) and value.strip():
+                            # Validate date format
+                            from datetime import datetime
+                            parsed_date = datetime.strptime(value.strip(), '%Y-%m-%d')
+                            value = parsed_date.strftime('%Y-%m-%d')
+                    except (ValueError, AttributeError):
+                        print(f"⚠️ Invalid date format for {col}: {value} in booking {i+1}")
+                        value = ''  # Set empty if invalid
+                
+                row.append(str(value) if value is not None else '')
+            
+            rows_to_append.append(row)
+            print(f"✅ Mapped booking {i+1}: {booking.get('Tên người đặt', 'Unknown')}")
+        
+        if rows_to_append:
+            print(f"💾 Writing {len(rows_to_append)} rows to Google Sheet...")
+            worksheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
+            print(f"🎉 Successfully appended {len(rows_to_append)} bookings to sheet!")
+        else:
+            print("❌ No valid rows to append")
+            
+    except Exception as e:
+        print(f"💥 Error in append_multiple_bookings_to_sheet: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def update_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: str, booking_id: str, new_data: dict) -> bool:
     """
