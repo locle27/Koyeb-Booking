@@ -5,8 +5,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 import pandas as pd
-import plotly
-import plotly.express as px
+# plotly imports moved to dashboard_routes.py
 from datetime import datetime, timedelta
 import calendar
 import base64
@@ -32,6 +31,9 @@ from logic import (
     import_message_templates_from_gsheet,
     export_message_templates_to_gsheet
 )
+
+# Import dashboard logic module
+from dashboard_routes import process_dashboard_data
 
 # Market Price Analyzer - REMOVED per user request
 # from market_price_analyzer import (
@@ -190,12 +192,12 @@ def load_data():
 
 @app.route('/')
 def dashboard():
+    """Optimized dashboard route using modular approach"""
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
 
+    # Set default date range to current month
     if not start_date_str or not end_date_str:
-        # === PHẦN SỬA LỖI QUAN TRỌNG ===
-        # Lấy ngày và giờ hiện tại, sau đó chỉ lấy phần ngày
         today_full = datetime.today()
         start_date = today_full.replace(day=1)
         _, last_day = calendar.monthrange(today_full.year, today_full.month)
@@ -204,473 +206,26 @@ def dashboard():
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
 
+    # Load data and prepare dashboard
     df, _ = load_data()
-    
-    # Gọi hàm logic với các tham số sắp xếp
     sort_by = request.args.get('sort_by', 'Tháng')
     sort_order = request.args.get('sort_order', 'desc')
     dashboard_data = prepare_dashboard_data(df, start_date, end_date, sort_by, sort_order)
 
-    # Chuẩn bị dữ liệu cho template
-    monthly_revenue_list = dashboard_data.get('monthly_revenue_all_time', pd.DataFrame()).to_dict('records')
-    genius_stats_list = dashboard_data.get('genius_stats', pd.DataFrame()).to_dict('records')
-    monthly_guests_list = dashboard_data.get('monthly_guests_all_time', pd.DataFrame()).to_dict('records')
-    weekly_guests_list = dashboard_data.get('weekly_guests_all_time', pd.DataFrame()).to_dict('records')
-    monthly_collected_revenue_list = dashboard_data.get('monthly_collected_revenue', pd.DataFrame()).to_dict('records')
+    # Process all dashboard data using modular approach
+    processed_data = process_dashboard_data(df, start_date, end_date, sort_by, sort_order, dashboard_data)
 
-    # Tạo biểu đồ doanh thu hàng tháng với thiết kế đẹp hơn
-    monthly_revenue_df = pd.DataFrame(monthly_revenue_list)
-    monthly_revenue_chart_json = {}
-    
-    if not monthly_revenue_df.empty:
-        print(f"DEBUG: Creating chart with {len(monthly_revenue_df)} data points")
-        print(f"DEBUG: Data columns: {monthly_revenue_df.columns.tolist()}")
-        print(f"DEBUG: Sample data: {monthly_revenue_df.head()}")
-        
-        # Sắp xếp lại theo tháng để biểu đồ đường đúng thứ tự
-        monthly_revenue_df_sorted = monthly_revenue_df.sort_values('Tháng')
-        
-        # Tạo biểu đồ combo: line + bar
-        fig = px.line(monthly_revenue_df_sorted, x='Tháng', y='Doanh thu', 
-                     title='📊 Doanh thu Hàng tháng', markers=True)
-        
-        # Thêm bar chart cho cùng dữ liệu
-        fig.add_bar(x=monthly_revenue_df_sorted['Tháng'], 
-                   y=monthly_revenue_df_sorted['Doanh thu'],
-                   name='Doanh thu',
-                   opacity=0.3,
-                   yaxis='y')
-        
-        # Cải thiện layout
-        fig.update_layout(
-            title={
-                'text': '📊 Doanh thu Hàng tháng (Tất cả thời gian)', 
-                'x': 0.5,
-                'font': {'size': 18, 'family': 'Arial, sans-serif', 'color': '#2c3e50'}
-            },
-            xaxis_title='Tháng',
-            yaxis_title='Doanh thu (VND)',
-            hovermode='x unified',
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font={'family': 'Arial, sans-serif', 'size': 12},
-            margin=dict(l=60, r=30, t=80, b=50),
-            height=400,
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            )
-        )
-        
-        # Cải thiện axes
-        fig.update_xaxes(
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(128,128,128,0.2)',
-            showline=True,
-            linewidth=1,
-            linecolor='rgba(128,128,128,0.5)'
-        )
-        
-        fig.update_yaxes(
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(128,128,128,0.2)',
-            showline=True,
-            linewidth=1,
-            linecolor='rgba(128,128,128,0.5)',
-            tickformat=',.0f'
-        )
-        
-        # Cải thiện line traces
-        fig.update_traces(
-            line=dict(width=3, color='#3498db'),
-            marker=dict(size=8, color='#e74c3c', line=dict(width=2, color='white')),
-            selector=dict(type='scatter')
-        )
-        
-        # Cải thiện bar traces  
-        fig.update_traces(
-            marker=dict(color='#3498db', opacity=0.3),
-            selector=dict(type='bar')
-        )
-        
-        monthly_revenue_chart_json = json.loads(fig.to_json())
-        print(f"DEBUG: Chart JSON created successfully")
-    else:
-        print("DEBUG: No monthly revenue data for chart")
-
-    # ===== LOGIC MỚI: TÍNH TOÁN KHÁCH CHƯA THU TIỀN QUÁ HẠN =====
-    overdue_unpaid_guests = []
-    overdue_total_amount = 0
-    monthly_revenue_with_unpaid = []
-    
-    # ===== LOGIC MỚI: PHÁT HIỆN NGÀY CÓ QUÁ 4 KHÁCH CHECK-IN =====
-    overcrowded_days = []
-    
-    try:
-        if not df.empty and 'Check-in Date' in df.columns:
-            today = datetime.today().date()
-            
-            # Đảm bảo Check-in Date là datetime
-            if df['Check-in Date'].dtype == 'object':
-                df['Check-in Date'] = pd.to_datetime(df['Check-in Date'], errors='coerce')
-            
-            # Find overdue unpaid guests (checked-in but not paid)
-            try:
-                # Safer approach: work with a clean copy and convert dates properly
-                df_work = df.copy()
-                
-                # Ensure datetime conversion with explicit handling
-                if 'Check-in Date' in df_work.columns:
-                    # Convert to datetime, handle various formats
-                    df_work['Check-in Date'] = pd.to_datetime(df_work['Check-in Date'], errors='coerce', dayfirst=True)
-                    
-                    # Only proceed if we have valid datetime data
-                    valid_dates_mask = df_work['Check-in Date'].notna()
-                    if valid_dates_mask.any():
-                        # Filter to only rows with valid dates first
-                        df_valid = df_work[valid_dates_mask].copy()
-                        
-                        print(f"DEBUG: Total records with valid dates: {len(df_valid)}")
-                        print(f"DEBUG: Today's date: {today}")
-                        
-                        # Debug: Check what collectors exist
-                        collectors = df_valid['Người thu tiền'].unique()
-                        print(f"DEBUG: Unique collectors: {collectors}")
-                        
-                        # Now create overdue mask on clean data
-                        past_checkin = df_valid['Check-in Date'].dt.date <= today
-                        
-                        # Handle null collectors better - include nan, N/A, empty string, None
-                        collected_values = ['LOC LE', 'THAO LE']
-                        collector_series = df_valid['Người thu tiền'].fillna('').astype(str)
-                        not_collected = ~collector_series.isin(collected_values)
-                        
-                        not_cancelled = df_valid['Tình trạng'] != 'Đã hủy'
-                        
-                        print(f"DEBUG: Past check-in: {past_checkin.sum()} records")
-                        print(f"DEBUG: Not collected: {not_collected.sum()} records") 
-                        print(f"DEBUG: Not cancelled: {not_cancelled.sum()} records")
-                        
-                        overdue_mask = past_checkin & not_collected & not_cancelled
-                        print(f"DEBUG: Combined overdue mask: {overdue_mask.sum()} records")
-                        
-                        overdue_df = df_valid[overdue_mask].copy()
-                        
-                        if not overdue_df.empty:
-                            # Calculate overdue days safely - convert date to days manually
-                            try:
-                                checkin_dates = overdue_df['Check-in Date'].dt.date
-                                days_overdue_list = []
-                                for date in checkin_dates:
-                                    try:
-                                        days = (today - date).days
-                                        days_overdue_list.append(max(0, days))  # Ensure non-negative
-                                    except:
-                                        days_overdue_list.append(0)  # Fallback for any date issues
-                                        
-                                overdue_df['days_overdue'] = days_overdue_list
-                                print(f"DEBUG: Days overdue calculated: {days_overdue_list}")
-                                
-                            except Exception as days_error:
-                                print(f"DEBUG: Error calculating days: {days_error}")
-                                overdue_df['days_overdue'] = 0  # Fallback
-                            
-                            # Sort by overdue days descending
-                            overdue_df = overdue_df.sort_values('days_overdue', ascending=False)
-                            
-                            # Safe sum calculation BEFORE converting to dict
-                            if 'Tổng thanh toán' in overdue_df.columns:
-                                overdue_total_amount = pd.to_numeric(overdue_df['Tổng thanh toán'], errors='coerce').fillna(0).sum()
-                            
-                            # Convert to list AFTER all calculations
-                            overdue_unpaid_guests = overdue_df.to_dict('records')
-                            
-                            # DEBUG: Print detailed info about overdue guests
-                            print(f"DEBUG: Found {len(overdue_unpaid_guests)} overdue unpaid guests, total: {overdue_total_amount:,.0f}d")
-                            for i, guest in enumerate(overdue_unpaid_guests[:3]):  # Print first 3
-                                print(f"DEBUG Guest {i+1}: {guest.get('Tên người đặt', 'N/A')} - {guest.get('days_overdue', 0)} days - {guest.get('Tổng thanh toán', 0)}d")
-                                print(f"  Check-in: {guest.get('Check-in Date')}, Collector: '{guest.get('Người thu tiền', 'N/A')}'")
-                        else:
-                            print("DEBUG: No overdue guests found after filtering")
-                            
-                    else:
-                        print("DEBUG: No valid dates found in data")
-                
-            except Exception as overdue_error:
-                print(f"WARNING: Error calculating overdue guests: {overdue_error}")
-                import traceback
-                traceback.print_exc()
-                overdue_unpaid_guests = []
-                overdue_total_amount = 0
-            
-            # Tính toán doanh thu theo tháng có bao gồm số khách chưa thu
-            try:
-                df_period = df[
-                    (df['Check-in Date'] >= pd.Timestamp(start_date)) & 
-                    (df['Check-in Date'] <= pd.Timestamp(end_date)) &
-                    (df['Check-in Date'] <= pd.Timestamp.now()) &
-                    (df['Check-in Date'].notna())
-                ].copy()
-                
-                if not df_period.empty:
-                    # Tính doanh thu đã thu (LOC LE và THAO LE)
-                    collected_df = df_period[
-                        df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE'])
-                    ].copy()
-                    
-                    # Tính doanh thu chưa thu (các giá trị khác hoặc rỗng)
-                    uncollected_df = df_period[
-                        ~df_period['Người thu tiền'].isin(['LOC LE', 'THAO LE'])
-                    ].copy()
-                    
-                    # Nhóm theo tháng - Đã thu
-                    if not collected_df.empty:
-                        collected_df['Month_Period'] = collected_df['Check-in Date'].dt.to_period('M')
-                        collected_monthly = collected_df.groupby('Month_Period').agg({
-                            'Tổng thanh toán': 'sum'
-                        }).reset_index()
-                        collected_monthly['Tháng'] = collected_monthly['Month_Period'].dt.strftime('%Y-%m')
-                    else:
-                        collected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán'])
-                    
-                    # Nhóm theo tháng - Chưa thu
-                    if not uncollected_df.empty:
-                        uncollected_df['Month_Period'] = uncollected_df['Check-in Date'].dt.to_period('M')
-                        uncollected_monthly = uncollected_df.groupby('Month_Period').agg({
-                            'Tổng thanh toán': 'sum',
-                            'Số đặt phòng': 'count'  # Đếm số khách chưa thu
-                        }).reset_index()
-                        uncollected_monthly['Tháng'] = uncollected_monthly['Month_Period'].dt.strftime('%Y-%m')
-                        uncollected_monthly = uncollected_monthly.rename(columns={'Số đặt phòng': 'Số khách chưa thu'})
-                    else:
-                        uncollected_monthly = pd.DataFrame(columns=['Tháng', 'Tổng thanh toán', 'Số khách chưa thu'])
-                    
-                    # Merge dữ liệu
-                    if not collected_monthly.empty and not uncollected_monthly.empty:
-                        merged_data = pd.merge(
-                            collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'}),
-                            uncollected_monthly[['Tháng', 'Tổng thanh toán', 'Số khách chưa thu']].rename(columns={'Tổng thanh toán': 'Chưa thu'}),
-                            on='Tháng', how='outer'
-                        ).fillna(0)
-                    elif not collected_monthly.empty:
-                        merged_data = collected_monthly[['Tháng', 'Tổng thanh toán']].rename(columns={'Tổng thanh toán': 'Đã thu'})
-                        merged_data['Chưa thu'] = 0
-                        merged_data['Số khách chưa thu'] = 0
-                    elif not uncollected_monthly.empty:
-                        merged_data = uncollected_monthly[['Tháng', 'Tổng thanh toán', 'Số khách chưa thu']].rename(columns={'Tổng thanh toán': 'Chưa thu'})
-                        merged_data['Đã thu'] = 0
-                    else:
-                        merged_data = pd.DataFrame(columns=['Tháng', 'Đã thu', 'Chưa thu', 'Số khách chưa thu'])
-                    
-                    if not merged_data.empty:
-                        # Sắp xếp theo tháng
-                        merged_data = merged_data.sort_values('Tháng')
-                        monthly_revenue_with_unpaid = merged_data.to_dict('records')
-                    
-                    print(f"DEBUG: Monthly revenue with unpaid data created: {len(monthly_revenue_with_unpaid)} months")
-                    
-            except Exception as monthly_error:
-                print(f"WARNING: Error calculating monthly revenue with unpaid: {monthly_error}")
-                monthly_revenue_with_unpaid = []
-        
-        # ===== LOGIC MỚI: PHÁT HIỆN NGÀY CÓ QUÁ 4 KHÁCH CHECK-IN =====
-        try:
-            if not df.empty and 'Check-in Date' in df.columns:
-                # Lấy dữ liệu trong khoảng thời gian từ 30 ngày trước đến 30 ngày sau
-                today = datetime.today()
-                check_start = today - timedelta(days=30)
-                check_end = today + timedelta(days=30)
-                
-                # Đảm bảo Check-in Date là datetime
-                df_check = df.copy()
-                df_check['Check-in Date'] = pd.to_datetime(df_check['Check-in Date'], errors='coerce', dayfirst=True)
-                
-                # Lọc dữ liệu trong khoảng thời gian check và không bị hủy
-                valid_checkins = df_check[
-                    (df_check['Check-in Date'].notna()) &
-                    (df_check['Check-in Date'] >= pd.Timestamp(check_start)) &
-                    (df_check['Check-in Date'] <= pd.Timestamp(check_end)) &
-                    (df_check['Tình trạng'] != 'Đã hủy')
-                ].copy()
-                
-                if not valid_checkins.empty:
-                    # Đếm số khách check-in theo ngày
-                    daily_checkins = valid_checkins.groupby(valid_checkins['Check-in Date'].dt.date).agg({
-                        'Tên người đặt': 'count',
-                        'Số đặt phòng': lambda x: list(x),  # Danh sách booking IDs
-                        'Tên người đặt': lambda x: list(x)  # Danh sách tên khách
-                    }).rename(columns={'Tên người đặt': 'guest_count'})
-                    
-                    # Fix column naming issue
-                    daily_checkins = valid_checkins.groupby(valid_checkins['Check-in Date'].dt.date).agg({
-                        'Số đặt phòng': ['count', lambda x: list(x)],
-                        'Tên người đặt': lambda x: list(x)
-                    })
-                    
-                    # Flatten column names
-                    daily_checkins.columns = ['guest_count', 'booking_ids', 'guest_names']
-                    
-                    # Tìm ngày có hơn 4 khách
-                    overcrowded_dates = daily_checkins[daily_checkins['guest_count'] > 4]
-                    
-                    overcrowded_days = []
-                    for date, row in overcrowded_dates.iterrows():
-                        days_from_today = (date - today.date()).days
-                        
-                        # Phân loại mức độ cảnh báo
-                        if days_from_today < 0:
-                            alert_level = 'past'
-                            alert_color = 'secondary'
-                        elif days_from_today <= 3:
-                            alert_level = 'urgent'
-                            alert_color = 'danger'
-                        elif days_from_today <= 7:
-                            alert_level = 'warning'
-                            alert_color = 'warning'
-                        else:
-                            alert_level = 'info'
-                            alert_color = 'info'
-                        
-                        overcrowded_days.append({
-                            'date': date,
-                            'guest_count': row['guest_count'],
-                            'booking_ids': row['booking_ids'],
-                            'guest_names': row['guest_names'],
-                            'days_from_today': days_from_today,
-                            'alert_level': alert_level,
-                            'alert_color': alert_color,
-                            'is_today': days_from_today == 0,
-                            'is_future': days_from_today > 0
-                        })
-                    
-                    # Sắp xếp theo ngày (gần nhất trước)
-                    overcrowded_days.sort(key=lambda x: abs(x['days_from_today']))
-                    
-                    print(f"DEBUG: Found {len(overcrowded_days)} overcrowded days in 60-day window")
-                    for day in overcrowded_days[:3]:  # Print first 3
-                        print(f"  - {day['date']}: {day['guest_count']} guests ({day['alert_level']})")
-                        
-        except Exception as overcrowd_error:
-            print(f"WARNING: Error calculating overcrowded days: {overcrowd_error}")
-            import traceback
-            traceback.print_exc()
-            overcrowded_days = []
-                
-    except Exception as main_error:
-        print(f"ERROR: Main calculation error: {main_error}")
-        import traceback
-        traceback.print_exc()
-        overdue_unpaid_guests = []
-        overdue_total_amount = 0
-        monthly_revenue_with_unpaid = []
-        overcrowded_days = []
-
-    # Tạo biểu đồ donut chart chuyên nghiệp cho người thu tiền
-    collector_revenue_data = dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records')
-    
-    collector_chart_data = {
-        'data': [{
-            'type': 'pie',
-            'labels': [row['Người thu tiền'] for row in collector_revenue_data],
-            'values': [row['Tổng thanh toán'] for row in collector_revenue_data],
-            'textinfo': 'label+percent',
-            'textposition': 'auto',
-            'hovertemplate': '<b>%{label}</b><br>' +
-                           'Doanh thu: %{value:,.0f}đ<br>' +
-                           'Tỷ lệ: %{percent}<br>' +
-                           '<extra></extra>',
-            'marker': {
-                'colors': ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'],
-                'line': {
-                    'color': '#ffffff',
-                    'width': 3
-                }
-            },
-            'hole': 0.4,
-            'textfont': {
-                'size': 12,
-                'family': 'Arial Bold',
-                'color': '#2c3e50'
-            },
-            'pull': [0.05 if i == 0 else 0 for i in range(len(collector_revenue_data))]  # Nổi bật phần đầu tiên
-        }],
-        'layout': {
-            'title': {
-                'text': '💰 Doanh thu theo Người thu',
-                'x': 0.5,
-                'y': 0.95,
-                'font': {
-                    'size': 16,
-                    'family': 'Arial Bold',
-                    'color': '#2c3e50'
-                }
-            },
-            'showlegend': True,
-            'legend': {
-                'orientation': 'v',
-                'x': 1.05,
-                'y': 0.5,
-                'font': {
-                    'size': 12,
-                    'family': 'Arial',
-                    'color': '#2c3e50'
-                },
-                'bgcolor': 'rgba(255,255,255,0.9)',
-                'bordercolor': 'rgba(0,0,0,0.1)',
-                'borderwidth': 1
-            },
-            'height': 300,
-            'margin': {'l': 20, 'r': 120, 't': 40, 'b': 20},
-            'plot_bgcolor': 'rgba(248,249,250,0.8)',
-            'paper_bgcolor': 'rgba(0,0,0,0)',
-            'font': {
-                'family': 'Arial, sans-serif',
-                'size': 12,
-                'color': '#2c3e50'
-            },
-            'annotations': [{
-                'text': f'<b>Tổng</b><br>{sum([row["Tổng thanh toán"] for row in collector_revenue_data]):,.0f}đ',
-                'x': 0.5, 'y': 0.5,
-                'font': {'size': 14, 'family': 'Arial Bold', 'color': '#2c3e50'},
-                'showarrow': False
-            }]
-        }
-    }
-
-    collector_revenue_list = dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records')
-
-    # DEBUG: Print what we're sending to template
-    print(f"DEBUG: Sending to template - overdue_unpaid_guests count: {len(overdue_unpaid_guests)}")
-    print(f"DEBUG: Sending to template - overdue_total_amount: {overdue_total_amount}")
-    if overdue_unpaid_guests:
-        print(f"DEBUG: First overdue guest: {overdue_unpaid_guests[0].get('Tên người đặt', 'N/A')}")
-
+    # Render template with processed data
     return render_template(
         'dashboard.html',
         total_revenue=dashboard_data.get('total_revenue_selected', 0),
         total_guests=dashboard_data.get('total_guests_selected', 0),
-        monthly_revenue_list=monthly_revenue_list,
-        genius_stats_list=genius_stats_list,
-        monthly_guests_list=monthly_guests_list,
-        weekly_guests_list=weekly_guests_list,
-        monthly_collected_revenue_list=monthly_collected_revenue_list,
-        monthly_revenue_chart_json=monthly_revenue_chart_json,
-        monthly_revenue_with_unpaid=monthly_revenue_with_unpaid,  # Dữ liệu mới
-        overdue_unpaid_guests=overdue_unpaid_guests,  # Khách quá hạn
-        overdue_total_amount=overdue_total_amount,  # Tổng tiền quá hạn
-        overcrowded_days=overcrowded_days,  # NEW: Ngày có quá nhiều khách
-        collector_chart_json=collector_chart_data,
-        collector_revenue_list=collector_revenue_list,
         start_date=start_date.strftime('%Y-%m-%d'),
         end_date=end_date.strftime('%Y-%m-%d'),
         current_sort_by=sort_by,
-        current_sort_order=sort_order
+        current_sort_order=sort_order,
+        collector_revenue_list=dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records'),
+        **processed_data  # Unpack all processed dashboard data
     )
 
 @app.route('/bookings')
