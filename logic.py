@@ -50,7 +50,7 @@ def _get_gspread_client(gcp_creds_file_path: str):
     try:
         return get_gspread_client_safe(gcp_creds_file_path)
     except Exception as e:
-        print(f"Lỗi nghiêm trọng khi xác thực với file credentials '{gcp_creds_file_path}': {e}")
+        print(f"ERROR: Authentication failed with credentials file '{gcp_creds_file_path}': {e}")
         raise
 
 def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: Optional[str] = None) -> pd.DataFrame:
@@ -86,17 +86,34 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
         print(f"DEBUG: Cleaned columns: {clean_columns}")
         
         # === SỬA LỖI: LỌC BỎ HÀNG TRỐNG ===
-        print(f"DEBUG: Du lieu ban dau co {len(df)} hang")
+        print(f"DEBUG: Original data has {len(df)} rows")
         
         # Loại bỏ hàng hoàn toàn trống
         df = df.dropna(how='all')
-        print(f"DEBUG: Sau khi loại bỏ hàng hoàn toàn trống: {len(df)} hàng")
+        print(f"DEBUG: After removing completely empty rows: {len(df)} rows")
         
         # Loại bỏ hàng không có Số đặt phòng hoặc Tên người đặt (hai trường quan trọng nhất)
         if 'Số đặt phòng' in df.columns and 'Tên người đặt' in df.columns:
-            df = df[(df['Số đặt phòng'].notna()) & (df['Số đặt phòng'].str.strip() != '') &
-                    (df['Tên người đặt'].notna()) & (df['Tên người đặt'].str.strip() != '')]
-            print(f"DEBUG: Sau khi loại bỏ hàng thiếu thông tin quan trọng: {len(df)} hàng")
+            # Store original count for debugging
+            original_count = len(df)
+            
+            # Convert to string first to avoid errors with numeric values or NaN
+            df_booking_id_valid = (df['Số đặt phòng'].notna()) & (df['Số đặt phòng'].astype(str).str.strip() != '') & (df['Số đặt phòng'].astype(str).str.strip() != 'nan')
+            df_guest_name_valid = (df['Tên người đặt'].notna()) & (df['Tên người đặt'].astype(str).str.strip() != '') & (df['Tên người đặt'].astype(str).str.strip() != 'nan')
+            
+            # Show invalid bookings before removing them
+            invalid_mask = ~(df_booking_id_valid & df_guest_name_valid)
+            if invalid_mask.any():
+                invalid_bookings = df[invalid_mask][['Số đặt phòng', 'Tên người đặt']].head(3)
+                print(f"DEBUG: Sample invalid bookings to be removed: {invalid_bookings.to_dict('records')}")
+            
+            df = df[df_booking_id_valid & df_guest_name_valid]
+            final_count = len(df)
+            print(f"DEBUG: After removing rows with missing critical info: {final_count} rows")
+            
+            if final_count < original_count:
+                removed_count = original_count - final_count
+                print(f"DEBUG: Removed {removed_count} rows with missing info")
         
         # Reset index sau khi loại bỏ hàng
         df = df.reset_index(drop=True)
@@ -139,7 +156,7 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
             
         return df
     except Exception as e:
-        print(f"Loi khi import tu Google Sheet: {e}")
+        print(f"ERROR importing from Google Sheet: {e}")
         raise
 
 def export_data_to_new_sheet(df: pd.DataFrame, gcp_creds_file_path: str, sheet_id: str) -> str:
@@ -165,7 +182,7 @@ def update_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name
     Tìm một hàng trong Google Sheet dựa trên booking_id và cập nhật nó.
     """
     try:
-        print(f"Bắt đầu cập nhật Google Sheet cho ID: {booking_id}")
+        print(f"Starting update Google Sheet for ID: {booking_id}")
         gc = _get_gspread_client(gcp_creds_file_path)
         sh = gc.open_by_key(sheet_id)
         worksheet = sh.worksheet(worksheet_name)
@@ -173,7 +190,7 @@ def update_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name
         # Lấy toàn bộ dữ liệu để tìm đúng hàng và cột
         data = worksheet.get_all_values()
         if not data:
-            print("Lỗi: Sheet trống.")
+            print("Error: Empty sheet.")
             return False
             
         header = data[0]
@@ -182,17 +199,17 @@ def update_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name
         try:
             id_col_index = header.index('Số đặt phòng') + 1  # gspread dùng index từ 1
         except ValueError:
-            print("Lỗi: Không tìm thấy cột 'Số đặt phòng' trong header.")
+            print("Error: Cannot find 'Số đặt phòng' column in header.")
             return False
 
         # Tìm hàng có booking_id tương ứng
         cell = worksheet.find(booking_id, in_column=id_col_index)
         if not cell:
-            print(f"Lỗi: Không tìm thấy hàng với ID {booking_id} trong cột {id_col_index}.")
+            print(f"Error: Cannot find row with ID {booking_id} in column {id_col_index}.")
             return False
             
         row_index = cell.row
-        print(f"Đã tìm thấy ID {booking_id} tại hàng {row_index}.")
+        print(f"Found ID {booking_id} at row {row_index}.")
 
         # Tạo một danh sách các ô cần cập nhật
         cells_to_update = []
@@ -204,14 +221,14 @@ def update_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name
 
         if cells_to_update:
             worksheet.update_cells(cells_to_update, value_input_option='USER_ENTERED')
-            print(f"Đã cập nhật thành công {len(cells_to_update)} ô cho ID {booking_id}.")
+            print(f"Successfully updated {len(cells_to_update)} cells for ID {booking_id}.")
             return True
         else:
-            print("Không có dữ liệu hợp lệ để cập nhật.")
+            print("No valid data to update.")
             return False
 
     except Exception as e:
-        print(f"Lỗi nghiêm trọng khi cập nhật Google Sheet: {e}")
+        print(f"Critical error when updating Google Sheet: {e}")
         return False
 
 def delete_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: str, booking_id: str) -> bool:
@@ -219,7 +236,7 @@ def delete_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name
     Tìm một hàng trong Google Sheet dựa trên booking_id và xóa nó.
     """
     try:
-        print(f"Bắt đầu xóa trên Google Sheet cho ID: {booking_id}")
+        print(f"Starting deletion on Google Sheet for ID: {booking_id}")
         gc = _get_gspread_client(gcp_creds_file_path)
         sh = gc.open_by_key(sheet_id)
         worksheet = sh.worksheet(worksheet_name)
@@ -228,20 +245,20 @@ def delete_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name
         try:
             id_col_index = header.index('Số đặt phòng') + 1
         except ValueError:
-            print("Lỗi: Không tìm thấy cột 'Số đặt phòng'.")
+            print("Error: Cannot find 'Số đặt phòng' column.")
             return False
 
         cell = worksheet.find(booking_id, in_column=id_col_index)
         if not cell:
-            print(f"Lỗi: Không tìm thấy hàng với ID {booking_id} để xóa.")
+            print(f"Error: Cannot find row with ID {booking_id} to delete.")
             return False
             
         worksheet.delete_rows(cell.row)
-        print(f"Đã xóa thành công hàng chứa ID {booking_id}.")
+        print(f"Successfully deleted row containing ID {booking_id}.")
         return True
 
     except Exception as e:
-        print(f"Lỗi nghiêm trọng khi xóa trên Google Sheet: {e}")
+        print(f"Critical error when deleting from Google Sheet: {e}")
         return False
 
 def delete_multiple_rows_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: str, booking_ids: List[str]) -> bool:
@@ -252,7 +269,7 @@ def delete_multiple_rows_in_gsheet(sheet_id: str, gcp_creds_file_path: str, work
     if not booking_ids:
         return True
     try:
-        print(f"Bắt đầu xóa hàng loạt trên Google Sheet cho các ID: {booking_ids}")
+        print(f"Starting batch deletion on Google Sheet for IDs: {booking_ids}")
         gc = _get_gspread_client(gcp_creds_file_path)
         sh = gc.open_by_key(sheet_id)
         worksheet = sh.worksheet(worksheet_name)
@@ -260,7 +277,7 @@ def delete_multiple_rows_in_gsheet(sheet_id: str, gcp_creds_file_path: str, work
         # 1. Đọc tất cả dữ liệu một lần duy nhất
         all_data = worksheet.get_all_values()
         if not all_data:
-            print("Sheet trống, không có gì để xóa.")
+            print("Sheet is empty, nothing to delete.")
             return True
 
         header = all_data[0]
@@ -268,7 +285,7 @@ def delete_multiple_rows_in_gsheet(sheet_id: str, gcp_creds_file_path: str, work
             # Tìm chỉ số của cột 'Số đặt phòng'
             id_col_index = header.index('Số đặt phòng')
         except ValueError:
-            print("Lỗi: Không tìm thấy cột 'Số đặt phòng' trong header.")
+            print("Error: Cannot find 'Số đặt phòng' column in header.")
             return False
 
         # 2. Tạo một set các ID cần xóa để tra cứu nhanh
@@ -289,21 +306,21 @@ def delete_multiple_rows_in_gsheet(sheet_id: str, gcp_creds_file_path: str, work
         if rows_to_delete_indices:
             # Sắp xếp các chỉ số theo thứ tự giảm dần
             sorted_rows_to_delete = sorted(rows_to_delete_indices, reverse=True)
-            print(f"Đã tìm thấy {len(sorted_rows_to_delete)} hàng để xóa. Bắt đầu xóa...")
+            print(f"Found {len(sorted_rows_to_delete)} rows to delete. Starting deletion...")
             
             for row_index in sorted_rows_to_delete:
                 worksheet.delete_rows(row_index)
             
-            print(f"Đã xóa thành công {len(sorted_rows_to_delete)} hàng.")
+            print(f"Successfully deleted {len(sorted_rows_to_delete)} rows.")
         else:
-            print("Không tìm thấy hàng nào khớp với các ID được cung cấp.")
+            print("No rows found matching the provided IDs.")
         
         return True
 
     except Exception as e:
         # In ra lỗi chi tiết hơn để debug
         import traceback
-        print(f"Lỗi nghiêm trọng khi xóa hàng loạt trên Google Sheet: {e}")
+        print(f"Critical error when batch deleting on Google Sheet: {e}")
         traceback.print_exc()
         return False
 
@@ -316,7 +333,7 @@ def import_message_templates_from_gsheet(sheet_id: str, gcp_creds_file_path: str
     Đọc mẫu tin nhắn từ tab 'MessageTemplate' trong Google Sheet.
     Phiên bản có debug chi tiết và xử lý lỗi tốt hơn.
     """
-    print("=== BẮT ĐẦU IMPORT MESSAGE TEMPLATES ===")
+    print("=== STARTING IMPORT MESSAGE TEMPLATES ===")
     
     if gspread is None:
         print("❌ gspread library not installed")
@@ -324,23 +341,23 @@ def import_message_templates_from_gsheet(sheet_id: str, gcp_creds_file_path: str
     
     try:
         # Bước 1: Kết nối với Google Sheets
-        print("Bước 1: Đang kết nối với Google Sheets...")
+        print("Step 1: Connecting to Google Sheets...")
         gc = _get_gspread_client(gcp_creds_file_path)
-        print("✓ Kết nối thành công")
+        print("✓ Connection successful")
         
         # Bước 2: Mở spreadsheet
-        print(f"Bước 2: Đang mở spreadsheet với ID: {sheet_id}")
+        print(f"Step 2: Opening spreadsheet with ID: {sheet_id}")
         sh = gc.open_by_key(sheet_id)
-        print("✓ Mở spreadsheet thành công")
+        print("✓ Spreadsheet opened successfully")
         
         # Bước 3: Tìm worksheet 'MessageTemplate'
-        print("Bước 3: Đang tìm worksheet 'MessageTemplate'...")
+        print("Step 3: Looking for worksheet 'MessageTemplate'...")
         try:
             worksheet = sh.worksheet('MessageTemplate')
-            print("✓ Tìm thấy worksheet 'MessageTemplate'")
+            print("✓ Found worksheet 'MessageTemplate'")
         except gspread.exceptions.WorksheetNotFound:
-            print("❌ Không tìm thấy worksheet 'MessageTemplate'")
-            print("Tạo worksheet mới với dữ liệu mẫu...")
+            print("❌ Cannot find worksheet 'MessageTemplate'")
+            print("Creating new worksheet with sample data...")
             
             # Tạo worksheet mới với dữ liệu mẫu
             worksheet = sh.add_worksheet(title='MessageTemplate', rows=10, cols=5)
@@ -351,28 +368,28 @@ def import_message_templates_from_gsheet(sheet_id: str, gcp_creds_file_path: str
                 ['Thank You', 'Cảm ơn', 'Cảm ơn {guest_name} đã lựa chọn chúng tôi!']
             ]
             worksheet.update(sample_data, 'A1')
-            print("✓ Đã tạo worksheet mới với dữ liệu mẫu")
+            print("✓ Created new worksheet with sample data")
         
         # Bước 4: Đọc dữ liệu
-        print("Bước 4: Đang đọc dữ liệu từ worksheet...")
+        print("Step 4: Reading data from worksheet...")
         try:
             all_values = worksheet.get_all_values()
-            print(f"✓ Đọc được {len(all_values)} dòng dữ liệu")
+            print(f"✓ Read {len(all_values)} data rows")
         except Exception as e:
-            print(f"❌ Lỗi khi đọc dữ liệu: {e}")
+            print(f"❌ Error reading data: {e}")
             return []
         
         # Bước 5: Kiểm tra dữ liệu
         if not all_values:
-            print("❌ Không có dữ liệu trong worksheet")
+            print("❌ No data in worksheet")
             return []
             
         if len(all_values) < 1:
-            print("❌ Worksheet không có header")
+            print("❌ Worksheet has no header")
             return []
             
         print(f"Headers: {all_values[0]}")
-        print(f"Số dòng dữ liệu (không tính header): {len(all_values) - 1}")
+        print(f"Number of data rows (excluding header): {len(all_values) - 1}")
         
         # Bước 6: Xử lý dữ liệu
         headers = all_values[0]
@@ -390,15 +407,15 @@ def import_message_templates_from_gsheet(sheet_id: str, gcp_creds_file_path: str
                 category = template.get('Category', '').strip()
                 if category:  # Chỉ thêm nếu có Category
                     templates.append(template)
-                    print(f"✓ Dòng {row_index}: Category='{category}', Label='{template.get('Label', '')}' - VALID")
+                    print(f"✓ Row {row_index}: Category='{category}', Label='{template.get('Label', '')}' - VALID")
                 else:
-                    print(f"⚠ Dòng {row_index}: Category trống - BỎ QUA")
+                    print(f"⚠ Row {row_index}: Category empty - SKIPPED")
                     
             except Exception as e:
-                print(f"❌ Lỗi xử lý dòng {row_index}: {e}")
+                print(f"❌ Error processing row {row_index}: {e}")
                 continue
         
-        print(f"=== KẾT QUẢ: {len(templates)} templates hợp lệ ===")
+        print(f"=== RESULT: {len(templates)} valid templates ===")
         
         # Debug: In ra templates đầu tiên
         for i, template in enumerate(templates[:2]):
@@ -407,12 +424,12 @@ def import_message_templates_from_gsheet(sheet_id: str, gcp_creds_file_path: str
         return templates
         
     except Exception as e:
-        print(f"❌ LỖI NGHIÊM TRỌNG: {e}")
+        print(f"❌ CRITICAL ERROR: {e}")
         import traceback
         traceback.print_exc()
         
         # Trả về dữ liệu mẫu nếu có lỗi
-        print("Trả về dữ liệu mẫu do có lỗi...")
+        print("Returning sample data due to error...")
         return get_fallback_templates()
 
 def get_fallback_templates() -> List[dict]:
@@ -441,14 +458,14 @@ def export_message_templates_to_gsheet(templates: List[dict], sheet_id: str, gcp
     """
     Export templates với xử lý lỗi tốt hơn.
     """
-    print("=== BẮT ĐẦU EXPORT MESSAGE TEMPLATES ===")
+    print("=== STARTING EXPORT MESSAGE TEMPLATES ===")
     
     if not templates:
-        print("❌ Không có templates để export")
+        print("❌ No templates to export")
         return False
         
     try:
-        print(f"Đang export {len(templates)} templates...")
+        print(f"Exporting {len(templates)} templates...")
         gc = _get_gspread_client(gcp_creds_file_path)
         sh = gc.open_by_key(sheet_id)
         
@@ -456,10 +473,10 @@ def export_message_templates_to_gsheet(templates: List[dict], sheet_id: str, gcp
         try:
             worksheet = sh.worksheet('MessageTemplate')
             worksheet.clear()
-            print("✓ Đã xóa dữ liệu cũ")
+            print("✓ Cleared old data")
         except gspread.exceptions.WorksheetNotFound:
             worksheet = sh.add_worksheet(title='MessageTemplate', rows=50, cols=5)
-            print("✓ Đã tạo worksheet mới")
+            print("✓ Created new worksheet")
         
         # Chuẩn bị dữ liệu
         headers = ['Category', 'Label', 'Message']
@@ -474,11 +491,11 @@ def export_message_templates_to_gsheet(templates: List[dict], sheet_id: str, gcp
         
         # Ghi dữ liệu
         worksheet.update(rows, 'A1', value_input_option='USER_ENTERED')
-        print(f"✓ Đã export thành công {len(templates)} templates")
+        print(f"✓ Successfully exported {len(templates)} templates")
         return True
         
     except Exception as e:
-        print(f"❌ Lỗi khi export: {e}")
+        print(f"❌ Error when exporting: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -493,10 +510,10 @@ def safe_import_message_templates(sheet_id: str, gcp_creds_file_path: str) -> Li
         if isinstance(result, list):
             return result
         else:
-            print("❌ Kết quả không phải là list, trả về fallback")
+            print("❌ Result is not a list, returning fallback")
             return get_fallback_templates()
     except Exception as e:
-        print(f"❌ Exception trong safe_import: {e}")
+        print(f"❌ Exception in safe_import: {e}")
         return get_fallback_templates()
 
 # ==============================================================================
@@ -547,7 +564,7 @@ def debug_message_templates_connection(sheet_id: str, gcp_creds_file_path: str):
 # ==============================================================================
 
 def create_demo_data() -> tuple[pd.DataFrame, pd.DataFrame]:
-    print("Tao du lieu demo vi khong the tai tu Google Sheet.")
+    print("Creating demo data because cannot load from Google Sheet.")
     demo_data = {
         'Tên chỗ nghỉ': ['Home in Old Quarter', 'Old Quarter Home', 'Home in Old Quarter', 'Riverside Apartment'],
         'Tên người đặt': ['Demo User Alpha', 'Demo User Beta', 'Demo User Gamma', 'Demo User Delta'],
@@ -674,7 +691,7 @@ def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str
     ✅ PHIÊN BẢN NÂNG CẤP: Trích xuất thông tin đặt phòng từ ảnh bằng Google Gemini API
     Với error handling tốt hơn và prompt được tối ưu.
     """
-    print("\n🔍 BẮT ĐẦU XỬ LÝ ẢNH BẰNG AI (PHIÊN BẢN NÂNG CẤP)")
+    print("\n🔍 STARTING AI IMAGE PROCESSING (UPGRADED VERSION)")
     
     # Kiểm tra dependencies
     if Image is None:
@@ -695,7 +712,7 @@ def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str
             import os
             api_key = os.getenv("GOOGLE_API_KEY")
             if api_key:
-                print("✅ Tìm thấy API Key từ biến môi trường")
+                print("✅ Found API Key from environment variable")
             else:
                 # Thử từ secrets.toml (cho Streamlit)
                 try:
@@ -704,41 +721,41 @@ def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str
                     secrets = toml.load(secrets_path)
                     api_key = secrets.get("GOOGLE_API_KEY")
                     if api_key:
-                        print("✅ Tìm thấy API Key từ secrets.toml")
+                        print("✅ Found API Key from secrets.toml")
                 except:
                     pass
         except Exception as e:
-            print(f"⚠️ Lỗi khi đọc API key: {e}")
+            print(f"⚠️ Error reading API key: {e}")
         
         if not api_key:
-            error_msg = "❌ Không tìm thấy GOOGLE_API_KEY. Vui lòng cấu hình trong .env file."
+            error_msg = "❌ Cannot find GOOGLE_API_KEY. Please configure in .env file."
             print(error_msg)
             return [{"error": error_msg}]
 
         # Cấu hình Gemini
         genai.configure(api_key=api_key)
-        print("✅ Đã cấu hình Google AI API thành công")
+        print("✅ Successfully configured Google AI API")
 
         # 2. Xử lý ảnh với error handling tốt hơn
         try:
             img = Image.open(BytesIO(image_bytes))
-            print(f"✅ Đã load ảnh thành công. Kích thước: {img.size}")
+            print(f"✅ Successfully loaded image. Size: {img.size}")
         except Exception as e:
-            error_msg = f"❌ Lỗi khi xử lý ảnh: {str(e)}"
+            error_msg = f"❌ Error processing image: {str(e)}"
             print(error_msg)
             return [{"error": error_msg}]
 
         # 3. Khởi tạo model với model chính xác
         try:
             model = genai.GenerativeModel('gemini-2.0-flash-exp')
-            print("✅ Đã khởi tạo Gemini model")
+            print("✅ Successfully initialized Gemini model")
         except Exception as e:
-            print(f"⚠️ Lỗi với gemini-2.0-flash-exp, thử model khác...")
+            print(f"⚠️ Error with gemini-2.0-flash-exp, trying other model...")
             try:
                 model = genai.GenerativeModel('gemini-1.5-flash')
-                print("✅ Đã khởi tạo Gemini 1.5 Flash")
+                print("✅ Successfully initialized Gemini 1.5 Flash")
             except Exception as e2:
-                error_msg = f"❌ Không thể khởi tạo Gemini model: {str(e2)}"
+                error_msg = f"❌ Cannot initialize Gemini model: {str(e2)}"
                 print(error_msg)
                 return [{"error": error_msg}]
         
@@ -791,30 +808,30 @@ NHIỆM VỤ: Phân tích ảnh này và trích xuất CHÍNH XÁC thông tin đ
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                print(f"🤖 Đang gửi yêu cầu tới Gemini AI (lần thử {attempt + 1}/{max_retries})...")
+                print(f"🤖 Sending request to Gemini AI (attempt {attempt + 1}/{max_retries})...")
                 
                 response = model.generate_content([enhanced_prompt, img], stream=False)
                 response.resolve()
                 
                 ai_response_text = response.text.strip()
-                print(f"✅ Nhận được phản hồi từ AI ({len(ai_response_text)} ký tự)")
+                print(f"✅ Received response from AI ({len(ai_response_text)} characters)")
                 
                 if not ai_response_text:
-                    raise ValueError("AI trả về phản hồi rỗng")
+                    raise ValueError("AI returned empty response")
                 
                 break  # Thành công, thoát khỏi retry loop
                 
             except Exception as api_error:
-                print(f"❌ Lỗi API lần {attempt + 1}: {str(api_error)}")
+                print(f"❌ API error attempt {attempt + 1}: {str(api_error)}")
                 if attempt == max_retries - 1:  # Lần thử cuối cùng
-                    error_msg = f"❌ Lỗi gọi Gemini API sau {max_retries} lần thử: {str(api_error)}"
+                    error_msg = f"❌ Gemini API error after {max_retries} attempts: {str(api_error)}"
                     print(error_msg)
                     return [{"error": error_msg}]
                 import time
                 time.sleep(2)  # Đợi 2 giây trước khi thử lại
 
         # 6. Xử lý và parse kết quả
-        print("\n📝 KẾT QUẢ THÔ TỪ AI:")
+        print("\n📝 RAW RESULT FROM AI:")
         print("-" * 50)
         print(ai_response_text[:500] + ("..." if len(ai_response_text) > 500 else ""))
         print("-" * 50)
@@ -830,20 +847,20 @@ NHIỆM VỤ: Phân tích ảnh này và trích xuất CHÍNH XÁC thông tin đ
         # Parse JSON với error handling
         try:
             parsed_result = json.loads(cleaned_response)
-            print(f"✅ Parse JSON thành công")
+            print(f"✅ JSON parsing successful")
             
             # Validate result structure
             if not isinstance(parsed_result, list):
                 if isinstance(parsed_result, dict):
                     parsed_result = [parsed_result]  # Convert single object to array
                 else:
-                    raise ValueError("Kết quả không phải là array hoặc object")
+                    raise ValueError("Result is not array or object")
             
             # Validate và clean từng booking
             validated_bookings = []
             for i, booking in enumerate(parsed_result):
                 if not isinstance(booking, dict):
-                    print(f"⚠️ Booking {i+1} không phải dict, bỏ qua")
+                    print(f"⚠️ Booking {i+1} is not dict, skipping")
                     continue
                 
                 # Ensure all required fields exist
@@ -876,23 +893,23 @@ NHIỆM VỤ: Phân tích ảnh này và trích xuất CHÍNH XÁC thông tin đ
                 print(f"✅ Validated booking {i+1}: {validated_booking['guest_name']}")
             
             if not validated_bookings:
-                print("⚠️ Không có booking hợp lệ nào được tìm thấy")
-                return [{"error": "Không tìm thấy thông tin đặt phòng hợp lệ trong ảnh"}]
+                print("⚠️ No valid bookings found")
+                return [{"error": "No valid booking information found in image"}]
             
-            print(f"🎉 Trích xuất thành công {len(validated_bookings)} đặt phòng!")
+            print(f"🎉 Successfully extracted {len(validated_bookings)} bookings!")
             return validated_bookings
             
         except json.JSONDecodeError as json_error:
-            error_msg = f"❌ Lỗi parse JSON: {str(json_error)}\nResponse: {cleaned_response[:200]}..."
+            error_msg = f"❌ JSON parsing error: {str(json_error)}\nResponse: {cleaned_response[:200]}..."
             print(error_msg)
-            return [{"error": "AI trả về định dạng không hợp lệ. Vui lòng thử với ảnh rõ nét hơn."}]
+            return [{"error": "AI returned invalid format. Please try with clearer image."}]
 
     except Exception as main_error:
-        error_msg = f"❌ Lỗi tổng quát: {str(main_error)}"
+        error_msg = f"❌ General error: {str(main_error)}"
         print(error_msg)
         import traceback
         traceback.print_exc()
-        return [{"error": f"Lỗi xử lý ảnh: {str(main_error)}"}]
+        return [{"error": f"Image processing error: {str(main_error)}"}]
 
 def parse_app_standard_date(date_input: Any) -> Optional[datetime.date]:
     """
@@ -1023,9 +1040,9 @@ def delete_booking_by_id(df: pd.DataFrame, booking_id: str) -> pd.DataFrame:
     
     if not index_to_delete.empty:
         df = df.drop(index_to_delete)
-        print(f"Đã xóa đặt phòng có ID: {booking_id}")
+        print(f"Deleted booking with ID: {booking_id}")
     else:
-        print(f"Không tìm thấy đặt phòng có ID: {booking_id} để xóa.")
+        print(f"Cannot find booking with ID: {booking_id} to delete.")
         
     return df.reset_index(drop=True)
 
@@ -1051,8 +1068,8 @@ def update_booking_by_id(df: pd.DataFrame, booking_id: str, new_data: dict) -> p
                 else:
                     df.loc[idx, key] = value
         
-        print(f"Đã cập nhật đặt phòng có ID: {booking_id}")
+        print(f"Updated booking with ID: {booking_id}")
     else:
-        print(f"Không tìm thấy đặt phòng có ID: {booking_id} để cập nhật.")
+        print(f"Cannot find booking with ID: {booking_id} to update.")
 
     return df
