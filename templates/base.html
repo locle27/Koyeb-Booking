@@ -406,11 +406,6 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'get_templates_page' %}active{% endif %}" href="{{ url_for('get_templates_page') }}">
-                            <i class="fas fa-envelope-open-text me-1"></i>Mẫu Tin nhắn
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'ai_assistant_hub' %}active{% endif %}" href="{{ url_for('ai_assistant_hub') }}">
                             <i class="fas fa-robot me-1"></i>AI Assistant Hub
                         </a>
@@ -477,8 +472,7 @@
             const importantPages = [
                 '{{ url_for("dashboard") }}',
                 '{{ url_for("view_bookings") }}',
-                '{{ url_for("ai_chat_assistant") }}',
-                '{{ url_for("voice_translator") }}'
+                '{{ url_for("ai_assistant_hub") }}'
             ];
             
             importantPages.forEach(url => {
