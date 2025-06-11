@@ -173,12 +173,8 @@ function processPhoto(imageData) {
         
         // Check if multiple bookings were extracted
         if (data.bookings && Array.isArray(data.bookings) && data.bookings.length > 1) {
-            // Multiple bookings detected - redirect to dedicated page
-            alert(`🎉 Tìm thấy ${data.bookings.length} booking! Chuyển tới trang xử lý đa booking...`);
-            
-            // Store data in sessionStorage and redirect
-            sessionStorage.setItem('extractedBookings', JSON.stringify(data));
-            window.location.href = '/bookings/add_from_image';
+            // Multiple bookings detected - show save button
+            showMultipleBookingsInterface(data.bookings);
             return;
         }
         
@@ -228,6 +224,71 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+function showMultipleBookingsInterface(bookings) {
+    // Hide the regular form
+    document.querySelector('form').style.display = 'none';
+    
+    // Create multiple bookings interface
+    const container = document.createElement('div');
+    container.id = 'multiple-bookings-container';
+    container.innerHTML = `
+        <div class="alert alert-success">
+            <h4><i class="fas fa-check-circle"></i> Tìm thấy ${bookings.length} booking!</h4>
+            <p>Hệ thống đã trích xuất thành công các booking từ ảnh của bạn.</p>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Tên khách</th>
+                        <th>Mã booking</th>
+                        <th>Check-in</th>
+                        <th>Check-out</th>
+                        <th>Tổng tiền</th>
+                        <th>Hoa hồng</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${bookings.map(booking => `
+                        <tr>
+                            <td>${booking.guest_name || 'N/A'}</td>
+                            <td>${booking.booking_id || 'Tự tạo'}</td>
+                            <td>${booking.check_in_date || 'N/A'}</td>
+                            <td>${booking.check_out_date || 'N/A'}</td>
+                            <td>${booking.total_payment ? booking.total_payment.toLocaleString() + ' VND' : 'N/A'}</td>
+                            <td>${booking.commission ? booking.commission.toLocaleString() + ' VND' : '0 VND'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="d-flex gap-3 mt-3">
+            <form method="POST" action="/bookings/save_extracted" style="display: inline;">
+                <input type="hidden" name="extracted_json" value='${JSON.stringify(bookings)}'>
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-save"></i> Lưu tất cả ${bookings.length} booking
+                </button>
+            </form>
+            <button onclick="resetToSingleBooking()" class="btn btn-secondary btn-lg">
+                <i class="fas fa-undo"></i> Quay lại form đơn
+            </button>
+        </div>
+    `;
+    
+    // Insert after the photo upload section
+    const photoSection = document.querySelector('.card.mb-4.border-primary');
+    photoSection.parentNode.insertBefore(container, photoSection.nextSibling);
+}
+
+function resetToSingleBooking() {
+    const container = document.getElementById('multiple-bookings-container');
+    if (container) container.remove();
+    document.querySelector('form').style.display = 'block';
+    clearForm();
+}
 
 function clearForm() {
     // Clear all form fields
