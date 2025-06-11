@@ -923,6 +923,69 @@ def prepare_dashboard_data(df: pd.DataFrame, start_date, end_date, sort_by=None,
         'weekly_guests_all_time': weekly_guests,
     }
 
+def check_duplicate_guests(new_bookings: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Kiểm tra khách trùng lặp trong danh sách booking mới với dữ liệu hiện có
+    """
+    try:
+        # Lấy dữ liệu hiện có từ sheet
+        df, _ = load_data()
+        if df.empty:
+            return {"has_duplicates": False, "duplicates": [], "new_bookings": new_bookings}
+        
+        duplicates = []
+        clean_bookings = []
+        
+        for booking in new_bookings:
+            guest_name = booking.get('guest_name', '').strip().lower()
+            check_in_date = booking.get('check_in_date', '')
+            check_out_date = booking.get('check_out_date', '')
+            
+            if not guest_name:
+                clean_bookings.append(booking)
+                continue
+            
+            # Tìm khách trùng tên và thời gian gần nhau (trong vòng 7 ngày)
+            existing_matches = df[
+                df['Tên người đặt'].str.lower().str.contains(guest_name, na=False)
+            ].copy()
+            
+            if not existing_matches.empty:
+                # Kiểm tra thời gian gần nhau
+                try:
+                    new_checkin = pd.to_datetime(check_in_date)
+                    for _, existing in existing_matches.iterrows():
+                        existing_checkin = pd.to_datetime(existing['Check-in Date'])
+                        if abs((new_checkin - existing_checkin).days) <= 7:
+                            duplicates.append({
+                                "new_booking": booking,
+                                "existing_booking": {
+                                    "booking_id": existing['Số đặt phòng'],
+                                    "guest_name": existing['Tên người đặt'],
+                                    "check_in_date": existing['Check-in Date'].strftime('%Y-%m-%d') if pd.notna(existing['Check-in Date']) else 'N/A',
+                                    "check_out_date": existing['Check-out Date'].strftime('%Y-%m-%d') if pd.notna(existing['Check-out Date']) else 'N/A',
+                                    "total_payment": existing.get('Tổng thanh toán', 0),
+                                    "status": existing.get('Tình trạng', 'N/A')
+                                }
+                            })
+                            break
+                    else:
+                        clean_bookings.append(booking)
+                except:
+                    clean_bookings.append(booking)
+            else:
+                clean_bookings.append(booking)
+        
+        return {
+            "has_duplicates": len(duplicates) > 0,
+            "duplicates": duplicates,
+            "clean_bookings": clean_bookings
+        }
+        
+    except Exception as e:
+        print(f"Error checking duplicates: {e}")
+        return {"has_duplicates": False, "duplicates": [], "clean_bookings": new_bookings}
+
 def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str, Any]]:
     """
     ✅ PHIÊN BẢN NÂNG CẤP: Trích xuất thông tin đặt phòng từ ảnh bằng Google Gemini API

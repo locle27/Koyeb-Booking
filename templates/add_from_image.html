@@ -100,10 +100,25 @@
                         throw new Error(errorData.error || `Lỗi từ server: ${response.status} ${response.statusText}`);
                     }
 
-                    let extractedData = await response.json(); // ✅ SỬA: đổi const thành let
-                    console.log('Extracted data received:', extractedData);
+                    let apiResponse = await response.json(); // ✅ SỬA: đổi const thành let
+                    console.log('API Response received:', apiResponse);
 
-                    // === PHẦN SỬA LỖI QUAN TRỌNG NHẤT ===
+                    // === XỬ LÝ DUPLICATE CHECK ===
+                    let extractedData = apiResponse;
+                    let duplicateCheck = null;
+                    
+                    // Kiểm tra nếu API trả về duplicate check
+                    if (apiResponse && apiResponse.duplicate_check) {
+                        duplicateCheck = apiResponse.duplicate_check;
+                        extractedData = apiResponse.bookings || apiResponse;
+                        
+                        // Nếu có duplicate, hiển thị cảnh báo và cho phép chọn
+                        if (duplicateCheck.has_duplicates) {
+                            await showDuplicateWarning(duplicateCheck);
+                            return;
+                        }
+                    }
+
                     console.log('🔍 Raw API Response:', extractedData);
                     
                     // Xử lý trường hợp API trả về object với error message
@@ -316,6 +331,190 @@
                 }
             });
         });
+
+        // === DUPLICATE WARNING FUNCTIONS ===
+        async function showDuplicateWarning(duplicateCheck) {
+            const messageBox = document.getElementById('message-box');
+            const resultsTable = document.getElementById('results-table');
+            const saveForm = document.getElementById('save-form');
+            const pasteArea = document.getElementById('paste-area');
+            
+            // Hide paste area and show duplicate warning
+            pasteArea.style.display = 'none';
+            saveForm.style.display = 'none';
+            
+            let warningHtml = `
+                <div class="error-message" style="background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%); color: white; border: none;">
+                    <h4><i class="fas fa-exclamation-triangle me-2"></i>⚠️ Phát hiện khách trùng lặp!</h4>
+                    <p>Tìm thấy <strong>${duplicateCheck.duplicates.length}</strong> khách có thể đã tồn tại trong hệ thống:</p>
+                </div>
+                
+                <div style="margin: 20px 0;">
+                    <h5>🔍 Danh sách khách trùng lặp:</h5>
+            `;
+            
+            duplicateCheck.duplicates.forEach((dup, index) => {
+                const newBooking = dup.new_booking;
+                const existingBooking = dup.existing_booking;
+                
+                warningHtml += `
+                    <div style="border: 2px solid #ff9500; border-radius: 8px; padding: 15px; margin: 10px 0; background: #fff3e0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <strong style="color: #e65100;">Khách #${index + 1}: ${newBooking.guest_name}</strong>
+                            <div>
+                                <button class="btn btn-success btn-sm me-2" onclick="keepNewBooking(${index})" 
+                                        style="background: #4caf50; color: white; border: none; padding: 5px 10px; border-radius: 4px;">
+                                    ✅ Giữ booking mới
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="skipDuplicateBooking(${index})"
+                                        style="background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 4px;">
+                                    ❌ Bỏ qua (có thể trùng)
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div style="border: 2px solid #4caf50; border-radius: 6px; padding: 10px;">
+                                <h6 style="color: #2e7d32; margin-bottom: 8px;">📝 Booking MỚI (từ ảnh)</h6>
+                                <div><strong>Tên:</strong> ${newBooking.guest_name}</div>
+                                <div><strong>Check-in:</strong> ${newBooking.check_in_date}</div>
+                                <div><strong>Check-out:</strong> ${newBooking.check_out_date}</div>
+                                <div><strong>Phòng:</strong> ${newBooking.room_type || 'N/A'}</div>
+                                <div><strong>Tổng tiền:</strong> ${newBooking.total_payment ? newBooking.total_payment.toLocaleString() + 'đ' : 'N/A'}</div>
+                            </div>
+                            
+                            <div style="border: 2px solid #ff5722; border-radius: 6px; padding: 10px;">
+                                <h6 style="color: #d84315; margin-bottom: 8px;">🗃️ Booking HIỆN TẠI (trong hệ thống)</h6>
+                                <div><strong>ID:</strong> ${existingBooking.booking_id}</div>
+                                <div><strong>Tên:</strong> ${existingBooking.guest_name}</div>
+                                <div><strong>Check-in:</strong> ${existingBooking.check_in_date}</div>
+                                <div><strong>Check-out:</strong> ${existingBooking.check_out_date}</div>
+                                <div><strong>Tổng tiền:</strong> ${existingBooking.total_payment ? existingBooking.total_payment.toLocaleString() + 'đ' : 'N/A'}</div>
+                                <div><strong>Trạng thái:</strong> <span style="color: ${existingBooking.status === 'OK' ? '#4caf50' : '#f44336'};">${existingBooking.status}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            warningHtml += `
+                </div>
+                
+                <div style="background: #e3f2fd; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                    <h6 style="color: #1976d2; margin-bottom: 10px;">💡 Hướng dẫn:</h6>
+                    <ul style="color: #424242; margin: 0;">
+                        <li><strong>✅ Giữ booking mới:</strong> Nếu đây là booking khác (cùng tên nhưng khác thời gian/phòng)</li>
+                        <li><strong>❌ Bỏ qua:</strong> Nếu đây là booking trùng lặp (cùng khách, cùng thời gian)</li>
+                        <li><strong>🔍 So sánh kỹ:</strong> Ngày check-in, phòng, tổng tiền để quyết định chính xác</li>
+                    </ul>
+                </div>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <button class="btn btn-primary" onclick="processAfterDuplicateCheck()"
+                            style="background: #2196f3; color: white; border: none; padding: 12px 25px; border-radius: 6px; font-size: 16px;">
+                        🔄 Xử lý booking đã chọn
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetForm()"
+                            style="background: #757575; color: white; border: none; padding: 12px 25px; border-radius: 6px; font-size: 16px; margin-left: 10px;">
+                        🔙 Quay lại
+                    </button>
+                </div>
+            `;
+            
+            messageBox.innerHTML = warningHtml;
+            
+            // Store duplicate data globally for later processing
+            window.duplicateCheckData = duplicateCheck;
+            window.selectedBookings = [...duplicateCheck.clean_bookings]; // Start with non-duplicate bookings
+        }
+        
+        function keepNewBooking(index) {
+            const duplicate = window.duplicateCheckData.duplicates[index];
+            window.selectedBookings.push(duplicate.new_booking);
+            
+            // Update UI to show selection
+            const button = event.target;
+            button.style.background = '#4caf50';
+            button.innerHTML = '✅ Đã chọn';
+            button.disabled = true;
+            
+            // Disable other button
+            const skipButton = button.nextElementSibling;
+            skipButton.style.background = '#ccc';
+            skipButton.disabled = true;
+        }
+        
+        function skipDuplicateBooking(index) {
+            // Don't add to selected bookings
+            
+            // Update UI to show selection
+            const button = event.target;
+            button.style.background = '#f44336';
+            button.innerHTML = '❌ Đã bỏ qua';
+            button.disabled = true;
+            
+            // Disable other button
+            const keepButton = button.previousElementSibling;
+            keepButton.style.background = '#ccc';
+            keepButton.disabled = true;
+        }
+        
+        function processAfterDuplicateCheck() {
+            if (!window.selectedBookings || window.selectedBookings.length === 0) {
+                alert('❌ Không có booking nào được chọn để xử lý!');
+                return;
+            }
+            
+            // Process selected bookings as normal
+            processSelectedBookings(window.selectedBookings);
+        }
+        
+        function processSelectedBookings(bookings) {
+            const messageBox = document.getElementById('message-box');
+            const resultsTable = document.getElementById('results-table');
+            const saveForm = document.getElementById('save-form');
+            
+            // Build results table
+            let tableHtml = '<table><thead><tr><th>Tên khách</th><th>Mã đặt phòng</th><th>Ngày đến</th><th>Ngày đi</th><th>Loại phòng</th><th>Tổng tiền</th><th>Hoa hồng</th><th>Trạng thái</th></tr></thead><tbody>';
+            
+            bookings.forEach((booking) => {
+                const commission = booking.commission || 0;
+                const commissionDisplay = commission > 0 ? 
+                    `💰 ${commission.toLocaleString('vi-VN')} VND` : '➖ Chưa có';
+                
+                const totalPayment = booking.total_payment || 0;
+                const totalPaymentDisplay = totalPayment > 0 ?
+                    `💸 ${totalPayment.toLocaleString('vi-VN')} VND` : '➖ Chưa có';
+                
+                tableHtml += `
+                    <tr style="background-color: #d4edda;">
+                        <td>👤 ${booking.guest_name || 'N/A'}</td>
+                        <td>🏷️ ${booking.booking_id || 'Tự tạo'}</td>
+                        <td>📅 ${booking.check_in_date || 'N/A'}</td>
+                        <td>📅 ${booking.check_out_date || 'N/A'}</td>
+                        <td>🏠 ${booking.room_type || 'N/A'}</td>
+                        <td style="font-weight: bold;">${totalPaymentDisplay}</td>
+                        <td style="color: #e67e22; font-weight: bold;">${commissionDisplay}</td>
+                        <td>✅ Hợp lệ</td>
+                    </tr>
+                `;
+            });
+            tableHtml += '</tbody></table>';
+            resultsTable.innerHTML = tableHtml;
+            
+            // Set up save form
+            document.getElementById('extracted_json_input').value = JSON.stringify(bookings);
+            saveForm.style.display = 'block';
+            
+            messageBox.innerHTML = `<div class="success-message">🎉 Đã xử lý xong duplicate check! Tìm thấy <strong>${bookings.length}</strong> booking hợp lệ để lưu.</div>`;
+            
+            // Scroll to results
+            resultsTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        function resetForm() {
+            location.reload();
+        }
     </script>
 </body>
 </html>

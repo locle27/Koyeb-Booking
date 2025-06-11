@@ -23,6 +23,7 @@ from logic import (
     import_from_gsheet, create_demo_data,
     get_daily_activity, get_overall_calendar_day_info,
     extract_booking_info_from_image_content,
+    check_duplicate_guests,
     export_data_to_new_sheet,
     append_multiple_bookings_to_sheet,
     delete_booking_by_id, update_row_in_gsheet,
@@ -397,6 +398,18 @@ def process_pasted_image():
         image_header, image_b64_data = data['image_b64'].split(',', 1)
         image_bytes = base64.b64decode(image_b64_data)
         extracted_data = extract_booking_info_from_image_content(image_bytes)
+        
+        # Kiểm tra trùng lặp nếu có dữ liệu hợp lệ
+        if extracted_data and isinstance(extracted_data, list) and len(extracted_data) > 0:
+            # Lọc bỏ các booking có lỗi
+            valid_bookings = [b for b in extracted_data if not b.get('error')]
+            if valid_bookings:
+                duplicate_check = check_duplicate_guests(valid_bookings)
+                return jsonify({
+                    "bookings": extracted_data,
+                    "duplicate_check": duplicate_check
+                })
+        
         return jsonify(extracted_data)
     except Exception as e:
         return jsonify({"error": f"Lỗi xử lý phía server: {str(e)}"}), 500
