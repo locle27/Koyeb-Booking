@@ -200,6 +200,10 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
         spreadsheet = gc.open_by_key(sheet_id)
         worksheet = spreadsheet.worksheet(worksheet_name)
         
+        # Debug: Verify worksheet details
+        print(f"📋 Worksheet Info: Name='{worksheet.title}', ID={worksheet.id}")
+        print(f"📋 Worksheet Row Count: {worksheet.row_count}")
+        
         # Debug: Print first booking structure
         if bookings:
             print(f"📝 Sample booking data keys: {list(bookings[0].keys())}")
@@ -244,8 +248,33 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
         
         if rows_to_append:
             print(f"💾 Writing {len(rows_to_append)} rows to Google Sheet...")
+            pre_save_count = worksheet.row_count
+            print(f"📊 Pre-save row count: {pre_save_count}")
+            
             worksheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
-            print(f"🎉 Successfully appended {len(rows_to_append)} bookings to sheet!")
+            
+            # CRITICAL: Verify save was successful
+            post_save_count = worksheet.row_count  
+            print(f"📊 Post-save row count: {post_save_count}")
+            
+            if post_save_count > pre_save_count:
+                print(f"🎉 Successfully appended {len(rows_to_append)} bookings to sheet!")
+                
+                # Verify last row contains our data
+                if bookings and 'Số đặt phòng' in bookings[0]:
+                    target_id = bookings[0]['Số đặt phòng']
+                    try:
+                        last_row_data = worksheet.row_values(post_save_count)
+                        if last_row_data and len(last_row_data) > 0:
+                            print(f"✅ Last row data preview: {last_row_data[:3]}")  # First 3 cells
+                            if target_id in str(last_row_data):
+                                print(f"✅ CONFIRMED: Target ID {target_id} found in saved row!")
+                            else:
+                                print(f"⚠️ WARNING: Target ID {target_id} NOT found in saved row!")
+                    except Exception as verify_error:
+                        print(f"⚠️ Could not verify saved data: {verify_error}")
+            else:
+                print(f"❌ ERROR: Row count did not increase! Expected increase but got {post_save_count} (was {pre_save_count})")
         else:
             print("❌ No valid rows to append")
             
