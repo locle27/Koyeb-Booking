@@ -25,6 +25,12 @@
                 <small class="d-block text-muted mt-1">Dịch giọng nói thông minh</small>
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold" id="templates-tab" data-bs-toggle="pill" data-bs-target="#templates-panel" type="button" role="tab">
+                <i class="fas fa-clipboard-list me-2"></i>Mẫu Tin Nhắn
+                <small class="d-block text-muted mt-1">Quản lý templates messages</small>
+            </button>
+        </li>
     </ul>
 
     <!-- Tab Content -->
@@ -346,6 +352,40 @@
                 </div>
             </div>
         </div>
+
+        <!-- Templates Panel -->
+        <div class="tab-pane fade" id="templates-panel" role="tabpanel">
+            <div class="card">
+                <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-clipboard-list me-2"></i>Quản lý Mẫu Tin Nhắn
+                        </h5>
+                        <div>
+                            <button class="btn btn-light btn-sm me-2" onclick="showAddTemplateModal()">
+                                <i class="fas fa-plus"></i> Thêm mẫu
+                            </button>
+                            <button class="btn btn-outline-light btn-sm me-2" onclick="importFromSheets()">
+                                <i class="fas fa-download"></i> Import
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" onclick="exportToSheets()">
+                                <i class="fas fa-upload"></i> Export
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="templatesContainer">
+                        <div class="text-center p-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Đang tải...</span>
+                            </div>
+                            <p class="mt-2">Đang tải danh sách mẫu tin nhắn...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Quick Actions -->
@@ -384,6 +424,65 @@
 <div class="loading-overlay">
     <div class="spinner-border text-light" role="status">
         <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
+<!-- Modal thêm mẫu tin nhắn -->
+<div class="modal fade" id="addTemplateModal" tabindex="-1" aria-labelledby="addTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="addTemplateModalLabel">
+                    <i class="fas fa-plus"></i> Thêm Mẫu Tin Nhắn Mới
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addTemplateForm">
+                    <div class="mb-3">
+                        <label for="templateCategory" class="form-label">Danh mục <span class="text-danger">*</span></label>
+                        <select class="form-select" id="templateCategory" required>
+                            <option value="">-- Chọn danh mục --</option>
+                            <option value="WELCOME">WELCOME</option>
+                            <option value="ARRIVAL">ARRIVAL</option>
+                            <option value="CHECK IN">CHECK IN</option>
+                            <option value="EARLY CHECK IN">EARLY CHECK IN</option>
+                            <option value="DON PHONG">DON PHONG</option>
+                            <option value="HET PHONG">HET PHONG</option>
+                            <option value="FEED BACK">FEED BACK</option>
+                            <option value="TAXI">TAXI</option>
+                            <option value="PARK">PARK</option>
+                            <option value="LAUNDRY">LAUNDRY</option>
+                            <option value="NOT BOOKING">NOT BOOKING</option>
+                            <option value="OTHER">Khác (nhập thủ công)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="customCategoryDiv" style="display: none;">
+                        <label for="customCategory" class="form-label">Danh mục tùy chỉnh <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="customCategory" placeholder="Nhập tên danh mục mới">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="templateLabel" class="form-label">Nhãn <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="templateLabel" placeholder="VD: DEFAULT, 1, 2, v.v." required>
+                        <div class="form-text">Sử dụng "DEFAULT" cho mẫu mặc định hoặc số thứ tự cho các biến thể</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="templateMessage" class="form-label">Nội dung tin nhắn <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="templateMessage" rows="6" placeholder="Nhập nội dung tin nhắn..." required></textarea>
+                        <div class="form-text">Có thể sử dụng xuống dòng bằng cách nhấn Enter</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" onclick="addNewTemplate()">
+                    <i class="fas fa-save"></i> Thêm & Export
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -1523,6 +1622,289 @@
         const btn = document.getElementById('voiceInstructBtn');
         btn.innerHTML = '<i class="fas fa-microphone"></i>';
         btn.className = 'btn btn-outline-danger';
+    }
+
+    // ==================== TEMPLATES MANAGEMENT FUNCTIONS ====================
+    let templates = [];
+    
+    // Load templates when tab is clicked
+    document.getElementById('templates-tab').addEventListener('click', function() {
+        if (templates.length === 0) {
+            loadTemplatesForTab();
+        }
+    });
+    
+    // Load templates from API for the templates tab
+    async function loadTemplatesForTab() {
+        showLoading(true);
+        try {
+            const response = await fetch('/api/templates');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const data = await response.json();
+            
+            // Transform data để hiển thị đúng cấu trúc: Category - Label
+            templates = Array.isArray(data) ? data.map((item, index) => ({
+                id: index.toString(),
+                name: `${item.Category || 'Chung'} - ${item.Label || 'DEFAULT'}`,
+                content: item.Message || item.Content || item.content || '',
+                category: item.Category || 'Chung',
+                label: item.Label || 'DEFAULT'
+            })) : [];
+            
+            renderTemplatesForTab();
+        } catch (error) {
+            console.error('Lỗi tải templates:', error);
+            showError('Không thể tải danh sách mẫu tin nhắn: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // Render templates grouped by category for templates tab
+    function renderTemplatesForTab() {
+        const container = document.getElementById('templatesContainer');
+        if (templates.length === 0) {
+            container.innerHTML = '<div class="text-center p-4 text-muted">Chưa có mẫu tin nhắn nào</div>';
+            return;
+        }
+        
+        // Nhóm templates theo category
+        const groupedTemplates = {};
+        templates.forEach(template => {
+            const category = template.category;
+            if (!groupedTemplates[category]) {
+                groupedTemplates[category] = [];
+            }
+            groupedTemplates[category].push(template);
+        });
+        
+        // Render từng category với improved styling
+        container.innerHTML = Object.keys(groupedTemplates).map(category => {
+            const categoryTemplates = groupedTemplates[category];
+            const categoryId = category.replace(/\s+/g, '_');
+            
+            return `
+                <div class="template-item mb-3">
+                    <div class="template-header p-3 bg-light rounded-top" onclick="toggleCategoryForTab('${categoryId}')" style="cursor: pointer;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1 text-primary"><i class="fas fa-folder"></i> ${category}</h6>
+                                <small class="text-muted">${categoryTemplates.length} mẫu tin nhắn</small>
+                            </div>
+                            <i class="fas fa-chevron-down" id="icon-${categoryId}"></i>
+                        </div>
+                    </div>
+                    <div class="template-content border border-top-0 rounded-bottom p-3" id="category-${categoryId}" style="display: none;">
+                        ${categoryTemplates.map(template => `
+                            <div class="border-start border-3 border-primary ms-3 ps-3 mb-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-1 text-secondary">
+                                        <i class="fas fa-tag me-1"></i>${template.label !== 'DEFAULT' ? template.label : 'Mặc định'}
+                                    </h6>
+                                    <div class="template-actions">
+                                        <button class="btn btn-sm btn-primary me-1" onclick="useTemplateFromTab('${template.id}')">
+                                            <i class="fas fa-paper-plane"></i> Sử dụng
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="copyTemplateFromTab('${template.id}')">
+                                            <i class="fas fa-copy"></i> Copy
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="bg-light p-3 rounded border" style="white-space: pre-wrap; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.5;">
+                                    ${template.content}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // Toggle category display for templates tab
+    function toggleCategoryForTab(categoryId) {
+        const content = document.getElementById(`category-${categoryId}`);
+        const icon = document.getElementById(`icon-${categoryId}`);
+        
+        if (content.style.display === 'block') {
+            content.style.display = 'none';
+            icon.className = 'fas fa-chevron-down';
+        } else {
+            content.style.display = 'block';
+            icon.className = 'fas fa-chevron-up';
+        }
+    }
+    
+    // Use template from templates tab
+    function useTemplateFromTab(id) {
+        const template = templates.find(t => t.id === id);
+        if (template) {
+            // Copy to clipboard and show success
+            copyToClipboard(template.content);
+            showSuccess('✅ Đã copy mẫu tin nhắn để sử dụng!');
+        }
+    }
+    
+    // Copy template content from templates tab
+    function copyTemplateFromTab(id) {
+        const template = templates.find(t => t.id === id);
+        if (template) {
+            copyToClipboard(template.content);
+            showSuccess('📋 Đã copy nội dung!');
+        }
+    }
+    
+    // Import from Google Sheets
+    async function importFromSheets() {
+        showLoading(true);
+        try {
+            const response = await fetch('/templates/import');
+            if (response.redirected || response.ok) {
+                showSuccess('✅ Import thành công từ Google Sheets!');
+                // Reload templates
+                templates = []; // Clear cache
+                await loadTemplatesForTab();
+                // Also reload for AI chat
+                await loadTemplateCategories();
+            } else {
+                throw new Error(`Import thất bại: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Import error:', error);
+            showError('❌ Lỗi khi import từ Sheets: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // Export to Google Sheets
+    async function exportToSheets() {
+        showLoading(true);
+        try {
+            const response = await fetch('/templates/export');
+            if (response.redirected || response.ok) {
+                showSuccess('✅ Export thành công ra Google Sheets!');
+            } else {
+                throw new Error(`Export thất bại: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            showError('❌ Lỗi khi export ra Sheets: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // Show add template modal
+    function showAddTemplateModal() {
+        // Reset form
+        document.getElementById('addTemplateForm').reset();
+        document.getElementById('customCategoryDiv').style.display = 'none';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('addTemplateModal'));
+        modal.show();
+    }
+    
+    // Handle category change for add template modal
+    document.addEventListener('DOMContentLoaded', function() {
+        const categorySelect = document.getElementById('templateCategory');
+        if (categorySelect) {
+            categorySelect.addEventListener('change', function() {
+                const customDiv = document.getElementById('customCategoryDiv');
+                if (this.value === 'OTHER') {
+                    customDiv.style.display = 'block';
+                    document.getElementById('customCategory').required = true;
+                } else {
+                    customDiv.style.display = 'none';
+                    document.getElementById('customCategory').required = false;
+                }
+            });
+        }
+    });
+    
+    // Add new template
+    async function addNewTemplate() {
+        const form = document.getElementById('addTemplateForm');
+        
+        // Validate form
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        // Get form data
+        const categorySelect = document.getElementById('templateCategory');
+        const customCategory = document.getElementById('customCategory').value.trim();
+        const label = document.getElementById('templateLabel').value.trim();
+        const message = document.getElementById('templateMessage').value.trim();
+        
+        // Determine final category
+        let finalCategory = categorySelect.value;
+        if (finalCategory === 'OTHER' && customCategory) {
+            finalCategory = customCategory.toUpperCase();
+        }
+        
+        // Additional validation
+        if (!finalCategory || finalCategory === 'OTHER') {
+            showError('❌ Vui lòng chọn hoặc nhập danh mục!');
+            return;
+        }
+        
+        if (!label) {
+            showError('❌ Vui lòng nhập nhãn!');
+            return;
+        }
+        
+        if (!message) {
+            showError('❌ Vui lòng nhập nội dung tin nhắn!');
+            return;
+        }
+        
+        // Prepare new template data
+        const newTemplate = {
+            Category: finalCategory,
+            Label: label,
+            Message: message
+        };
+        
+        showLoading(true);
+        
+        try {
+            // Call API to add new template
+            const response = await fetch('/api/templates/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newTemplate)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                showSuccess(result.message || '✅ Đã thêm mẫu tin nhắn thành công và export ra Google Sheets!');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addTemplateModal'));
+                modal.hide();
+                
+                // Reload templates
+                templates = []; // Clear cache
+                await loadTemplatesForTab();
+                // Also reload for AI chat
+                await loadTemplateCategories();
+            } else {
+                const error = await response.json();
+                throw new Error(error.message || 'Lỗi khi thêm mẫu tin nhắn');
+            }
+        } catch (error) {
+            console.error('Add template error:', error);
+            showError('❌ Lỗi khi thêm mẫu tin nhắn: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
     }
 </script>
 {% endblock %}

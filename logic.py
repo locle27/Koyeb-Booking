@@ -654,98 +654,228 @@ def prepare_dashboard_data(df: pd.DataFrame, start_date, end_date, sort_by=None,
 
 def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str, Any]]:
     """
-    Hàm này trích xuất thông tin đặt phòng từ ảnh bằng Google Gemini API.
-    Prompt đã được cải tiến để nhận diện tên khách tốt hơn.
+    ✅ PHIÊN BẢN NÂNG CẤP: Trích xuất thông tin đặt phòng từ ảnh bằng Google Gemini API
+    Với error handling tốt hơn và prompt được tối ưu.
     """
-    print("\n--- BẮT ĐẦU XỬ LÝ ẢNH BẰNG AI (PROMPT CẢI TIẾN) ---")
+    print("\n🔍 BẮT ĐẦU XỬ LÝ ẢNH BẰNG AI (PHIÊN BẢN NÂNG CẤP)")
     
     # Kiểm tra dependencies
     if Image is None:
-        return [{"error": "PIL library not installed. Please install it with: pip install Pillow"}]
+        error_msg = "❌ PIL library chưa được cài đặt. Hãy cài: pip install Pillow"
+        print(error_msg)
+        return [{"error": error_msg}]
     
     if genai is None:
-        return [{"error": "google-generativeai library not installed. Please install it with: pip install google-generativeai"}]
+        error_msg = "❌ google-generativeai library chưa được cài đặt. Hãy cài: pip install google-generativeai"
+        print(error_msg)
+        return [{"error": error_msg}]
     
     try:
-        # 1. Cấu hình API Key
+        # 1. Cấu hình API Key với nhiều nguồn
+        api_key = None
         try:
-            import toml
-            secrets_path = ".streamlit/secrets.toml"
-            secrets = toml.load(secrets_path)
-            api_key = secrets.get("GOOGLE_API_KEY")
-            if not api_key: raise ValueError
-            print("Đã tìm thấy API Key trong secrets.toml.")
-        except (FileNotFoundError, ValueError, ImportError):
+            # Thử từ .env file trước
             import os
             api_key = os.getenv("GOOGLE_API_KEY")
-            if not api_key:
-                error_msg = "Lỗi cấu hình: Không tìm thấy GOOGLE_API_KEY."
+            if api_key:
+                print("✅ Tìm thấy API Key từ biến môi trường")
+            else:
+                # Thử từ secrets.toml (cho Streamlit)
+                try:
+                    import toml
+                    secrets_path = ".streamlit/secrets.toml"
+                    secrets = toml.load(secrets_path)
+                    api_key = secrets.get("GOOGLE_API_KEY")
+                    if api_key:
+                        print("✅ Tìm thấy API Key từ secrets.toml")
+                except:
+                    pass
+        except Exception as e:
+            print(f"⚠️ Lỗi khi đọc API key: {e}")
+        
+        if not api_key:
+            error_msg = "❌ Không tìm thấy GOOGLE_API_KEY. Vui lòng cấu hình trong .env file."
+            print(error_msg)
+            return [{"error": error_msg}]
+
+        # Cấu hình Gemini
+        genai.configure(api_key=api_key)
+        print("✅ Đã cấu hình Google AI API thành công")
+
+        # 2. Xử lý ảnh với error handling tốt hơn
+        try:
+            img = Image.open(BytesIO(image_bytes))
+            print(f"✅ Đã load ảnh thành công. Kích thước: {img.size}")
+        except Exception as e:
+            error_msg = f"❌ Lỗi khi xử lý ảnh: {str(e)}"
+            print(error_msg)
+            return [{"error": error_msg}]
+
+        # 3. Khởi tạo model với model chính xác
+        try:
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            print("✅ Đã khởi tạo Gemini model")
+        except Exception as e:
+            print(f"⚠️ Lỗi với gemini-2.0-flash-exp, thử model khác...")
+            try:
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                print("✅ Đã khởi tạo Gemini 1.5 Flash")
+            except Exception as e2:
+                error_msg = f"❌ Không thể khởi tạo Gemini model: {str(e2)}"
                 print(error_msg)
                 return [{"error": error_msg}]
-            print("Đã tìm thấy API Key trong biến môi trường.")
-
-        genai.configure(api_key=api_key)
-        print("Cấu hình Google AI thành công.")
-
-        # 2. Chuẩn bị mô hình với model đúng
-        img = Image.open(BytesIO(image_bytes))
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')  # Sửa lỗi model
         
-        # === PROMPT ĐÃ ĐƯỢC NÂNG CẤP ===
-        prompt = """
-        Bạn là một trợ lý nhập liệu chuyên nghiệp cho khách sạn, có nhiệm vụ trích xuất thông tin từ một hình ảnh.
-        Hình ảnh này có thể chứa một bảng hoặc danh sách của NHIỀU đặt phòng.
-        Nhiệm vụ của bạn:
-        1. Quét toàn bộ hình ảnh và xác định từng hàng (mỗi hàng là một đặt phòng riêng biệt).
-        2. Với MỖI đặt phòng, hãy trích xuất các thông tin sau.
-        3. Trả về kết quả dưới dạng một MẢNG JSON (JSON array), trong đó mỗi phần tử của mảng là một đối tượng JSON đại diện cho một đặt phòng.
+        # 4. PROMPT ĐƯỢC NÂNG CẤP MẠNH MẼ
+        enhanced_prompt = """
+🏨 BẠN LÀ CHUYÊN GIA TRÍCH XUẤT THÔNG TIN ĐẶT PHÒNG KHÁCH SẠN
 
-        Cấu trúc của mỗi đối tượng JSON trong mảng phải như sau:
-        - "guest_name" (string): Họ và tên đầy đủ của khách. **GỢI Ý QUAN TRỌNG: Tên khách thường là dòng chữ lớn nhất, nằm ở vị trí trên cùng của ảnh, ngay phía trên mã đặt phòng hoặc các nút "Guest details". Đừng nhầm lẫn với các nhãn khác.**
-        - "booking_id" (string): Mã số đặt phòng.
-        - "check_in_date" (string): Ngày nhận phòng theo định dạng YYYY-MM-DD.
-        - "check_out_date" (string): Ngày trả phòng theo định dạng YYYY-MM-DD.
-        - "room_type" (string): Tên loại phòng đã đặt.
-        - "total_payment" (number): Tổng số tiền thanh toán (chỉ lấy số).
-        - "commission" (number): Tiền hoa hồng, nếu có (chỉ lấy số). Tìm kiếm các từ khóa như "hoa hồng", "commission", "com", hoặc số tiền nhỏ hơn total_payment. Nếu không có thông tin hoa hồng rõ ràng, để null.
+NHIỆM VỤ: Phân tích ảnh này và trích xuất CHÍNH XÁC thông tin đặt phòng
 
-        YÊU CẦU CỰC KỲ QUAN TRỌNG:
-        - Kết quả cuối cùng PHẢI là một mảng JSON, ví dụ: [ { ...booking1... }, { ...booking2... } ].
-        - Chỉ trả về đối tượng JSON thô, không kèm theo bất kỳ văn bản giải thích hay định dạng markdown nào như ```json.
-        - Nếu không tìm thấy thông tin cho trường nào, hãy đặt giá trị là null.
-        - Đặc biệt chú ý đến hoa hồng: có thể được ghi dưới dạng % hoặc số tiền cụ thể.
-        """
+📋 QUY TRÌNH PHÂN TÍCH:
+1. QUÉT TOÀN BỘ ảnh từ trên xuống dưới, trái sang phải
+2. TÌM KIẾM các thông tin quan trọng:
+   - Tên khách hàng (thường ở đầu booking, font lớn)
+   - Mã đặt phòng (booking ID, confirmation number)
+   - Ngày check-in và check-out
+   - Loại phòng đã đặt
+   - Số tiền (tổng tiền, hoa hồng)
+3. Với MỖI đặt phòng tìm thấy, tạo 1 object JSON
 
-        # 3. Gọi API và xử lý kết quả
-        print("Đang gửi yêu cầu đến Google AI với prompt mới...")
-        response = model.generate_content([prompt, img], stream=False)
-        response.resolve()
-        
-        print("\n--- KẾT QUẢ THÔ TỪ AI ---")
-        print(response.text)
-        print("--------------------------\n")
+🔍 HƯỚNG DẪN CHI TIẾT:
+- TÊN KHÁCH: Tìm tên người đặt (Guest Name, Customer Name, Booker Name)
+- MÃ ĐẶT PHÒNG: Booking ID, Confirmation Code, Reference Number
+- NGÀY: Định dạng YYYY-MM-DD (VD: 2025-01-15)
+- LOẠI PHÒNG: Room Type, Accommodation Type
+- TIỀN: Tìm Total Amount, Price, Cost
+- HOA HỒNG: Commission, Booking Fee (nếu có)
 
-        json_text = response.text.strip().replace('```json', '').replace('```', '').strip()
-        if not json_text:
-            print("Lỗi: AI trả về phản hồi rỗng.")
-            return [{"error": "Lỗi: AI trả về phản hồi rỗng. Có thể ảnh không rõ hoặc không chứa thông tin."}]
+⚠️ QUAN TRỌNG:
+- CHỈ TRẢ VỀ JSON ARRAY thuần túy, KHÔNG có markdown ```json
+- NẾU KHÔNG TÌM THẤY thông tin nào: trả về []
+- NẾU TÌM THẤY ít nhất 1 thông tin: cố gắng điền đầy đủ các trường
 
-        list_of_bookings_data = json.loads(json_text)
-        
-        if isinstance(list_of_bookings_data, dict):
-            list_of_bookings_data = [list_of_bookings_data]
-        
-        print(f"Đã phân tích thành công {len(list_of_bookings_data)} đặt phòng từ JSON.")
-        return list_of_bookings_data
+📤 OUTPUT FORMAT (bắt buộc):
+[
+  {
+    "guest_name": "Tên khách hàng",
+    "booking_id": "Mã đặt phòng", 
+    "check_in_date": "YYYY-MM-DD",
+    "check_out_date": "YYYY-MM-DD",
+    "room_type": "Loại phòng",
+    "total_payment": số_tiền_số,
+    "commission": số_hoa_hồng_số
+  }
+]
 
-    except json.JSONDecodeError:
-        error_msg = "Lỗi: AI trả về định dạng JSON không hợp lệ."
+🚀 BẮT ĐẦU PHÂN TÍCH:
+"""
+
+        # 5. Gọi API với retry mechanism
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                print(f"🤖 Đang gửi yêu cầu tới Gemini AI (lần thử {attempt + 1}/{max_retries})...")
+                
+                response = model.generate_content([enhanced_prompt, img], stream=False)
+                response.resolve()
+                
+                ai_response_text = response.text.strip()
+                print(f"✅ Nhận được phản hồi từ AI ({len(ai_response_text)} ký tự)")
+                
+                if not ai_response_text:
+                    raise ValueError("AI trả về phản hồi rỗng")
+                
+                break  # Thành công, thoát khỏi retry loop
+                
+            except Exception as api_error:
+                print(f"❌ Lỗi API lần {attempt + 1}: {str(api_error)}")
+                if attempt == max_retries - 1:  # Lần thử cuối cùng
+                    error_msg = f"❌ Lỗi gọi Gemini API sau {max_retries} lần thử: {str(api_error)}"
+                    print(error_msg)
+                    return [{"error": error_msg}]
+                import time
+                time.sleep(2)  # Đợi 2 giây trước khi thử lại
+
+        # 6. Xử lý và parse kết quả
+        print("\n📝 KẾT QUẢ THÔ TỪ AI:")
+        print("-" * 50)
+        print(ai_response_text[:500] + ("..." if len(ai_response_text) > 500 else ""))
+        print("-" * 50)
+
+        # Clean response (remove markdown if present)
+        cleaned_response = ai_response_text.strip()
+        if cleaned_response.startswith('```json'):
+            cleaned_response = cleaned_response[7:]
+        if cleaned_response.endswith('```'):
+            cleaned_response = cleaned_response[:-3]
+        cleaned_response = cleaned_response.strip()
+
+        # Parse JSON với error handling
+        try:
+            parsed_result = json.loads(cleaned_response)
+            print(f"✅ Parse JSON thành công")
+            
+            # Validate result structure
+            if not isinstance(parsed_result, list):
+                if isinstance(parsed_result, dict):
+                    parsed_result = [parsed_result]  # Convert single object to array
+                else:
+                    raise ValueError("Kết quả không phải là array hoặc object")
+            
+            # Validate và clean từng booking
+            validated_bookings = []
+            for i, booking in enumerate(parsed_result):
+                if not isinstance(booking, dict):
+                    print(f"⚠️ Booking {i+1} không phải dict, bỏ qua")
+                    continue
+                
+                # Ensure all required fields exist
+                validated_booking = {
+                    "guest_name": str(booking.get("guest_name", "")).strip() or None,
+                    "booking_id": str(booking.get("booking_id", "")).strip() or None,
+                    "check_in_date": str(booking.get("check_in_date", "")).strip() or None,
+                    "check_out_date": str(booking.get("check_out_date", "")).strip() or None,
+                    "room_type": str(booking.get("room_type", "")).strip() or None,
+                    "total_payment": booking.get("total_payment", 0),
+                    "commission": booking.get("commission", 0)
+                }
+                
+                # Convert numeric fields
+                try:
+                    if validated_booking["total_payment"]:
+                        validated_booking["total_payment"] = float(validated_booking["total_payment"])
+                    else:
+                        validated_booking["total_payment"] = 0
+                        
+                    if validated_booking["commission"]:
+                        validated_booking["commission"] = float(validated_booking["commission"])
+                    else:
+                        validated_booking["commission"] = 0
+                except (ValueError, TypeError):
+                    validated_booking["total_payment"] = 0
+                    validated_booking["commission"] = 0
+                
+                validated_bookings.append(validated_booking)
+                print(f"✅ Validated booking {i+1}: {validated_booking['guest_name']}")
+            
+            if not validated_bookings:
+                print("⚠️ Không có booking hợp lệ nào được tìm thấy")
+                return [{"error": "Không tìm thấy thông tin đặt phòng hợp lệ trong ảnh"}]
+            
+            print(f"🎉 Trích xuất thành công {len(validated_bookings)} đặt phòng!")
+            return validated_bookings
+            
+        except json.JSONDecodeError as json_error:
+            error_msg = f"❌ Lỗi parse JSON: {str(json_error)}\nResponse: {cleaned_response[:200]}..."
+            print(error_msg)
+            return [{"error": "AI trả về định dạng không hợp lệ. Vui lòng thử với ảnh rõ nét hơn."}]
+
+    except Exception as main_error:
+        error_msg = f"❌ Lỗi tổng quát: {str(main_error)}"
         print(error_msg)
-        return [{"error": error_msg}]
-    except Exception as e:
-        error_msg = f"Lỗi không xác định khi xử lý ảnh: {str(e)}"
-        print(error_msg)
-        return [{"error": error_msg}]
+        import traceback
+        traceback.print_exc()
+        return [{"error": f"Lỗi xử lý ảnh: {str(main_error)}"}]
 
 def parse_app_standard_date(date_input: Any) -> Optional[datetime.date]:
     """
