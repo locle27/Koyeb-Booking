@@ -155,7 +155,7 @@
                             <div class="row mt-3">
                                 <div class="col-12">
                                     <div class="card border-info bg-light">
-                                        <div class="card-header py-2 bg-info text-white">
+                                        <div class="card-header py-2 custom-instructions-header">
                                             <small class="fw-bold">
                                                 <i class="fas fa-magic me-1"></i>Hướng dẫn tùy chỉnh (Custom Instructions)
                                             </small>
@@ -584,6 +584,38 @@
             position: absolute;
             z-index: -1;
         }
+    }
+
+    /* ✅ CUSTOM INSTRUCTIONS STYLING FIXES */
+    .custom-instructions-header {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
+        border: none !important;
+    }
+    
+    .custom-instructions-header * {
+        color: #ffffff !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    .custom-instructions-header .btn-outline-light {
+        border-color: rgba(255,255,255,0.5) !important;
+        color: #ffffff !important;
+    }
+    
+    .custom-instructions-header .btn-outline-light:hover {
+        background-color: rgba(255,255,255,0.2) !important;
+        border-color: #ffffff !important;
+        color: #ffffff !important;
+    }
+    
+    /* Make sure labels in custom instructions are visible */
+    #customInstructionsSection .form-label {
+        color: #212529 !important;
+        font-weight: 600;
+    }
+    
+    #customInstructionsSection .form-text {
+        color: #6c757d !important;
     }
 </style>
 {% endblock %}
