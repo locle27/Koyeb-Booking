@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chat Assistant - Lễ Tân Thông Minh</title>
+    <title>AI Chat Assistant - Custom Instructions Priority</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -169,7 +169,7 @@
     <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-center my-4">
             <h1 class="mb-0">
-                <i class="fas fa-robot text-primary"></i> AI Chat Assistant
+                <i class="fas fa-robot text-primary"></i> AI Chat Assistant - Custom Priority
             </h1>
             <div>
                 <button class="btn btn-info me-2" onclick="viewTemplates()">
@@ -237,62 +237,61 @@
                         </h6>
                     </div>
                     <div class="card-body py-2">
-                        <!-- NEW: Custom Instructions Section -->
+                        <!-- UPDATED: Custom Instructions Section - TẬP TRUNG CHỦ YẾU -->
                         <div class="row mb-3">
                             <div class="col-12">
-                                <label class="form-label small mb-1">
-                                    <i class="fas fa-brain me-1 text-primary"></i>Hướng dẫn tùy chỉnh cho AI:
-                                </label>
-                                <div class="input-group">
-                                    <input type="text" id="customInstructions" class="form-control form-control-sm" 
-                                           placeholder="VD: Trả lời ngắn gọn, lịch sự và tập trung vào giải pháp..."
-                                           maxlength="200">
-                                    <button class="btn btn-outline-secondary btn-sm" type="button" id="voiceInputBtn" 
-                                            onclick="toggleVoiceInput()" title="Nói để nhập hướng dẫn">
-                                        <i class="fas fa-microphone" id="voiceIcon"></i>
-                                    </button>
-                                    <button class="btn btn-outline-info btn-sm" type="button" 
-                                            onclick="showInstructionExamples()" title="Xem ví dụ hướng dẫn">
-                                        <i class="fas fa-lightbulb"></i>
-                                    </button>
-                                </div>
-                                <div class="form-text small">
-                                    💡 Hướng dẫn AI cách xử lý và phản hồi theo ý bạn (tuỳ chọn)
-                                </div>
-                                
-                                <!-- Voice Status Indicator -->
-                                <div id="voiceStatus" class="mt-2" style="display: none;">
-                                    <span class="badge bg-danger">
-                                        <i class="fas fa-microphone me-1"></i>Đang nghe... Nói hướng dẫn của bạn
-                                    </span>
-                                </div>
-                                
-                                <!-- Quick Instruction Examples -->
-                                <div id="instructionExamples" class="mt-2" style="display: none;">
-                                    <div class="card border-light bg-light">
-                                        <div class="card-body py-2 px-3">
-                                            <h6 class="small mb-2 text-primary">
-                                                <i class="fas fa-lightbulb me-1"></i>Ví dụ hướng dẫn:
-                                            </h6>
+                                <div class="card border-primary">
+                                    <div class="card-header bg-primary text-white">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-brain me-1"></i>✨ Hướng dẫn AI (Tùy chỉnh theo ý bạn) - CHÍNH
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="input-group">
+                                            <input type="text" id="customInstructions" class="form-control" 
+                                                   placeholder="VD: Trả lời ngắn gọn, lịch sự. Đề xuất phòng khác nếu hết chỗ..."
+                                                   maxlength="300">
+                                            <button class="btn btn-outline-secondary" type="button" id="voiceInputBtn" 
+                                                    onclick="toggleVoiceInput()" title="Nói để nhập hướng dẫn">
+                                                <i class="fas fa-microphone" id="voiceIcon"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info" type="button" 
+                                                    onclick="showInstructionExamples()" title="Xem ví dụ">
+                                                <i class="fas fa-lightbulb"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">
+                                            🎯 <strong>AI sẽ ưu tiên tuyệt đối theo hướng dẫn này</strong> - nhập text hoặc nói
+                                        </div>
+                                        
+                                        <!-- Voice Status -->
+                                        <div id="voiceStatus" class="mt-2" style="display: none;">
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-microphone me-1"></i>Đang nghe...
+                                            </span>
+                                        </div>
+                                        
+                                        <!-- Quick Examples -->
+                                        <div id="instructionExamples" class="mt-2" style="display: none;">
                                             <div class="row">
                                                 <div class="col-md-6">
                                                     <button class="btn btn-sm btn-outline-primary w-100 mb-1" 
-                                                            onclick="setInstruction('Trả lời ngắn gọn và thân thiện')">
-                                                        Ngắn gọn & thân thiện
+                                                            onclick="setInstruction('Trả lời ngắn gọn, thân thiện, tối đa 2 câu')">
+                                                        Ngắn gọn
                                                     </button>
                                                     <button class="btn btn-sm btn-outline-success w-100 mb-1" 
-                                                            onclick="setInstruction('Đưa ra giải pháp cụ thể và hành động rõ ràng')">
-                                                        Tập trung giải pháp
+                                                            onclick="setInstruction('Xin lỗi chân thành và đề xuất giải pháp thay thế')">
+                                                        Xử lý khiếu nại
                                                     </button>
                                                 </div>
                                                 <div class="col-md-6">
                                                     <button class="btn btn-sm btn-outline-warning w-100 mb-1" 
-                                                            onclick="setInstruction('Xin lỗi và đền bù, tạo thiện cảm với khách')">
-                                                        Xử lý khiếu nại
+                                                            onclick="setInstruction('Nhiệt tình bán phòng, nhấn mạnh ưu điểm vị trí Old Quarter')">
+                                                        Bán hàng tích cực
                                                     </button>
                                                     <button class="btn btn-sm btn-outline-info w-100 mb-1" 
-                                                            onclick="setInstruction('Giải thích chi tiết và chuyên nghiệp')">
-                                                        Chi tiết & chuyên nghiệp
+                                                            onclick="setInstruction('Giải thích chi tiết, chuyên nghiệp, mention chính sách')">
+                                                        Chi tiết
                                                     </button>
                                                 </div>
                                             </div>
@@ -301,39 +300,47 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- Templates Section - PHỤ (optional) -->
                         <div class="row align-items-center">
-                            <!-- Template Selection -->
-                            <div class="col-md-4">
-                                <label for="templateCategory" class="form-label small mb-1">Mẫu tin nhắn:</label>
-                                <select id="templateCategory" class="form-select form-select-sm" onchange="loadSpecificTemplates()">
-                                    <option value="">Tự động chọn</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="specificTemplate" class="form-label small mb-1">Mẫu cụ thể:</label>
-                                <select id="specificTemplate" class="form-select form-select-sm" disabled 
-                                        onchange="previewSelectedTemplate()" 
-                                        onmouseenter="enableHoverPreview()" 
-                                        onmouseleave="disableHoverPreview()">
-                                    <option value="">Chọn category trước</option>
-                                </select>
-                                <!-- Quick preview tooltip -->
-                                <div id="quickPreviewTooltip" class="position-absolute bg-dark text-white p-2 rounded shadow" 
-                                     style="display: none; z-index: 1000; max-width: 300px; font-size: 0.8rem; top: 100%; left: 0;">
-                                </div>
-                            </div>
-                            <!-- Yes/No Mode -->
-                            <div class="col-md-4">
-                                <label class="form-label small mb-1">Phong cách trả lời:</label>
-                                <div class="btn-group w-100" role="group">
-                                    <input type="radio" class="btn-check" name="responseMode" id="responseModeAuto" value="auto" checked>
-                                    <label class="btn btn-outline-secondary btn-sm" for="responseModeAuto">Auto</label>
-                                    
-                                    <input type="radio" class="btn-check" name="responseMode" id="responseModeYes" value="yes">
-                                    <label class="btn btn-outline-success btn-sm" for="responseModeYes">Yes</label>
-                                    
-                                    <input type="radio" class="btn-check" name="responseMode" id="responseModeNo" value="no">
-                                    <label class="btn btn-outline-danger btn-sm" for="responseModeNo">No</label>
+                            <div class="col-12">
+                                <div class="card border-light">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0 text-muted">
+                                            <i class="fas fa-list me-1"></i>🔧 Mẫu tin nhắn (tùy chọn) - PHỤ
+                                        </h6>
+                                    </div>
+                                    <div class="card-body py-2">
+                                        <div class="row align-items-center">
+                                            <div class="col-md-4">
+                                                <label for="templateCategory" class="form-label small mb-1">Loại mẫu:</label>
+                                                <select id="templateCategory" class="form-select form-select-sm" onchange="loadSpecificTemplates()">
+                                                    <option value="">Không dùng mẫu</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="specificTemplate" class="form-label small mb-1">Mẫu cụ thể:</label>
+                                                <select id="specificTemplate" class="form-select form-select-sm" disabled onchange="previewSelectedTemplate()">
+                                                    <option value="">Chọn loại trước</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">Tông phản hồi:</label>
+                                                <div class="btn-group w-100" role="group">
+                                                    <input type="radio" class="btn-check" name="responseMode" id="responseModeAuto" value="auto" checked>
+                                                    <label class="btn btn-outline-secondary btn-sm" for="responseModeAuto">Auto</label>
+                                                    
+                                                    <input type="radio" class="btn-check" name="responseMode" id="responseModeYes" value="yes">
+                                                    <label class="btn btn-outline-success btn-sm" for="responseModeYes">Tích cực</label>
+                                                    
+                                                    <input type="radio" class="btn-check" name="responseMode" id="responseModeNo" value="no">
+                                                    <label class="btn btn-outline-danger btn-sm" for="responseModeNo">Từ chối</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="form-text small text-muted">
+                                            💡 Chỉ dùng mẫu khi muốn tham khảo - AI sẽ ưu tiên hướng dẫn tùy chỉnh bên trên
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -362,31 +369,31 @@
                         <div id="responseArea" class="response-area">
                             <div class="text-center text-muted">
                                 <i class="fas fa-robot fa-2x mb-3 text-primary"></i>
-                                <h6 class="text-primary">🧠 AI Chat Assistant - Context-Aware Intelligence</h6>
-                                <p class="mb-3">Tải ảnh đoạn chat lên, AI sẽ đọc và hiểu <strong>toàn bộ bối cảnh</strong> để đưa ra phản hồi thông minh!</p>
+                                <h6 class="text-primary">🧠 AI Chat Assistant - Custom Instructions Priority</h6>
+                                <p class="mb-3">Nhập <strong>hướng dẫn tùy chỉnh</strong> để AI trả lời theo ý bạn, sau đó tải ảnh chat!</p>
                                 
                                 <div class="alert alert-primary border-primary border-2 mt-3" style="font-size: 0.9em; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);">
-                                    <h6 class="text-primary mb-3"><i class="fas fa-star me-1"></i> Tính năng Context-Aware AI mới!</h6>
+                                    <h6 class="text-primary mb-3"><i class="fas fa-star me-1"></i> Tính năng Custom Instructions mới!</h6>
                                     <div class="row text-start">
                                         <div class="col-md-6 mb-2">
-                                            <i class="fas fa-comments me-2 text-primary"></i>
+                                            <i class="fas fa-brain me-2 text-primary"></i>
+                                            <strong>AI ưu tiên hướng dẫn của bạn:</strong><br>
+                                            <small class="text-muted">Nhập text hoặc nói để chỉ định cách AI trả lời</small>
+                                        </div>
+                                        <div class="col-md-6 mb-2">
+                                            <i class="fas fa-comments me-2 text-success"></i>
                                             <strong>Đọc toàn bộ cuộc hội thoại:</strong><br>
-                                            <small class="text-muted">AI hiểu tình huống từ đầu đến cuối, không chỉ tin nhắn cuối</small>
+                                            <small class="text-muted">AI hiểu context từ đầu đến cuối</small>
                                         </div>
                                         <div class="col-md-6 mb-2">
-                                            <i class="fas fa-brain me-2 text-success"></i>
-                                            <strong>Nhận diện tương tác trước:</strong><br>
-                                            <small class="text-muted">Nhớ những gì đã thảo luận và phản hồi phù hợp</small>
-                                        </div>
-                                        <div class="col-md-6 mb-2">
-                                            <i class="fas fa-magic me-2 text-warning"></i>
-                                            <strong>Template thông minh:</strong><br>
-                                            <small class="text-muted">Tự động chọn mẫu tin nhắn phù hợp với context</small>
+                                            <i class="fas fa-microphone me-2 text-warning"></i>
+                                            <strong>Voice input:</strong><br>
+                                            <small class="text-muted">Nói hướng dẫn thay vì gõ</small>
                                         </div>
                                         <div class="col-md-6 mb-2">
                                             <i class="fas fa-sync-alt me-2 text-info"></i>
-                                            <strong>Auto-Sync Google Sheets:</strong><br>
-                                            <small class="text-muted">Luôn sử dụng mẫu tin nhắn mới nhất</small>
+                                            <strong>Tối ưu tokens:</strong><br>
+                                            <small class="text-muted">Nhanh và hiệu quả hơn</small>
                                         </div>
                                     </div>
                                 </div>
@@ -396,12 +403,12 @@
                                         <div class="col-md-8">
                                             <small class="text-muted">
                                                 <i class="fas fa-lightbulb me-1 text-warning"></i>
-                                                <strong>Khác biệt:</strong> AI cũ chỉ đọc tin nhắn cuối. AI mới hiểu cả câu chuyện!
+                                                <strong>Mới:</strong> AI ưu tiên hoàn toàn theo hướng dẫn tùy chỉnh của bạn!
                                             </small>
                                         </div>
                                         <div class="col-md-4 text-end">
                                             <span class="badge bg-success px-3 py-2">
-                                                <i class="fas fa-check-circle me-1"></i> Context-Ready
+                                                <i class="fas fa-check-circle me-1"></i> Custom-Ready
                                             </span>
                                         </div>
                                     </div>
@@ -426,44 +433,45 @@
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="text-center">
-                                    <i class="fas fa-upload fa-2x text-primary mb-2"></i>
-                                    <h6>Bước 1: Tải Ảnh</h6>
-                                    <p class="small text-muted">Dán ảnh đoạn chat hoặc chọn file từ máy tính</p>
+                                    <i class="fas fa-brain fa-2x text-primary mb-2"></i>
+                                    <h6>Bước 1: Nhập Hướng Dẫn</h6>
+                                    <p class="small text-muted">Nhập text hoặc nói cách bạn muốn AI trả lời</p>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="text-center">
-                                    <i class="fas fa-comments fa-2x text-info mb-2"></i>
-                                    <h6>Bước 2: AI Đọc Context</h6>
-                                    <p class="small text-muted">AI phân tích toàn bộ cuộc hội thoại để hiểu bối cảnh</p>
+                                    <i class="fas fa-upload fa-2x text-info mb-2"></i>
+                                    <h6>Bước 2: Tải Ảnh Chat</h6>
+                                    <p class="small text-muted">Dán hoặc chọn ảnh đoạn chat</p>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="text-center">
                                     <i class="fas fa-magic fa-2x text-warning mb-2"></i>
-                                    <h6>Bước 3: Phản Hồi Thông Minh</h6>
-                                    <p class="small text-muted">AI tạo phản hồi phù hợp với context và sử dụng template</p>
+                                    <h6>Bước 3: AI Phân Tích</h6>
+                                    <p class="small text-muted">AI đọc context và áp dụng hướng dẫn của bạn</p>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="text-center">
                                     <i class="fas fa-copy fa-2x text-success mb-2"></i>
-                                    <h6>Bước 4: Copy & Gửi</h6>
-                                    <p class="small text-muted">Copy phản hồi có context và gửi cho khách hàng</p>
+                                    <h6>Bước 4: Copy Phản Hồi</h6>
+                                    <p class="small text-muted">Nhận phản hồi theo đúng ý bạn</p>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Context Features Highlight -->
+                        <!-- Custom Instructions Priority Highlight -->
                         <div class="row mt-4">
                             <div class="col-12">
                                 <div class="alert alert-success">
-                                    <h6><i class="fas fa-star"></i> Tính năng mới: Context-Aware AI</h6>
+                                    <h6><i class="fas fa-star"></i> Tính năng mới: Custom Instructions Priority</h6>
                                     <ul class="mb-0 small">
-                                        <li><strong>Đọc toàn bộ cuộc hội thoại:</strong> AI hiểu tình huống từ đầu đến cuối</li>
-                                        <li><strong>Nhận diện tương tác trước:</strong> Nhớ những gì đã thảo luận trước đó</li>
-                                        <li><strong>Phản hồi có context:</strong> Trả lời phù hợp với toàn bộ tình huống</li>
-                                        <li><strong>Template thông minh:</strong> Tự động chọn template phù hợp với context</li>
+                                        <li><strong>AI ưu tiên tuyệt đối hướng dẫn của bạn:</strong> Nhập text hoặc nói cách bạn muốn trả lời</li>
+                                        <li><strong>Voice input:</strong> Dùng microphone thay vì gõ chữ</li>
+                                        <li><strong>Context-aware:</strong> Vẫn đọc toàn bộ cuộc hội thoại để hiểu tình huống</li>
+                                        <li><strong>Tối ưu tokens:</strong> Nhanh hơn và hiệu quả hơn phiên bản cũ</li>
+                                        <li><strong>Templates optional:</strong> Chỉ dùng khi cần tham khảo</li>
                                     </ul>
                                 </div>
                             </div>
@@ -1094,42 +1102,42 @@
                     <div class="alert alert-info border-start border-4 border-info py-2 px-3 mb-3">
                         <h6 class="mb-2"><i class="fas fa-cogs"></i> Cấu hình AI đã sử dụng:</h6>
                         <div class="row">
-                            <div class="col-md-4">
-                                <strong>Template:</strong> ${aiConfig.selectedTemplate ? 
-                                    `${aiConfig.selectedTemplate.Category} - ${aiConfig.selectedTemplate.Label}` : 
-                                    'Tự động chọn'}
+                            <div class="col-md-6">
+                                <strong>Hướng dẫn tùy chỉnh:</strong> 
+                                ${aiConfig.customInstructions ? 
+                                    `<span class="badge bg-primary">✓ Đã áp dụng</span>` : 
+                                    '<span class="badge bg-light text-dark">Mặc định</span>'}
                             </div>
-                            <div class="col-md-4">
-                                <strong>Phong cách:</strong> 
+                            <div class="col-md-6">
+                                <strong>Tông phản hồi:</strong> 
                                 <span class="badge ${aiConfig.responseMode === 'yes' ? 'bg-success' : 
                                     aiConfig.responseMode === 'no' ? 'bg-danger' : 'bg-secondary'}">
-                                    ${aiConfig.responseMode === 'yes' ? 'Tích cực (Yes)' : 
-                                      aiConfig.responseMode === 'no' ? 'Tiêu cực (No)' : 'Tự động (Auto)'}
+                                    ${aiConfig.responseMode === 'yes' ? 'Tích cực' : 
+                                      aiConfig.responseMode === 'no' ? 'Từ chối' : 'Tự động'}
                                 </span>
-                            </div>
-                            <div class="col-md-4">
-                                <strong>Hướng dẫn:</strong> 
-                                ${aiConfig.customInstructions ? 
-                                    `<span class="badge bg-primary" title="${aiConfig.customInstructions}">Có tùy chỉnh</span>` : 
-                                    '<span class="badge bg-light text-dark">Mặc định</span>'}
                             </div>
                         </div>
                         ${aiConfig.customInstructions ? `
                             <div class="mt-2 pt-2 border-top border-light">
-                                <small class="text-muted"><strong>Hướng dẫn tùy chỉnh:</strong></small>
+                                <small class="text-muted"><strong>Hướng dẫn được áp dụng:</strong></small>
                                 <div class="small mt-1 fst-italic">"${aiConfig.customInstructions}"</div>
+                            </div>
+                        ` : ''}
+                        ${aiConfig.selectedTemplate ? `
+                            <div class="mt-1">
+                                <small class="text-muted"><strong>Template tham khảo:</strong> ${aiConfig.selectedTemplate.Label}</small>
                             </div>
                         ` : ''}
                     </div>
                 `;
             }
             
-            // NEW: Custom Instructions Applied
+            // PRIORITY: Custom Instructions Applied
             if (result.custom_instructions_applied && result.custom_instructions_applied !== 'false') {
                 html += `
                     <div class="alert alert-success border-start border-4 border-success py-2 px-3 mb-3">
-                        <h6><i class="fas fa-check-circle"></i> Hướng dẫn tùy chỉnh đã được áp dụng:</h6>
-                        <p class="mb-0 small">${result.custom_instructions_applied}</p>
+                        <h6><i class="fas fa-check-circle"></i> ✅ Hướng dẫn tùy chỉnh đã được áp dụng thành công!</h6>
+                        <p class="mb-0 small">AI đã trả lời theo đúng hướng dẫn của bạn.</p>
                     </div>
                 `;
             }
@@ -1173,12 +1181,16 @@
                 });
             }
             
-            // AI Response
+            // AI Response - Priority hiển thị
             if (result.ai_response) {
+                const responseTitle = result.custom_instructions_applied && result.custom_instructions_applied !== 'false' ? 
+                    "🎯 Phản hồi AI (Theo hướng dẫn của bạn)" : 
+                    "🤖 Phản hồi AI (Mặc định)";
+                    
                 html += `
                     <div class="ai-response">
                         <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h6><i class="fas fa-robot text-success"></i> Phản hồi AI (Có context):</h6>
+                            <h6><i class="fas fa-robot text-success"></i> ${responseTitle}:</h6>
                             <button class="btn btn-sm btn-outline-primary copy-button" onclick="copyToClipboard(\`${result.ai_response.replace(/`/g, '\\`')}\`)">
                                 <i class="fas fa-copy"></i> Copy
                             </button>

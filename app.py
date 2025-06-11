@@ -1513,153 +1513,76 @@ def export_templates_route():
 # --- Hàm AI Chat Analysis ---
 def analyze_chat_image_with_ai(image_bytes, templates, selected_template=None, response_mode='auto', custom_instructions=''):
     """
-    Phân tích ảnh đoạn chat và tạo phản hồi AI với vai trò lễ tân khách sạn
+    Phân tích ảnh đoạn chat và tạo phản hồi AI ưu tiên custom instructions
     
     Args:
         image_bytes: Dữ liệu ảnh
-        templates: Danh sách tất cả templates
-        selected_template: Template được chọn cụ thể (nếu có)
+        templates: Danh sách templates (optional reference)
+        selected_template: Template được chọn (optional)
         response_mode: 'auto', 'yes', hoặc 'no'
-        custom_instructions: Hướng dẫn tùy chỉnh từ người dùng
+        custom_instructions: Hướng dẫn tùy chỉnh (priority)
     """
     try:
         if not GOOGLE_API_KEY:
             return {"error": "Google API key chưa được cấu hình"}
         
-        # Chuẩn bị context từ templates
+        # Templates chỉ làm reference nếu cần, không bắt buộc
+        templates_context = ""
         if selected_template:
-            # Nếu có template được chọn cụ thể, ưu tiên nó
-            templates_context = f"SELECTED TEMPLATE (USE THIS PRIMARILY):\n- {selected_template.get('Category', '')} - {selected_template.get('Label', '')}: {selected_template.get('Message', '')}\n\n"
-            templates_context += "OTHER AVAILABLE TEMPLATES:\n" + "\n".join([
-                f"- {t.get('Category', '')} - {t.get('Label', '')}: {t.get('Message', '')}"
-                for t in templates if isinstance(t, dict) and t != selected_template
-            ])
-        else:
-            # Sử dụng tất cả templates như trước
-            templates_context = "\n".join([
-                f"- {t.get('Category', '')} - {t.get('Label', '')}: {t.get('Message', '')}"
-                for t in templates if isinstance(t, dict)
+            templates_context = f"Reference template (if needed): {selected_template.get('Message', '')}"
+        elif templates and not custom_instructions.strip():
+            # Chỉ show templates khi không có custom instructions
+            templates_context = "Available references:\n" + "\n".join([
+                f"- {t.get('Label', '')}: {t.get('Message', '')}"
+                for t in templates[:5] if isinstance(t, dict)  # Limit to 5 to save tokens
             ])
         
-        # Tạo hướng dẫn cho response mode với emphasis mạnh hơn
-        if response_mode == 'yes':
-            response_mode_instruction = """
-⚠️⚠️⚠️ CRITICAL RESPONSE MODE: POSITIVE/YES MODE ⚠️⚠️⚠️
-- YOU MUST respond in a POSITIVE, HELPFUL, and ACCOMMODATING manner
-- ALWAYS say YES whenever possible and offer solutions
-- Be ENTHUSIASTIC and SUPPORTIVE in your tone
-- Example: "Absolutely! We'd be happy to help with that..."
-- DO NOT decline requests unless absolutely impossible
-- FOCUS on what you CAN do, not what you cannot do
-"""
-        elif response_mode == 'no':
-            response_mode_instruction = """
-⚠️⚠️⚠️ CRITICAL RESPONSE MODE: NEGATIVE/NO MODE ⚠️⚠️⚠️
-- YOU MUST politely DECLINE or explain why something ISN'T AVAILABLE
-- Say NO to requests, but be APOLOGETIC and PROFESSIONAL
-- Be REGRETFUL but maintain professional standards
-- Example: "I'm very sorry, but unfortunately we don't have that available right now. However, we can offer..."
-- ALWAYS explain why something cannot be done
-- FOCUS on limitations and constraints, then offer alternatives
-- Even if you would normally say yes, you MUST say no in this mode
-"""
-        else:
-            response_mode_instruction = """
-RESPONSE MODE: AUTO MODE
-- Respond naturally based on the guest's request and available services
-- Be honest about what's available or not available
-- Use your best judgment for the most helpful response
-"""
+        # Response mode instructions - tối ưu tokens
+        mode_instruction = {
+            'yes': "POSITIVE MODE: Always say YES, be helpful and accommodating",
+            'no': "NEGATIVE MODE: Politely decline but offer alternatives", 
+            'auto': "AUTO MODE: Respond naturally based on request"
+        }.get(response_mode, "AUTO MODE: Respond naturally")
         
-        # Tạo custom instructions section
-        custom_instructions_section = ""
+        # Custom instructions - ƯU TIÊN TUYỆT ĐỐI
+        main_instruction = ""
         if custom_instructions.strip():
-            custom_instructions_section = f"""
-⭐⭐⭐ HƯỚNG DẪN TÙY CHỈNH TỪ NGƯỜI DÙNG (ƯU TIÊN CAO) ⭐⭐⭐
-QUAN TRỌNG: Người dùng đã cung cấp hướng dẫn cụ thể sau đây. BẠN PHẢI tuân thủ hướng dẫn này khi tạo phản hồi:
-
+            main_instruction = f"""
+🎯 CUSTOM INSTRUCTIONS (FOLLOW EXACTLY):
 "{custom_instructions.strip()}"
 
-Hãy đảm bảo phản hồi của bạn phù hợp với hướng dẫn này trong khi vẫn giữ tính chuyên nghiệp và bối cảnh cuộc hội thoại.
-⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
+Your response MUST follow these instructions while being a professional hotel receptionist.
+"""
+        else:
+            main_instruction = """
+🎯 DEFAULT: You are a professional hotel receptionist. Respond naturally to guest messages.
 """
         
-        # Tạo prompt cho AI với response mode emphasis
-        prompt = f"""
-You are a professional hotel receptionist at 118 Hang Bac Hostel in Hanoi's Old Quarter. Your job is to analyze the ENTIRE conversation in the image and provide a NATURAL, CONTEXTUAL response.
+        # Tạo prompt tối ưu - ưu tiên custom instructions
+        prompt = f"""You are a hotel receptionist at 118 Hang Bac Hostel, Hanoi Old Quarter.
 
-HOTEL INFO:
-- Name: 118 Hang Bac Hostel
-- Location: 118 Hang Bac Street, Hoan Kiem District, Hanoi (Old Quarter)
-- Type: Budget hostel/guesthouse in Hanoi's historic center
+{main_instruction}
 
-{custom_instructions_section}
+Response Mode: {mode_instruction}
 
-{response_mode_instruction}
+TASK:
+1. Read the ENTIRE conversation in the image
+2. Understand the context and guest's current need
+3. Respond naturally to the latest message based on full context
+4. {"Use your custom instructions above as the PRIMARY guide" if custom_instructions.strip() else "Be helpful and professional"}
 
-⚠️ IMPORTANT: The response mode above is MANDATORY and must be followed strictly.
-
-CONVERSATION ANALYSIS PROCESS (VERY IMPORTANT):
-1. FIRST: Read and understand the ENTIRE conversation from beginning to end
-2. ANALYZE: Identify key context including:
-   - Guest's original request/need
-   - Previous responses given
-   - Any unresolved issues
-   - Guest's emotional state (frustrated, happy, confused, etc.)
-   - Timeline of events discussed
-   - Any specific details mentioned (dates, room numbers, services, etc.)
-3. UNDERSTAND: The relationship between messages and how the conversation has evolved
-4. IDENTIFY: What the guest's LATEST message is asking for in context of the full conversation
-5. RESPOND: Provide appropriate response based on FULL CONTEXT, not just the last message
-
-AVAILABLE MESSAGE TEMPLATES:
 {templates_context}
 
-TEMPLATE USAGE PRIORITY:
-1. ANALYZE FULL CONVERSATION CONTEXT FIRST
-2. {"USE SELECTED TEMPLATE: The user has specifically chosen a template - use this as base but adapt to conversation context" if selected_template else "SEARCH: Look through ALL available templates to find any that relate to the overall conversation topic"}
-3. IF MATCH FOUND: Use the relevant template as your BASE response, then adapt it to:
-   - Match the conversation's tone and context
-   - Address any previous concerns mentioned
-   - Reference specific details from earlier messages
-   - Show that you understand the full situation
-4. IF NO MATCH: Create a helpful response based on the full conversation context
-5. ALWAYS: Apply the RESPONSE MODE instructions while maintaining contextual awareness
+Hotel Info: 118 Hang Bac Hostel, Hanoi Old Quarter - budget hostel in historic center.
 
-CONTEXTUAL RESPONSE REQUIREMENTS:
-- Reference previous parts of the conversation when relevant
-- Address any ongoing concerns or unresolved issues
-- Show understanding of the guest's journey/experience
-- Be consistent with any previous information provided
-- Acknowledge any time-sensitive elements mentioned earlier
-
-RESPONSE STYLE:
-- Natural, conversational English
-- Show that you've read and understood the FULL conversation
-- Reference specific details from earlier messages when appropriate
-- Be empathetic to the guest's situation based on the full context
-- MOST IMPORTANT: FOLLOW THE RESPONSE MODE while being contextually aware
-
-CRITICAL: Your response should show clear understanding of the ENTIRE conversation and provide a contextually appropriate reply to the latest message that takes into account everything discussed previously.
-
-Return your analysis in this JSON format:
+Return JSON:
 {{
-    "conversation_context": "Detailed analysis of the ENTIRE conversation - what happened from start to finish, key points discussed, guest's journey, and current situation",
-    "previous_interactions": "Summary of important details from earlier messages that are relevant to the current response",
-    "latest_message_analysis": "Analysis of what the guest's latest message is asking for in context of the full conversation",
-    "matched_templates": [
-        {{"category": "Template category if used", "label": "Template label if used", "message": "Original template content if used"}}
-    ],
-    "ai_response": "Your contextually-aware response that shows understanding of the full conversation and addresses the latest message appropriately",
-    "context_rationale": "Brief explanation of how the full conversation context influenced your response",
-    "custom_instructions_applied": {"true if custom instructions were used and how" if custom_instructions.strip() else "false"},
-    "used_config": {{
-        "selected_template": {"true" if selected_template else "false"},
-        "response_mode": "{response_mode}",
-        "custom_instructions": "{custom_instructions.strip() if custom_instructions.strip() else 'none'}"
-    }}
-}}
-"""
+    "conversation_context": "Brief analysis of full conversation",
+    "latest_message_analysis": "What guest needs now",
+    "ai_response": "Your response following custom instructions and context",
+    "custom_instructions_applied": "{bool(custom_instructions.strip())}",
+    "context_rationale": "How context influenced your response"
+}}"""
         
         # Gọi Gemini API
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
@@ -1673,9 +1596,8 @@ Return your analysis in this JSON format:
         response = model.generate_content([prompt, image_data])
         ai_text = response.text.strip()
         
-        # Parse JSON response
+        # Parse JSON response - tối ưu cho format mới
         try:
-            # Tìm và extract JSON từ response
             json_start = ai_text.find('{')
             json_end = ai_text.rfind('}') + 1
             
@@ -1687,51 +1609,53 @@ Return your analysis in this JSON format:
                 if not isinstance(result, dict):
                     raise ValueError("Invalid JSON structure")
                 
-                # Ensure required fields
-                result.setdefault('analysis_info', 'Đã phân tích nội dung chat')
-                result.setdefault('matched_templates', [])
+                # Ensure required fields với default values
+                result.setdefault('conversation_context', 'Đã phân tích cuộc hội thoại')
+                result.setdefault('latest_message_analysis', 'Phân tích tin nhắn mới nhất')
                 result.setdefault('ai_response', ai_text)
-                result.setdefault('used_config', {
-                    'selected_template': bool(selected_template),
-                    'response_mode': response_mode
-                })
+                result.setdefault('context_rationale', 'Phản hồi dựa trên bối cảnh cuộc hội thoại')
+                result.setdefault('custom_instructions_applied', str(bool(custom_instructions.strip())))
+                
+                # Legacy compatibility
+                result.setdefault('matched_templates', [])
+                result.setdefault('analysis_info', result.get('conversation_context', ''))
                 
                 return result
             else:
-                # Fallback nếu không parse được JSON
+                # Fallback response
                 return {
-                    "analysis_info": "Đã phân tích nội dung chat từ ảnh",
-                    "matched_templates": [],
+                    "conversation_context": "Đã phân tích cuộc hội thoại từ ảnh",
+                    "latest_message_analysis": "Đã phân tích tin nhắn mới nhất",
                     "ai_response": ai_text,
-                    "used_config": {
-                        'selected_template': bool(selected_template),
-                        'response_mode': response_mode
-                    }
+                    "context_rationale": "Phản hồi tự nhiên dựa trên nội dung",
+                    "custom_instructions_applied": str(bool(custom_instructions.strip())),
+                    "matched_templates": [],
+                    "analysis_info": "Đã phân tích nội dung chat"
                 }
                 
         except json.JSONDecodeError:
-            # Fallback nếu response không phải JSON
+            # Fallback response
             return {
-                "analysis_info": "Đã phân tích nội dung chat từ ảnh",
-                "matched_templates": [],
+                "conversation_context": "Đã phân tích cuộc hội thoại từ ảnh", 
+                "latest_message_analysis": "Đã phân tích tin nhắn mới nhất",
                 "ai_response": ai_text,
-                "used_config": {
-                    'selected_template': bool(selected_template),
-                    'response_mode': response_mode
-                }
+                "context_rationale": "Phản hồi tự nhiên",
+                "custom_instructions_applied": str(bool(custom_instructions.strip())),
+                "matched_templates": [],
+                "analysis_info": "Đã phân tích nội dung chat"
             }
         
     except Exception as e:
         print(f"AI analysis error: {e}")
         return {
             "error": f"Lỗi khi phân tích với AI: {str(e)}",
-            "analysis_info": "",
-            "matched_templates": [],
+            "conversation_context": "Không thể phân tích",
+            "latest_message_analysis": "Không thể phân tích",
             "ai_response": "",
-            "used_config": {
-                'selected_template': bool(selected_template) if selected_template else False,
-                'response_mode': response_mode
-            }
+            "context_rationale": "Lỗi xử lý",
+            "custom_instructions_applied": str(bool(custom_instructions.strip())),
+            "matched_templates": [],
+            "analysis_info": ""
         }
 
 # --- Hàm Voice Translation ---
