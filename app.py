@@ -742,8 +742,10 @@ def collect_payment():
         new_data = {}
         
         if payment_type == 'taxi':
-            # Thu tiền taxi - cập nhật trường Taxi và ghi chú
+            # Thu tiền taxi - cập nhật trường Taxi và checkbox Có taxi
             new_data['Taxi'] = f"{collected_amount:,.0f}đ"
+            new_data['Có taxi'] = True
+            new_data['Không có taxi'] = False
             if payment_note:
                 new_data['Ghi chú thu tiền'] = f"Thu taxi {collected_amount:,.0f}đ - {payment_note}"
             else:

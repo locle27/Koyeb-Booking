@@ -252,9 +252,14 @@
                             <label><i class="fas fa-check-square me-1"></i>Các khoản thu thêm</label>
                             <div class="checkbox-group">
                                 <div class="checkbox-item">
-                                    <input type="checkbox" id="taxi_included" name="Thu taxi" value="1" 
-                                           {% if booking.get('Thu taxi') %}checked{% endif %}>
-                                    <label for="taxi_included">🚕 Thu tiền taxi</label>
+                                    <input type="checkbox" id="has_taxi" name="Có taxi" value="1" 
+                                           {% if booking.get('Có taxi') %}checked{% endif %}>
+                                    <label for="has_taxi">🚕 Có taxi</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="no_taxi" name="Không có taxi" value="1" 
+                                           {% if booking.get('Không có taxi') %}checked{% endif %}>
+                                    <label for="no_taxi">🚫 Không có taxi</label>
                                 </div>
                                 <div class="checkbox-item">
                                     <input type="checkbox" id="private_guest" name="Khách riêng" value="1" 

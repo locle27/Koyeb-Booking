@@ -536,10 +536,19 @@
                                 <i class="fas fa-bed me-1"></i>Thu tiền phòng
                             </label>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Taxi:</label>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="paymentType" id="paymentTypeTaxi" value="taxi">
-                            <label class="form-check-label fw-bold text-warning" for="paymentTypeTaxi">
-                                <i class="fas fa-taxi me-1"></i>Thu tiền taxi
+                            <input class="form-check-input" type="checkbox" id="hasTaxi" name="hasTaxi">
+                            <label class="form-check-label fw-bold text-success" for="hasTaxi">
+                                <i class="fas fa-taxi me-1"></i>Có taxi
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="noTaxi" name="noTaxi">
+                            <label class="form-check-label fw-bold text-danger" for="noTaxi">
+                                <i class="fas fa-ban me-1"></i>Không có taxi
                             </label>
                         </div>
                     </div>
@@ -581,25 +590,29 @@ let currentBookingData = {};
 document.addEventListener('DOMContentLoaded', function() {
     loadQuickNotesOnDashboard();
     
-    // Add event listeners for payment type change
-    const paymentTypeRadios = document.querySelectorAll('input[name="paymentType"]');
-    paymentTypeRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
+    // Add event listeners for taxi checkboxes
+    const hasTaxiCheckbox = document.getElementById('hasTaxi');
+    const noTaxiCheckbox = document.getElementById('noTaxi');
+    
+    if (hasTaxiCheckbox && noTaxiCheckbox) {
+        hasTaxiCheckbox.addEventListener('change', function() {
             const taxiAmountGroup = document.getElementById('taxiAmountGroup');
-            const collectedAmountInput = document.getElementById('collectedAmount');
-            
-            if (this.value === 'taxi') {
+            if (this.checked) {
+                noTaxiCheckbox.checked = false;
                 taxiAmountGroup.style.display = 'block';
-                collectedAmountInput.value = '';
-                collectedAmountInput.placeholder = 'Hoặc nhập số tiền taxi ở đây';
             } else {
                 taxiAmountGroup.style.display = 'none';
-                collectedAmountInput.placeholder = 'Nhập số tiền đã thu';
-                // Reset taxi amount when switching back to room payment
+            }
+        });
+        
+        noTaxiCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                hasTaxiCheckbox.checked = false;
+                document.getElementById('taxiAmountGroup').style.display = 'none';
                 document.getElementById('taxiAmount').value = '';
             }
         });
-    });
+    }
 });
 
 function openCollectModal(bookingId, guestName, totalAmount, commission) {
@@ -613,7 +626,8 @@ function openCollectModal(bookingId, guestName, totalAmount, commission) {
     
     // Reset form
     document.getElementById('collectPaymentForm').reset();
-    document.getElementById('paymentTypeRoom').checked = true;
+    document.getElementById('hasTaxi').checked = false;
+    document.getElementById('noTaxi').checked = false;
     document.getElementById('taxiAmountGroup').style.display = 'none';
     
     // Populate modal data
@@ -640,28 +654,32 @@ function openCollectModal(bookingId, guestName, totalAmount, commission) {
 }
 
 function collectPayment() {
-    const paymentType = document.querySelector('input[name="paymentType"]:checked').value;
+    const hasTaxi = document.getElementById('hasTaxi').checked;
+    const noTaxi = document.getElementById('noTaxi').checked;
     const collectorName = document.getElementById('collectorName').value;
     const paymentNote = document.getElementById('paymentNote').value.trim();
     
     let collectedAmount = 0;
     let finalNote = paymentNote;
+    let paymentType = 'room';
     
-    if (paymentType === 'room') {
-        collectedAmount = parseFloat(document.getElementById('collectedAmount').value) || 0;
-        finalNote = paymentNote || 'Thu tiền phòng';
-    } else if (paymentType === 'taxi') {
-        // Check both taxi amount field and collected amount field
+    if (hasTaxi) {
+        // Thu tiền taxi
         const taxiAmount = parseFloat(document.getElementById('taxiAmount').value) || 0;
-        const collectedFromMain = parseFloat(document.getElementById('collectedAmount').value) || 0;
         
-        collectedAmount = taxiAmount || collectedFromMain;
-        finalNote = paymentNote || 'Thu tiền taxi';
-        
-        if (collectedAmount === 0) {
+        if (taxiAmount === 0) {
             alert('❌ Vui lòng nhập số tiền taxi!');
             return;
         }
+        
+        collectedAmount = taxiAmount;
+        finalNote = paymentNote || 'Thu tiền taxi';
+        paymentType = 'taxi';
+    } else {
+        // Thu tiền phòng (mặc định)
+        collectedAmount = parseFloat(document.getElementById('collectedAmount').value) || 0;
+        finalNote = paymentNote || 'Thu tiền phòng';
+        paymentType = 'room';
     }
     
     // Validation
