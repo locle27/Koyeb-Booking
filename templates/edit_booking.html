@@ -218,6 +218,12 @@
                                 <option value="Đã hủy" {% if booking.get('Tình trạng') == 'Đã hủy' %}selected{% endif %}>❌ Đã hủy</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label for="taxi"><i class="fas fa-taxi me-1"></i>Taxi</label>
+                            <input type="text" id="taxi" name="Taxi" value="{{ booking.get('Taxi', '') }}" 
+                                   placeholder="Thông tin taxi (nếu có)">
+                            <small class="text-muted">Ghi chú về dịch vụ taxi</small>
+                        </div>
                     </div>
                 </div>
 

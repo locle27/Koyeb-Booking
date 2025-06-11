@@ -653,6 +653,7 @@ def edit_booking(booking_id):
             'Hoa hồng': request.form.get('Hoa hồng', 0),  # Thêm hoa hồng
             'Tình trạng': request.form.get('Tình trạng'),
             'Người thu tiền': request.form.get('Người thu tiền'),
+            'Taxi': request.form.get('Taxi', ''),  # Thêm trường taxi
         }
         
         success = update_row_in_gsheet(
@@ -715,7 +716,7 @@ def delete_multiple_bookings():
 
 @app.route('/api/collect_payment', methods=['POST'])
 def collect_payment():
-    """API endpoint để thu tiền từ khách hàng"""
+    """API endpoint để thu tiền từ khách hàng (cả tiền phòng và tiền taxi)"""
     try:
         data = request.get_json()
         if not data:
@@ -725,6 +726,7 @@ def collect_payment():
         collected_amount = data.get('collected_amount')
         collector_name = data.get('collector_name')
         payment_note = data.get('payment_note', '')
+        payment_type = data.get('payment_type', 'room')  # 'room' hoặc 'taxi'
         
         # Validate input
         if not booking_id:
@@ -736,16 +738,23 @@ def collect_payment():
         if not collected_amount or collected_amount <= 0:
             return jsonify({'success': False, 'message': 'Số tiền thu không hợp lệ'}), 400
         
-        # Cập nhật thông tin trong Google Sheets
-        new_data = {
-            'Người thu tiền': collector_name,
-        }
+        # Chuẩn bị dữ liệu cập nhật dựa trên loại thu tiền
+        new_data = {}
         
-        # Thêm ghi chú nếu có (bao gồm thông tin hoa hồng nếu có)
-        if payment_note:
-            new_data['Ghi chú thu tiền'] = f"Thu {collected_amount:,.0f}đ - {payment_note}"
+        if payment_type == 'taxi':
+            # Thu tiền taxi - cập nhật trường Taxi và ghi chú
+            new_data['Taxi'] = f"{collected_amount:,.0f}đ"
+            if payment_note:
+                new_data['Ghi chú thu tiền'] = f"Thu taxi {collected_amount:,.0f}đ - {payment_note}"
+            else:
+                new_data['Ghi chú thu tiền'] = f"Thu taxi {collected_amount:,.0f}đ"
         else:
-            new_data['Ghi chú thu tiền'] = f"Thu {collected_amount:,.0f}đ"
+            # Thu tiền phòng - cập nhật người thu tiền (như cũ)
+            new_data['Người thu tiền'] = collector_name
+            if payment_note:
+                new_data['Ghi chú thu tiền'] = f"Thu {collected_amount:,.0f}đ - {payment_note}"
+            else:
+                new_data['Ghi chú thu tiền'] = f"Thu {collected_amount:,.0f}đ"
         
         success = update_row_in_gsheet(
             sheet_id=DEFAULT_SHEET_ID,
@@ -758,10 +767,17 @@ def collect_payment():
         if success:
             # Xóa cache để cập nhật dữ liệu
             load_data.cache_clear()
-            return jsonify({
-                'success': True, 
-                'message': f'Đã thu thành công {collected_amount:,.0f}đ từ {booking_id}'
-            })
+            
+            if payment_type == 'taxi':
+                return jsonify({
+                    'success': True, 
+                    'message': f'Đã thu thành công {collected_amount:,.0f}đ tiền taxi từ {booking_id}'
+                })
+            else:
+                return jsonify({
+                    'success': True, 
+                    'message': f'Đã thu thành công {collected_amount:,.0f}đ từ {booking_id}'
+                })
         else:
             return jsonify({
                 'success': False, 
@@ -1114,10 +1130,7 @@ def ai_chat_assistant():
     """Trang AI Chat Assistant - Lễ tân thông minh"""
     return render_template('ai_chat_assistant.html')
 
-@app.route('/templates')
-def get_templates_page():
-    """Trả về trang HTML cho quản lý templates"""
-    return render_template('templates.html')
+# Route /templates đã bị xóa vì đã tích hợp vào AI Assistant Hub
 
 @app.route('/api/templates/debug')
 def debug_templates():

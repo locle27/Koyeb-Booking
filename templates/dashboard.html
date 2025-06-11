@@ -529,6 +529,27 @@
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Loại thu tiền:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="paymentType" id="paymentTypeRoom" value="room" checked>
+                            <label class="form-check-label fw-bold text-primary" for="paymentTypeRoom">
+                                <i class="fas fa-bed me-1"></i>Thu tiền phòng
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="paymentType" id="paymentTypeTaxi" value="taxi">
+                            <label class="form-check-label fw-bold text-warning" for="paymentTypeTaxi">
+                                <i class="fas fa-taxi me-1"></i>Thu tiền taxi
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="taxiAmountGroup" style="display: none;">
+                        <label for="taxiAmount" class="form-label">Số tiền taxi (VND):</label>
+                        <input type="number" class="form-control" id="taxiAmount" 
+                               placeholder="Nhập số tiền taxi" min="0" step="1000">
+                        <div class="form-text">Số tiền taxi riêng biệt với tiền phòng</div>
+                    </div>
+                    <div class="mb-3">
                         <label for="paymentNote" class="form-label">Ghi chú (tuỳ chọn):</label>
                         <textarea class="form-control" id="paymentNote" rows="2" 
                                   placeholder="Ghi chú về việc thu tiền..."></textarea>
@@ -553,10 +574,158 @@
 const monthlyRevenueChartData = {{ monthly_revenue_chart_json | tojson | safe }};
 const collectorChartData = {{ collector_chart_json | tojson | safe }};
 
+// Global variables for payment modal
+let currentBookingData = {};
+
 // Quick Notes functionality
 document.addEventListener('DOMContentLoaded', function() {
     loadQuickNotesOnDashboard();
+    
+    // Add event listeners for payment type change
+    const paymentTypeRadios = document.querySelectorAll('input[name="paymentType"]');
+    paymentTypeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const taxiAmountGroup = document.getElementById('taxiAmountGroup');
+            const collectedAmountInput = document.getElementById('collectedAmount');
+            
+            if (this.value === 'taxi') {
+                taxiAmountGroup.style.display = 'block';
+                collectedAmountInput.value = '';
+                collectedAmountInput.placeholder = 'Hoặc nhập số tiền taxi ở đây';
+            } else {
+                taxiAmountGroup.style.display = 'none';
+                collectedAmountInput.placeholder = 'Nhập số tiền đã thu';
+                // Reset taxi amount when switching back to room payment
+                document.getElementById('taxiAmount').value = '';
+            }
+        });
+    });
 });
+
+function openCollectModal(bookingId, guestName, totalAmount, commission) {
+    // Store booking data for later use
+    currentBookingData = {
+        bookingId: bookingId,
+        guestName: guestName,
+        totalAmount: totalAmount,
+        commission: commission
+    };
+    
+    // Reset form
+    document.getElementById('collectPaymentForm').reset();
+    document.getElementById('paymentTypeRoom').checked = true;
+    document.getElementById('taxiAmountGroup').style.display = 'none';
+    
+    // Populate modal data
+    document.getElementById('modalGuestName').textContent = guestName;
+    document.getElementById('modalBookingId').textContent = bookingId;
+    document.getElementById('modalTotalAmount').textContent = totalAmount.toLocaleString() + 'đ';
+    
+    // Show commission info
+    const commissionElement = document.getElementById('modalCommissionAmount');
+    if (commission && commission > 0) {
+        commissionElement.textContent = commission.toLocaleString() + 'đ';
+        commissionElement.parentElement.style.display = 'block';
+    } else {
+        commissionElement.textContent = 'Chưa có thông tin';
+        commissionElement.parentElement.style.display = 'block';
+    }
+    
+    // Set default collected amount to total amount for room payment
+    document.getElementById('collectedAmount').value = totalAmount;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('collectPaymentModal'));
+    modal.show();
+}
+
+function collectPayment() {
+    const paymentType = document.querySelector('input[name="paymentType"]:checked').value;
+    const collectorName = document.getElementById('collectorName').value;
+    const paymentNote = document.getElementById('paymentNote').value.trim();
+    
+    let collectedAmount = 0;
+    let finalNote = paymentNote;
+    
+    if (paymentType === 'room') {
+        collectedAmount = parseFloat(document.getElementById('collectedAmount').value) || 0;
+        finalNote = paymentNote || 'Thu tiền phòng';
+    } else if (paymentType === 'taxi') {
+        // Check both taxi amount field and collected amount field
+        const taxiAmount = parseFloat(document.getElementById('taxiAmount').value) || 0;
+        const collectedFromMain = parseFloat(document.getElementById('collectedAmount').value) || 0;
+        
+        collectedAmount = taxiAmount || collectedFromMain;
+        finalNote = paymentNote || 'Thu tiền taxi';
+        
+        if (collectedAmount === 0) {
+            alert('❌ Vui lòng nhập số tiền taxi!');
+            return;
+        }
+    }
+    
+    // Validation
+    if (!collectorName) {
+        alert('❌ Vui lòng chọn người thu tiền!');
+        return;
+    }
+    
+    if (collectedAmount <= 0) {
+        alert('❌ Số tiền thu không hợp lệ!');
+        return;
+    }
+    
+    // Disable button and show loading
+    const confirmBtn = document.getElementById('confirmCollectBtn');
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang xử lý...';
+    confirmBtn.disabled = true;
+    
+    // Prepare data
+    const requestData = {
+        booking_id: currentBookingData.bookingId,
+        collected_amount: collectedAmount,
+        collector_name: collectorName,
+        payment_note: finalNote,
+        payment_type: paymentType
+    };
+    
+    // Call API
+    fetch('/api/collect_payment', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showDashboardToast(`✅ ${data.message}`, 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('collectPaymentModal'));
+            modal.hide();
+            
+            // Reload page after a short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            throw new Error(data.message || 'Lỗi không xác định');
+        }
+    })
+    .catch(error => {
+        console.error('Collect payment error:', error);
+        showDashboardToast(`❌ Lỗi: ${error.message}`, 'error');
+    })
+    .finally(() => {
+        // Restore button
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
+    });
+}
 
 function loadQuickNotesOnDashboard() {
     const container = document.getElementById('quickNotesContainer');

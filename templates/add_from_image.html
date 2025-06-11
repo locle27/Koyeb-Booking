@@ -26,7 +26,13 @@
 <body>
     <div class="container">
         <div class="header-container">
-            <h1 style="margin: 0; color: #0056b3;">📸 Thêm Đặt Phòng từ Ảnh</h1>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <button onclick="goBack()" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                    <span>←</span> Quay lại
+                </button>
+                <h1 style="margin: 0; color: #0056b3;">📸 Thêm Đặt Phòng từ Ảnh</h1>
+                <div style="width: 100px;"></div> <!-- Spacer for center alignment -->
+            </div>
         </div>
         <p>Dán (Ctrl+V) hình ảnh chứa danh sách đặt phòng vào khu vực dưới đây.</p>
         
@@ -50,6 +56,17 @@
     </div>
 
     <script>
+        // Function to go back to previous page
+        function goBack() {
+            // Try to go back in browser history first
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // Fallback to bookings page if no history
+                window.location.href = '/bookings';
+            }
+        }
+        
         // Unified function to process image
         async function processImage(imageFile) {
             const pasteArea = document.getElementById('paste-area');

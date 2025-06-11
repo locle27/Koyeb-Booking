@@ -266,6 +266,20 @@
                             {% endif %}
                         </a>
                     </th>
+                    <th style="padding: 4px 8px;">
+                        <a href="{{ url_for('view_bookings', search_term=search_term, filter_month=filter_month, filter_year=filter_year, start_date=start_date, end_date=end_date, sort_by='Taxi', order='asc' if current_sort_by == 'Taxi' and current_order == 'desc' else 'desc') }}" class="text-dark text-decoration-none fw-medium">
+                            🚕 Taxi 
+                            {% if current_sort_by == 'Taxi' %}
+                                {% if current_order == 'asc' %}
+                                    <i class="fas fa-sort-up fa-xs text-primary"></i>
+                                {% else %}
+                                    <i class="fas fa-sort-down fa-xs text-primary"></i>
+                                {% endif %}
+                            {% else %}
+                                <i class="fas fa-sort fa-xs text-muted"></i>
+                            {% endif %}
+                        </a>
+                    </th>
                     <th style="padding: 4px 8px; width: 60px;" class="text-dark fw-medium">Thao tác</th>
                 </tr>
             </thead>
@@ -356,6 +370,14 @@
                         {% set commission = booking.get('Hoa hồng', 0) %}
                         {% if commission and commission > 0 %}
                         <strong class="text-warning">{{ "{:,.0f}".format(commission) }}đ</strong>
+                        {% else %}
+                        <small class="text-muted">-</small>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 2px 8px;">
+                        {% set taxi = booking.get('Taxi', '') %}
+                        {% if taxi and taxi|string|trim %}
+                        <span class="badge bg-info text-dark">{{ taxi }}</span>
                         {% else %}
                         <small class="text-muted">-</small>
                         {% endif %}
