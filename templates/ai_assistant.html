@@ -49,6 +49,34 @@
                                     <kbd>Ctrl+V</kbd> để dán ảnh từ clipboard
                                 </p>
                                 <div class="d-block d-md-none mt-2">
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="selectImageFile()">
+                                                <i class="fas fa-folder-open"></i><br>
+                                                <small>Chọn ảnh</small>
+                                            </button>
+                                        </div>
+                                        <div class="col-6">
+                                            <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="capturePhoto()">
+                                                <i class="fas fa-camera"></i><br>
+                                                <small>Camera sau</small>
+                                            </button>
+                                        </div>
+                                        <div class="col-6">
+                                            <button type="button" class="btn btn-outline-info btn-sm w-100" onclick="captureFrontPhoto()">
+                                                <i class="fas fa-camera-retro"></i><br>
+                                                <small>Camera trước</small>
+                                            </button>
+                                        </div>
+                                        <div class="col-6">
+                                            <button type="button" class="btn btn-outline-warning btn-sm w-100" onclick="triggerSafariPicker()">
+                                                <i class="fab fa-safari"></i><br>
+                                                <small>Safari Fix</small>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-none d-md-block mt-2">
                                     <button type="button" class="btn btn-outline-primary btn-sm me-2" onclick="selectImageFile()">
                                         <i class="fas fa-folder-open"></i> Chọn từ thư viện
                                     </button>
@@ -58,8 +86,17 @@
                                 </div>
                             </div>
                             
-                            <input type="file" id="imageFileInput" accept="image/*" style="display: none;">
-                            <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
+                            <input type="file" id="imageFileInput" 
+                                   accept="image/*,image/png,image/jpeg,image/jpg,image/gif,image/webp" 
+                                   style="display: none;">
+                            <input type="file" id="cameraInput" 
+                                   accept="image/*,image/png,image/jpeg,image/jpg" 
+                                   capture="environment" 
+                                   style="display: none;">
+                            <input type="file" id="frontCameraInput" 
+                                   accept="image/*,image/png,image/jpeg,image/jpg" 
+                                   capture="user" 
+                                   style="display: none;">
                             
                             <div id="imagePreviewContainer" class="mt-3" style="display: none;">
                                 <img id="imagePreview" class="image-preview" alt="Xem trước ảnh">
@@ -455,6 +492,52 @@
             font-size: 0.9rem;
             padding: 10px;
         }
+        
+        /* Safari mobile specific fixes */
+        input[type="file"] {
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        /* Better touch targets for mobile */
+        .btn-sm {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            min-height: 40px; /* Better touch target */
+        }
+        
+        /* Image preview improvements for mobile */
+        .image-preview {
+            max-height: 300px; /* Smaller on mobile */
+        }
+        
+        /* Grid improvements for mobile buttons */
+        .row.g-2 > .col-6 {
+            padding: 0.25rem;
+        }
+        
+        .row.g-2 .btn {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8rem;
+            line-height: 1.2;
+        }
+    }
+    
+    /* iOS Safari specific fixes */
+    @supports (-webkit-touch-callout: none) {
+        .image-paste-area {
+            /* Better touch handling on iOS */
+            -webkit-touch-callout: default;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        input[type="file"] {
+            /* iOS file input fixes */
+            opacity: 0;
+            position: absolute;
+            z-index: -1;
+        }
     }
 </style>
 {% endblock %}
@@ -472,6 +555,9 @@
     document.addEventListener('DOMContentLoaded', function() {
         console.log('AI Assistant Hub initializing...');
         
+        // Detect Safari and show additional help
+        detectBrowserAndShowHelp();
+        
         // Initialize AI Chat Assistant
         setupImageHandling();
         loadTemplateCategories();
@@ -482,6 +568,39 @@
         
         console.log('AI Assistant Hub loaded successfully');
     });
+    
+    // Browser detection and help for Safari users
+    function detectBrowserAndShowHelp() {
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        console.log('Browser detection:', {
+            isSafari: isSafari,
+            isIOS: isIOS,
+            isMobile: isMobile,
+            userAgent: navigator.userAgent
+        });
+        
+        if (isSafari || isIOS) {
+            // Add Safari-specific help text
+            setTimeout(() => {
+                const helpDiv = document.createElement('div');
+                helpDiv.className = 'alert alert-info alert-dismissible fade show mt-2';
+                helpDiv.innerHTML = `
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Safari users:</strong> Nếu gặp vấn đề chọn ảnh, hãy thử nút "Safari Fix" màu vàng. 
+                    Trên iOS, bạn có thể cần cho phép quyền truy cập ảnh trong Settings.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                
+                const pasteArea = document.getElementById('imagePasteArea');
+                if (pasteArea && pasteArea.parentNode) {
+                    pasteArea.parentNode.insertBefore(helpDiv, pasteArea);
+                }
+            }, 2000);
+        }
+    }
     
     // ==================== AI CHAT ASSISTANT FUNCTIONS ====================
     
@@ -644,6 +763,14 @@
                 handleImageFile(e.target.files[0]);
             }
         });
+        
+        // Handle front camera input
+        const frontCameraInput = document.getElementById('frontCameraInput');
+        frontCameraInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleImageFile(e.target.files[0]);
+            }
+        });
     }
     
     function selectImageFile() {
@@ -654,7 +781,40 @@
         document.getElementById('cameraInput').click();
     }
     
+    function captureFrontPhoto() {
+        document.getElementById('frontCameraInput').click();
+    }
+    
+    // Safari-specific image picker with enhanced compatibility
+    function triggerSafariPicker() {
+        // Create a temporary input with different attributes for Safari
+        const tempInput = document.createElement('input');
+        tempInput.type = 'file';
+        tempInput.accept = 'image/png,image/jpeg,image/jpg,image/gif,image/webp,image/*';
+        tempInput.multiple = false;
+        tempInput.style.display = 'none';
+        
+        // Add event listener
+        tempInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleImageFile(e.target.files[0]);
+            }
+            // Remove temp input
+            document.body.removeChild(tempInput);
+        });
+        
+        // Add to DOM and trigger click
+        document.body.appendChild(tempInput);
+        
+        // Safari sometimes needs a small delay
+        setTimeout(() => {
+            tempInput.click();
+        }, 100);
+    }
+    
     function handleImageFile(file) {
+        console.log('Processing file:', file.name, 'Type:', file.type, 'Size:', file.size);
+        
         if (!file.type.startsWith('image/')) {
             alert('Vui lòng chọn file ảnh (PNG, JPG, JPEG)');
             return;
@@ -666,21 +826,64 @@
             return;
         }
         
+        // Show loading for large files
+        if (file.size > 1024 * 1024) { // > 1MB
+            showLoading(true);
+        }
+        
         const reader = new FileReader();
+        
         reader.onload = function(e) {
-            currentImageData = e.target.result;
-            showImagePreview(e.target.result);
+            try {
+                currentImageData = e.target.result;
+                showImagePreview(e.target.result);
+                showLoading(false);
+                console.log('Image loaded successfully');
+            } catch (error) {
+                console.error('Error processing image:', error);
+                showError('Lỗi khi xử lý ảnh: ' + error.message);
+                showLoading(false);
+            }
         };
-        reader.readAsDataURL(file);
+        
+        reader.onerror = function(error) {
+            console.error('FileReader error:', error);
+            showError('Lỗi khi đọc file ảnh');
+            showLoading(false);
+        };
+        
+        // Start reading file
+        try {
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error starting file read:', error);
+            showError('Lỗi khi khởi tạo đọc file');
+            showLoading(false);
+        }
     }
     
     function showImagePreview(imageSrc) {
         const previewContainer = document.getElementById('imagePreviewContainer');
         const imagePreview = document.getElementById('imagePreview');
         
-        imagePreview.src = imageSrc;
-        previewContainer.style.display = 'block';
-        document.getElementById('imagePasteArea').style.display = 'none';
+        try {
+            imagePreview.src = imageSrc;
+            imagePreview.onload = function() {
+                previewContainer.style.display = 'block';
+                document.getElementById('imagePasteArea').style.display = 'none';
+                showSuccess('Ảnh đã được tải lên thành công! 📸');
+                console.log('Image preview shown successfully');
+            };
+            
+            imagePreview.onerror = function() {
+                console.error('Error displaying image preview');
+                showError('Lỗi hiển thị ảnh preview');
+                removeImage(); // Reset state
+            };
+        } catch (error) {
+            console.error('Error in showImagePreview:', error);
+            showError('Lỗi khi hiển thị ảnh: ' + error.message);
+        }
     }
     
     function removeImage() {

@@ -33,15 +33,15 @@ from logic import (
     export_message_templates_to_gsheet
 )
 
-# Import Market Price Analyzer
-from market_price_analyzer import (
-    analyze_market_prices, 
-    format_price_analysis_for_display,
-    MarketPriceAnalyzer
-)
+# Market Price Analyzer - REMOVED per user request
+# from market_price_analyzer import (
+#     analyze_market_prices, 
+#     format_price_analysis_for_display,
+#     MarketPriceAnalyzer
+# )
 
-# Import AI Pricing Analyst
-from ai_pricing_analyst import analyze_budget_pricing_with_ai, analyze_price_range_with_ai
+# AI Pricing Analyst - REMOVED per user request  
+# from ai_pricing_analyst import analyze_budget_pricing_with_ai, analyze_price_range_with_ai
 
 # Cấu hình
 BASE_DIR = Path(__file__).resolve().parent
@@ -1410,191 +1410,26 @@ def import_templates():
         flash(f'❌ Lỗi khi import: {str(e)}', 'danger')
         return redirect(url_for('get_templates_page'))
 
-@app.route('/market_analysis')
-def market_analysis_page():
-    """Trang Market Price Analysis - Phân tích giá thị trường"""
-    return render_template('market_analysis.html', GOOGLE_API_KEY=bool(GOOGLE_API_KEY))
+# MARKET ANALYSIS ROUTES REMOVED PER USER REQUEST
+# @app.route('/market_analysis')
+# def market_analysis_page():
+#     """Trang Market Price Analysis - Phân tích giá thị trường - REMOVED"""
+#     return redirect(url_for('dashboard'))  # Redirect to dashboard instead
 
-@app.route('/api/analyze_market_prices', methods=['POST'])
-def api_analyze_market_prices():
-    """API endpoint để phân tích giá thị trường từ Booking.com"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Không có dữ liệu trong request"}), 400
-        
-        booking_url = data.get('booking_url', '').strip()
-        max_properties = data.get('max_properties', 15)
-        
-        # Validate URL
-        if not booking_url:
-            return jsonify({"error": "URL Booking.com là bắt buộc"}), 400
-        
-        if 'booking.com' not in booking_url.lower():
-            return jsonify({"error": "URL phải là từ Booking.com"}), 400
-        
-        # Validate max_properties
-        try:
-            max_properties = int(max_properties)
-            if max_properties < 1 or max_properties > 50:
-                max_properties = 15
-        except (ValueError, TypeError):
-            max_properties = 15
-        
-        print(f"Analyzing market prices from: {booking_url}")
-        print(f"Max properties to analyze: {max_properties}")
-        
-        # Chạy analysis trong async context
-        import asyncio
-        
-        # Create new event loop if none exists
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        # Run analysis
-        analysis_result = loop.run_until_complete(
-            analyze_market_prices(
-                booking_url=booking_url,
-                google_api_key=GOOGLE_API_KEY,
-                max_properties=max_properties
-            )
-        )
-        
-        # Format for frontend
-        formatted_result = format_price_analysis_for_display(analysis_result)
-        
-        print(f"Analysis completed: {formatted_result.get('success', False)}")
-        
-        return jsonify(formatted_result)
-        
-    except Exception as e:
-        print(f"Market analysis error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            "error": f"Loi phan tich: {str(e)}",
-            "success": False
-        }), 500
+# @app.route('/api/analyze_market_prices', methods=['POST'])
+# def api_analyze_market_prices():
+#     """API endpoint để phân tích giá thị trường từ Booking.com - REMOVED"""
+#     return jsonify({"error": "Market analysis feature has been removed", "success": False}), 410
 
-@app.route('/api/ai_pricing_analysis', methods=['POST'])
-def api_ai_pricing_analysis():
-    """API endpoint để phân tích pricing với AI - support cả threshold và price range"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Không có dữ liệu trong request"}), 400
-        
-        properties = data.get('properties', [])
-        
-        if not properties:
-            return jsonify({"error": "Không có dữ liệu properties để phân tích"}), 400
-        
-        # Check if this is range-based or threshold-based analysis
-        min_price = data.get('min_price')
-        max_price = data.get('max_price')
-        price_threshold = data.get('price_threshold')
-        
-        if min_price is not None and max_price is not None:
-            # Range-based analysis
-            try:
-                min_price = int(min_price)
-                max_price = int(max_price)
-                if min_price < 0 or max_price < 0 or min_price >= max_price:
-                    return jsonify({"error": "Invalid price range"}), 400
-            except (ValueError, TypeError):
-                return jsonify({"error": "Invalid price range format"}), 400
-            
-            print(f"🤖 AI analyzing {len(properties)} properties in range {min_price:,}₫ - {max_price:,}₫")
-            
-            # Gọi AI Range Analyst
-            ai_analysis = analyze_price_range_with_ai(
-                properties=properties,
-                min_price=min_price,
-                max_price=max_price,
-                google_api_key=GOOGLE_API_KEY
-            )
-            
-        else:
-            # Threshold-based analysis (legacy)
-            try:
-                price_threshold = int(price_threshold) if price_threshold else 500000
-                if price_threshold < 0:
-                    price_threshold = 500000
-            except (ValueError, TypeError):
-                price_threshold = 500000
-            
-            print(f"🤖 AI analyzing {len(properties)} properties with threshold {price_threshold:,}₫")
-            
-            # Gọi AI Pricing Analyst (legacy)
-            ai_analysis = analyze_budget_pricing_with_ai(
-                properties=properties,
-                price_threshold=price_threshold,
-                google_api_key=GOOGLE_API_KEY
-            )
-        
-        print(f"✅ AI Analysis completed: {ai_analysis.get('success', False)}")
-        
-        return jsonify(ai_analysis)
-        
-    except Exception as e:
-        print(f"❌ AI Pricing Analysis error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            "error": f"Lỗi AI analysis: {str(e)}",
-            "success": False
-        }), 500
+# @app.route('/api/ai_pricing_analysis', methods=['POST'])
+# def api_ai_pricing_analysis():
+#     """API endpoint để phân tích pricing với AI - REMOVED"""
+#     return jsonify({"error": "AI pricing analysis feature has been removed", "success": False}), 410
 
-@app.route('/api/get_default_booking_url')
-def get_default_booking_url():
-    """API endpoint trả về URL mặc định cho Khu Phố Cổ Hà Nội"""
-    try:
-        # Tạo URL động với ngày hiện tại
-        from datetime import datetime, timedelta
-        
-        today = datetime.now()
-        checkin = today + timedelta(days=1)  # Ngày mai
-        checkout = checkin + timedelta(days=1)  # Ngày kia
-        
-        base_url = "https://www.booking.com/searchresults.vi.html"
-        params = {
-            'ss': 'Khu Phố Cổ',
-            'ssne': 'Khu Phố Cổ',  
-            'ssne_untouched': 'Khu Phố Cổ',
-            'lang': 'vi',
-            'src': 'index',
-            'dest_id': '2096',
-            'dest_type': 'district',
-            'checkin': checkin.strftime('%Y-%m-%d'),
-            'checkout': checkout.strftime('%Y-%m-%d'),
-            'group_adults': '2',
-            'no_rooms': '1',
-            'group_children': '0',
-            'nflt': 'price=VND-min-500000-1;di=2096'
-        }
-        
-        # Tạo URL với parameters
-        from urllib.parse import urlencode
-        full_url = f"{base_url}?{urlencode(params)}"
-        
-        return jsonify({
-            'success': True,
-            'default_url': full_url,
-            'location': 'Khu Phố Cổ, Hà Nội',
-            'checkin': checkin.strftime('%Y-%m-%d'),
-            'checkout': checkout.strftime('%Y-%m-%d'),
-            'description': 'URL tìm kiếm mặc định cho Khu Phố Cổ với giá từ 500,000₫'
-        })
-        
-    except Exception as e:
-        print(f"❌ Error generating default URL: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+# @app.route('/api/get_default_booking_url')
+# def get_default_booking_url():
+#     """API endpoint trả về URL mặc định cho Khu Phố Cổ Hà Nội - REMOVED"""
+#     return jsonify({"error": "Default booking URL feature has been removed", "success": False}), 410
 
 # Thêm route sau các route hiện có
 @app.route('/templates/export')
