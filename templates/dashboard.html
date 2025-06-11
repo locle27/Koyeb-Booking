@@ -139,6 +139,116 @@
     </div>
     {% endif %}
 
+    <!-- ⚠️ CẢNH BÁO NGÀY QUÁ TẢI (QUÁ 4 KHÁCH) -->
+    {% if overcrowded_days and overcrowded_days|length > 0 %}
+    <div class="alert border-0 shadow-lg mb-4" style="background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h4 class="alert-heading text-white mb-2">
+                    <i class="fas fa-users me-2"></i>⚠️ CẢNH BÁO NGÀY QUÁ TẢI
+                </h4>
+                <p class="text-white mb-0">{{ overcrowded_days|length }} ngày có hơn 4 khách check-in (Tối đa: 4 phòng)</p>
+            </div>
+            <div class="text-end">
+                <button class="btn btn-light btn-sm" onclick="toggleOvercrowdedDetails()">
+                    <i class="fas fa-eye me-1"></i><span id="overcrowdToggleText">Chi tiết</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Quick Summary -->
+        <div class="row mt-3">
+            {% set urgent_days = overcrowded_days | selectattr('alert_level', 'equalto', 'urgent') | list %}
+            {% set warning_days = overcrowded_days | selectattr('alert_level', 'equalto', 'warning') | list %}
+            {% set future_days = overcrowded_days | selectattr('is_future', 'equalto', true) | list %}
+            
+            <div class="col-md-4">
+                <div class="card bg-white bg-opacity-20 border-0">
+                    <div class="card-body py-2 px-3 text-center">
+                        <div class="h5 mb-1 text-white">{{ urgent_days|length }}</div>
+                        <small class="text-white-75">Khẩn cấp (≤3 ngày)</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-white bg-opacity-20 border-0">
+                    <div class="card-body py-2 px-3 text-center">
+                        <div class="h5 mb-1 text-white">{{ warning_days|length }}</div>
+                        <small class="text-white-75">Cảnh báo (≤7 ngày)</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-white bg-opacity-20 border-0">
+                    <div class="card-body py-2 px-3 text-center">
+                        <div class="h5 mb-1 text-white">{{ future_days|length }}</div>
+                        <small class="text-white-75">Tương lai</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Detailed List (Initially Hidden) -->
+        <div id="overcrowdedDetails" style="display: none;" class="mt-3">
+            <hr class="text-white-50 my-3">
+            <div class="row">
+                {% for day in overcrowded_days[:6] %}
+                <div class="col-md-6 col-lg-4 mb-2">
+                    <div class="card bg-white border-0">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-bold text-dark">
+                                        {% if day.date %}
+                                            {{ day.date.strftime('%d/%m/%Y') if day.date.strftime else day.date }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                        
+                                        {% if day.is_today %}
+                                            <span class="badge bg-danger ms-1">HÔM NAY</span>
+                                        {% elif day.days_from_today == 1 %}
+                                            <span class="badge bg-warning ms-1">NGÀY MAI</span>
+                                        {% elif day.days_from_today > 0 and day.days_from_today <= 3 %}
+                                            <span class="badge bg-danger ms-1">{{ day.days_from_today }} NGÀY NỮA</span>
+                                        {% elif day.days_from_today > 0 %}
+                                            <span class="badge bg-info ms-1">{{ day.days_from_today }} ngày</span>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-users me-1"></i>{{ day.guest_count }} khách check-in
+                                        <span class="ms-2 badge bg-{{ day.alert_color }}">
+                                            {% if day.guest_count > 6 %}
+                                                NGHIÊM TRỌNG
+                                            {% elif day.guest_count > 4 %}
+                                                QUÁ TẢI
+                                            {% endif %}
+                                        </span>
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="showDayDetails('{{ day.date }}', {{ day.guest_count }}, {{ day.guest_names|tojson }}, {{ day.booking_ids|tojson }})"
+                                            title="Xem chi tiết khách">
+                                        <i class="fas fa-info-circle"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            {% if overcrowded_days|length > 6 %}
+            <div class="text-center mt-2">
+                <small class="text-white-75">... và {{ overcrowded_days|length - 6 }} ngày khác</small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Reminder Notifications Area -->
     <div id="reminderNotifications" class="alert alert-warning border-0 shadow-lg mb-4" style="background: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%); display: none;">
         <div class="d-flex align-items-center justify-content-between">
@@ -429,6 +539,7 @@
 
 // Global reminder storage (in-memory for this session)
 let activeReminders = JSON.parse(localStorage.getItem('activeReminders') || '[]');
+let completedReminders = JSON.parse(localStorage.getItem('completedReminders') || '[]'); // NEW: Completed reminders
 let reminderCheckInterval = null;
 
 // Initialize reminder system on page load
@@ -517,6 +628,97 @@ function toggleMoreOverdue() {
         moreOverdue.style.display = 'none';
         button.innerHTML = '<i class="fas fa-chevron-down me-1"></i> Xem thêm {{ overdue_unpaid_guests|length - 3 if overdue_unpaid_guests else 0 }} khách';
     }
+}
+
+// ==================== OVERCROWDED DAYS FUNCTIONS ====================
+
+// Toggle overcrowded days details
+function toggleOvercrowdedDetails() {
+    const details = document.getElementById('overcrowdedDetails');
+    const toggleText = document.getElementById('overcrowdToggleText');
+    
+    if (details.style.display === 'none' || details.style.display === '') {
+        details.style.display = 'block';
+        toggleText.textContent = 'Ẩn chi tiết';
+    } else {
+        details.style.display = 'none';
+        toggleText.textContent = 'Chi tiết';
+    }
+}
+
+// Show day details modal
+function showDayDetails(date, guestCount, guestNames, bookingIds) {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-users me-2"></i>Chi tiết ngày quá tải: ${date}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <strong>⚠️ Cảnh báo:</strong> Ngày này có ${guestCount} khách check-in (vượt quá giới hạn 4 phòng)
+                    </div>
+                    
+                    <h6 class="mb-3">Danh sách ${guestCount} khách check-in:</h6>
+                    <div class="row">
+                        ${guestNames.map((name, index) => `
+                            <div class="col-md-6 mb-2">
+                                <div class="card border-left-warning">
+                                    <div class="card-body py-2 px-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div class="fw-bold">${name || 'N/A'}</div>
+                                                <small class="text-muted">ID: ${bookingIds[index] || 'N/A'}</small>
+                                            </div>
+                                            <span class="badge bg-warning">#${index + 1}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <h6 class="text-primary mb-2">💡 Gợi ý xử lý:</h6>
+                        <ul class="mb-0 small">
+                            <li>Kiểm tra xem có thể sắp xếp lại lịch check-in không</li>
+                            <li>Liên hệ một số khách để thảo luận về check-in sớm/muộn</li>
+                            <li>Chuẩn bị thêm nhân viên và tiện nghi cho ngày này</li>
+                            <li>Xem xét việc upgrade phòng hoặc hỗ trợ đặc biệt</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" onclick="goToCalendar('${date}')">
+                        <i class="fas fa-calendar me-1"></i>Xem trong lịch
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // Remove modal when hidden
+    modal.addEventListener('hidden.bs.modal', function() {
+        modal.remove();
+    });
+}
+
+// Navigate to calendar for specific date
+function goToCalendar(dateStr) {
+    const date = new Date(dateStr);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // JavaScript months are 0-indexed
+    window.open(`/calendar/${year}/${month}`, '_blank');
 }
 
 // Global variables cho modal
@@ -677,7 +879,9 @@ function addReminder() {
         timestamp: reminderTime.getTime(),
         priority: priority,
         created: now.toISOString(),
-        triggered: false
+        triggered: false,
+        completed: false, // NEW: Completion status
+        completedAt: null // NEW: Completion timestamp
     };
     
     // Add to active reminders
@@ -706,11 +910,15 @@ function loadActiveReminders() {
     // Filter out past reminders that weren't triggered (cleanup)
     const now = new Date().getTime();
     activeReminders = activeReminders.filter(reminder => 
-        reminder.timestamp > (now - 3600000) || !reminder.triggered // Keep recent or not triggered
+        reminder.timestamp > (now - 3600000) || !reminder.triggered || !reminder.completed // Keep recent, not triggered, or not completed
     );
     
     // Save cleaned list
     localStorage.setItem('activeReminders', JSON.stringify(activeReminders));
+    
+    // Separate active and completed reminders
+    const pendingReminders = activeReminders.filter(r => !r.completed);
+    const recentCompleted = activeReminders.filter(r => r.completed);
     
     if (activeReminders.length === 0) {
         activeRemindersDiv.style.display = 'none';
@@ -719,55 +927,110 @@ function loadActiveReminders() {
     
     activeRemindersDiv.style.display = 'block';
     
-    // Sort by time
-    const sortedReminders = [...activeReminders].sort((a, b) => a.timestamp - b.timestamp);
+    // Sort by completion status first, then by time
+    const sortedReminders = [
+        ...pendingReminders.sort((a, b) => a.timestamp - b.timestamp),
+        ...recentCompleted.sort((a, b) => b.completedAt - a.completedAt)
+    ];
     
     remindersList.innerHTML = '';
     
-    sortedReminders.forEach(reminder => {
-        const priorityColors = {
-            normal: 'primary',
-            important: 'warning', 
-            urgent: 'danger'
-        };
-        
-        const priorityIcons = {
-            normal: '🔵',
-            important: '🟡',
-            urgent: '🔴'
-        };
-        
-        const timeRemaining = getTimeRemaining(reminder.timestamp);
-        const isPastDue = reminder.timestamp < Date.now();
-        
-        const reminderCard = document.createElement('div');
-        reminderCard.className = 'col-md-6 col-lg-4 mb-2';
-        reminderCard.innerHTML = `
-            <div class="card border-${priorityColors[reminder.priority]} ${isPastDue ? 'bg-light' : ''}">
-                <div class="card-body py-2 px-3">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center mb-1">
-                                <span class="me-1">${priorityIcons[reminder.priority]}</span>
-                                <small class="text-muted">${formatDateTime(new Date(reminder.timestamp))}</small>
-                            </div>
-                            <div class="fw-bold ${isPastDue ? 'text-danger' : ''}" style="font-size: 0.9rem;">
-                                ${reminder.text}
-                            </div>
-                            <small class="text-${isPastDue ? 'danger' : 'info'}">
-                                ${isPastDue ? '⏰ Đã quá hạn' : `⏱️ ${timeRemaining}`}
-                            </small>
-                        </div>
-                        <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeReminder('${reminder.id}')" title="Xóa nhắc hẹn">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
+    // Add section headers if we have both types
+    if (pendingReminders.length > 0 && recentCompleted.length > 0) {
+        remindersList.innerHTML = `
+            <div class="col-12 mb-2">
+                <h6 class="text-primary mb-0"><i class="fas fa-clock me-1"></i>Đang chờ (${pendingReminders.length})</h6>
             </div>
         `;
-        
-        remindersList.appendChild(reminderCard);
+    }
+    
+    // Display pending reminders
+    pendingReminders.forEach(reminder => {
+        displayReminderCard(reminder, remindersList);
     });
+    
+    // Add completed section if exists
+    if (recentCompleted.length > 0) {
+        const completedHeader = document.createElement('div');
+        completedHeader.className = 'col-12 mt-3 mb-2';
+        completedHeader.innerHTML = `
+            <hr class="my-2">
+            <h6 class="text-success mb-0">
+                <i class="fas fa-check-circle me-1"></i>Đã hoàn thành (${recentCompleted.length})
+                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleCompletedSection()">
+                    <i class="fas fa-eye"></i> <span id="toggleCompletedText">Ẩn</span>
+                </button>
+            </h6>
+        `;
+        remindersList.appendChild(completedHeader);
+        
+        // Completed reminders container (collapsible)
+        const completedContainer = document.createElement('div');
+        completedContainer.id = 'completedRemindersSection';
+        completedContainer.className = 'col-12';
+        completedContainer.innerHTML = '<div class="row" id="completedRemindersList"></div>';
+        remindersList.appendChild(completedContainer);
+        
+        const completedList = document.getElementById('completedRemindersList');
+        recentCompleted.forEach(reminder => {
+            displayReminderCard(reminder, completedList, true);
+        });
+    }
+}
+
+// Display individual reminder card
+function displayReminderCard(reminder, container, isCompleted = false) {
+    const priorityColors = {
+        normal: 'primary',
+        important: 'warning', 
+        urgent: 'danger'
+    };
+    
+    const priorityIcons = {
+        normal: '🔵',
+        important: '🟡',
+        urgent: '🔴'
+    };
+    
+    const timeRemaining = getTimeRemaining(reminder.timestamp);
+    const isPastDue = reminder.timestamp < Date.now() && !reminder.completed;
+    
+    const reminderCard = document.createElement('div');
+    reminderCard.className = 'col-md-6 col-lg-4 mb-2';
+    reminderCard.innerHTML = `
+        <div class="card border-${priorityColors[reminder.priority]} ${isCompleted ? 'bg-light opacity-75' : ''} ${isPastDue ? 'border-danger' : ''}">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-1">
+                            <!-- NEW: Completion Checkbox -->
+                            <input type="checkbox" class="form-check-input me-2" 
+                                   id="reminder_${reminder.id}" 
+                                   ${reminder.completed ? 'checked disabled' : ''} 
+                                   onchange="toggleReminderCompletion('${reminder.id}')"
+                                   title="${reminder.completed ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}">
+                            <span class="me-1">${priorityIcons[reminder.priority]}</span>
+                            <small class="text-muted">${formatDateTime(new Date(reminder.timestamp))}</small>
+                        </div>
+                        <div class="fw-bold ${isPastDue ? 'text-danger' : ''} ${reminder.completed ? 'text-decoration-line-through text-muted' : ''}" style="font-size: 0.9rem;">
+                            ${reminder.text}
+                        </div>
+                        <small class="text-${isPastDue ? 'danger' : reminder.completed ? 'success' : 'info'}">
+                            ${reminder.completed ? 
+                                `✅ Hoàn thành: ${formatDateTime(new Date(reminder.completedAt))}` :
+                                isPastDue ? '⏰ Đã quá hạn' : `⏱️ ${timeRemaining}`
+                            }
+                        </small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeReminder('${reminder.id}')" title="Xóa nhắc hẹn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(reminderCard);
 }
 
 // Remove reminder
@@ -902,6 +1165,96 @@ function getTimeRemaining(timestamp) {
     if (hours > 0) return `${hours} giờ ${minutes % 60} phút`;
     return `${minutes} phút`;
 }
+
+// ==================== NEW: REMINDER COMPLETION FUNCTIONS ====================
+
+// Toggle reminder completion status
+function toggleReminderCompletion(reminderId) {
+    const reminderIndex = activeReminders.findIndex(r => r.id === reminderId);
+    if (reminderIndex === -1) return;
+    
+    const reminder = activeReminders[reminderIndex];
+    
+    if (!reminder.completed) {
+        // Mark as completed
+        reminder.completed = true;
+        reminder.completedAt = Date.now();
+        
+        // Play completion sound
+        playCompletionSound();
+        
+        // Show completion message
+        showReminderSuccess(`✅ Đã hoàn thành: "${reminder.text}"`);
+        
+        // Move to completed list for persistence
+        completedReminders.push({...reminder});
+        localStorage.setItem('completedReminders', JSON.stringify(completedReminders));
+    } else {
+        // Unmark completion (shouldn't happen with disabled checkbox, but just in case)
+        reminder.completed = false;
+        reminder.completedAt = null;
+    }
+    
+    // Save changes
+    localStorage.setItem('activeReminders', JSON.stringify(activeReminders));
+    
+    // Reload display
+    loadActiveReminders();
+}
+
+// Toggle completed section visibility
+function toggleCompletedSection() {
+    const section = document.getElementById('completedRemindersSection');
+    const toggleText = document.getElementById('toggleCompletedText');
+    
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        toggleText.textContent = 'Ẩn';
+    } else {
+        section.style.display = 'none';
+        toggleText.textContent = 'Hiện';
+    }
+}
+
+// Play completion sound
+function playCompletionSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Positive completion sound (higher pitch, pleasant)
+        oscillator.frequency.value = 1000; // Hz
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (error) {
+        console.log('Could not play completion sound:', error);
+    }
+}
+
+// Clear all completed reminders (cleanup function)
+function clearCompletedReminders() {
+    if (confirm('Xóa tất cả nhắc hẹn đã hoàn thành?')) {
+        activeReminders = activeReminders.filter(r => !r.completed);
+        completedReminders = [];
+        
+        localStorage.setItem('activeReminders', JSON.stringify(activeReminders));
+        localStorage.setItem('completedReminders', JSON.stringify(completedReminders));
+        
+        loadActiveReminders();
+        showReminderSuccess('Đã xóa tất cả nhắc hẹn đã hoàn thành');
+    }
+}
+
+// ==================== END NEW FUNCTIONS ====================
 
 function showReminderSuccess(message) {
     const toast = document.createElement('div');

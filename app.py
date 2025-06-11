@@ -309,6 +309,9 @@ def dashboard():
     overdue_total_amount = 0
     monthly_revenue_with_unpaid = []
     
+    # ===== LOGIC MỚI: PHÁT HIỆN NGÀY CÓ QUÁ 4 KHÁCH CHECK-IN =====
+    overcrowded_days = []
+    
     try:
         if not df.empty and 'Check-in Date' in df.columns:
             today = datetime.today().date()
@@ -475,6 +478,89 @@ def dashboard():
             except Exception as monthly_error:
                 print(f"WARNING: Error calculating monthly revenue with unpaid: {monthly_error}")
                 monthly_revenue_with_unpaid = []
+        
+        # ===== LOGIC MỚI: PHÁT HIỆN NGÀY CÓ QUÁ 4 KHÁCH CHECK-IN =====
+        try:
+            if not df.empty and 'Check-in Date' in df.columns:
+                # Lấy dữ liệu trong khoảng thời gian từ 30 ngày trước đến 30 ngày sau
+                today = datetime.today()
+                check_start = today - timedelta(days=30)
+                check_end = today + timedelta(days=30)
+                
+                # Đảm bảo Check-in Date là datetime
+                df_check = df.copy()
+                df_check['Check-in Date'] = pd.to_datetime(df_check['Check-in Date'], errors='coerce', dayfirst=True)
+                
+                # Lọc dữ liệu trong khoảng thời gian check và không bị hủy
+                valid_checkins = df_check[
+                    (df_check['Check-in Date'].notna()) &
+                    (df_check['Check-in Date'] >= pd.Timestamp(check_start)) &
+                    (df_check['Check-in Date'] <= pd.Timestamp(check_end)) &
+                    (df_check['Tình trạng'] != 'Đã hủy')
+                ].copy()
+                
+                if not valid_checkins.empty:
+                    # Đếm số khách check-in theo ngày
+                    daily_checkins = valid_checkins.groupby(valid_checkins['Check-in Date'].dt.date).agg({
+                        'Tên người đặt': 'count',
+                        'Số đặt phòng': lambda x: list(x),  # Danh sách booking IDs
+                        'Tên người đặt': lambda x: list(x)  # Danh sách tên khách
+                    }).rename(columns={'Tên người đặt': 'guest_count'})
+                    
+                    # Fix column naming issue
+                    daily_checkins = valid_checkins.groupby(valid_checkins['Check-in Date'].dt.date).agg({
+                        'Số đặt phòng': ['count', lambda x: list(x)],
+                        'Tên người đặt': lambda x: list(x)
+                    })
+                    
+                    # Flatten column names
+                    daily_checkins.columns = ['guest_count', 'booking_ids', 'guest_names']
+                    
+                    # Tìm ngày có hơn 4 khách
+                    overcrowded_dates = daily_checkins[daily_checkins['guest_count'] > 4]
+                    
+                    overcrowded_days = []
+                    for date, row in overcrowded_dates.iterrows():
+                        days_from_today = (date - today.date()).days
+                        
+                        # Phân loại mức độ cảnh báo
+                        if days_from_today < 0:
+                            alert_level = 'past'
+                            alert_color = 'secondary'
+                        elif days_from_today <= 3:
+                            alert_level = 'urgent'
+                            alert_color = 'danger'
+                        elif days_from_today <= 7:
+                            alert_level = 'warning'
+                            alert_color = 'warning'
+                        else:
+                            alert_level = 'info'
+                            alert_color = 'info'
+                        
+                        overcrowded_days.append({
+                            'date': date,
+                            'guest_count': row['guest_count'],
+                            'booking_ids': row['booking_ids'],
+                            'guest_names': row['guest_names'],
+                            'days_from_today': days_from_today,
+                            'alert_level': alert_level,
+                            'alert_color': alert_color,
+                            'is_today': days_from_today == 0,
+                            'is_future': days_from_today > 0
+                        })
+                    
+                    # Sắp xếp theo ngày (gần nhất trước)
+                    overcrowded_days.sort(key=lambda x: abs(x['days_from_today']))
+                    
+                    print(f"DEBUG: Found {len(overcrowded_days)} overcrowded days in 60-day window")
+                    for day in overcrowded_days[:3]:  # Print first 3
+                        print(f"  - {day['date']}: {day['guest_count']} guests ({day['alert_level']})")
+                        
+        except Exception as overcrowd_error:
+            print(f"WARNING: Error calculating overcrowded days: {overcrowd_error}")
+            import traceback
+            traceback.print_exc()
+            overcrowded_days = []
                 
     except Exception as main_error:
         print(f"ERROR: Main calculation error: {main_error}")
@@ -483,6 +569,7 @@ def dashboard():
         overdue_unpaid_guests = []
         overdue_total_amount = 0
         monthly_revenue_with_unpaid = []
+        overcrowded_days = []
 
     # Tạo biểu đồ donut chart chuyên nghiệp cho người thu tiền
     collector_revenue_data = dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records')
@@ -577,6 +664,7 @@ def dashboard():
         monthly_revenue_with_unpaid=monthly_revenue_with_unpaid,  # Dữ liệu mới
         overdue_unpaid_guests=overdue_unpaid_guests,  # Khách quá hạn
         overdue_total_amount=overdue_total_amount,  # Tổng tiền quá hạn
+        overcrowded_days=overcrowded_days,  # NEW: Ngày có quá nhiều khách
         collector_chart_json=collector_chart_data,
         collector_revenue_list=collector_revenue_list,
         start_date=start_date.strftime('%Y-%m-%d'),
@@ -1274,6 +1362,7 @@ def ai_chat_analyze():
         ai_config = data.get('ai_config', {})
         selected_template = ai_config.get('selectedTemplate')
         response_mode = ai_config.get('responseMode', 'auto')
+        custom_instructions = ai_config.get('customInstructions', '') # NEW: Custom instructions
         
         # Read latest templates directly from Google Sheets
         print("Loading latest templates from Google Sheets...")
@@ -1296,7 +1385,7 @@ def ai_chat_analyze():
                 print("No templates available")
         
         # Phân tích ảnh với AI sử dụng AI configuration
-        result = analyze_chat_image_with_ai(image_bytes, templates, selected_template, response_mode)
+        result = analyze_chat_image_with_ai(image_bytes, templates, selected_template, response_mode, custom_instructions)
         
         return jsonify(result)
         
@@ -1556,7 +1645,7 @@ def export_templates_route():
     return redirect(url_for('get_templates_page'))
 
 # --- Hàm AI Chat Analysis ---
-def analyze_chat_image_with_ai(image_bytes, templates, selected_template=None, response_mode='auto'):
+def analyze_chat_image_with_ai(image_bytes, templates, selected_template=None, response_mode='auto', custom_instructions=''):
     """
     Phân tích ảnh đoạn chat và tạo phản hồi AI với vai trò lễ tân khách sạn
     
@@ -1565,6 +1654,7 @@ def analyze_chat_image_with_ai(image_bytes, templates, selected_template=None, r
         templates: Danh sách tất cả templates
         selected_template: Template được chọn cụ thể (nếu có)
         response_mode: 'auto', 'yes', hoặc 'no'
+        custom_instructions: Hướng dẫn tùy chỉnh từ người dùng
     """
     try:
         if not GOOGLE_API_KEY:
@@ -1615,6 +1705,19 @@ RESPONSE MODE: AUTO MODE
 - Use your best judgment for the most helpful response
 """
         
+        # Tạo custom instructions section
+        custom_instructions_section = ""
+        if custom_instructions.strip():
+            custom_instructions_section = f"""
+⭐⭐⭐ HƯỚNG DẪN TÙY CHỈNH TỪ NGƯỜI DÙNG (ƯU TIÊN CAO) ⭐⭐⭐
+QUAN TRỌNG: Người dùng đã cung cấp hướng dẫn cụ thể sau đây. BẠN PHẢI tuân thủ hướng dẫn này khi tạo phản hồi:
+
+"{custom_instructions.strip()}"
+
+Hãy đảm bảo phản hồi của bạn phù hợp với hướng dẫn này trong khi vẫn giữ tính chuyên nghiệp và bối cảnh cuộc hội thoại.
+⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
+"""
+        
         # Tạo prompt cho AI với response mode emphasis
         prompt = f"""
 You are a professional hotel receptionist at 118 Hang Bac Hostel in Hanoi's Old Quarter. Your job is to analyze the ENTIRE conversation in the image and provide a NATURAL, CONTEXTUAL response.
@@ -1623,6 +1726,8 @@ HOTEL INFO:
 - Name: 118 Hang Bac Hostel
 - Location: 118 Hang Bac Street, Hoan Kiem District, Hanoi (Old Quarter)
 - Type: Budget hostel/guesthouse in Hanoi's historic center
+
+{custom_instructions_section}
 
 {response_mode_instruction}
 
@@ -1681,9 +1786,11 @@ Return your analysis in this JSON format:
     ],
     "ai_response": "Your contextually-aware response that shows understanding of the full conversation and addresses the latest message appropriately",
     "context_rationale": "Brief explanation of how the full conversation context influenced your response",
+    "custom_instructions_applied": {"true if custom instructions were used and how" if custom_instructions.strip() else "false"},
     "used_config": {{
         "selected_template": {"true" if selected_template else "false"},
-        "response_mode": "{response_mode}"
+        "response_mode": "{response_mode}",
+        "custom_instructions": "{custom_instructions.strip() if custom_instructions.strip() else 'none'}"
     }}
 }}
 """
