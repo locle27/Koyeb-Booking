@@ -806,24 +806,54 @@ def delete_booking(booking_id):
 
 @app.route('/bookings/delete_multiple', methods=['POST'])
 def delete_multiple_bookings():
-    data = request.get_json()
-    ids_to_delete = data.get('ids')
-
-    if not ids_to_delete:
-        return jsonify({'success': False, 'message': 'Không có ID nào được cung cấp.'})
-
     try:
+        print(f"[DELETE_MULTIPLE] Received request")
+        data = request.get_json()
+        print(f"[DELETE_MULTIPLE] Request data: {data}")
+        
+        if not data:
+            print("[DELETE_MULTIPLE] No JSON data received")
+            return jsonify({'success': False, 'message': 'Không có dữ liệu JSON.'}), 400
+            
+        ids_to_delete = data.get('ids')
+        print(f"[DELETE_MULTIPLE] IDs to delete: {ids_to_delete}")
+
+        if not ids_to_delete:
+            print("[DELETE_MULTIPLE] No IDs provided")
+            return jsonify({'success': False, 'message': 'Không có ID nào được cung cấp.'}), 400
+
+        print(f"[DELETE_MULTIPLE] Attempting to delete {len(ids_to_delete)} bookings")
         success = delete_multiple_rows_in_gsheet(
             sheet_id=DEFAULT_SHEET_ID,
             gcp_creds_file_path=GCP_CREDS_FILE_PATH,
             worksheet_name=WORKSHEET_NAME,
             booking_ids=ids_to_delete
         )
+        
         if success:
+            print("[DELETE_MULTIPLE] Delete successful, clearing cache")
             load_data.cache_clear() # Xóa cache sau khi sửa đổi
-            return jsonify({'success': True})
+            return jsonify({'success': True, 'message': f'Đã xóa thành công {len(ids_to_delete)} booking(s)'})
         else:
+            print("[DELETE_MULTIPLE] Delete failed in Google Sheets")
             return jsonify({'success': False, 'message': 'Lỗi khi xóa dữ liệu trên Google Sheets.'})
+            
+    except Exception as e:
+        print(f"[DELETE_MULTIPLE] Exception: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
+
+@app.route('/api/test_delete', methods=['POST'])
+def test_delete():
+    """Test endpoint for debugging delete functionality"""
+    try:
+        data = request.get_json()
+        return jsonify({
+            'success': True, 
+            'message': 'Test endpoint working',
+            'received_data': data
+        })
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
 

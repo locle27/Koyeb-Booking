@@ -703,24 +703,56 @@ document.addEventListener('DOMContentLoaded', function () {
 // Delete booking function for duplicate analysis
 function deleteBooking(bookingId) {
     if (confirm(`Bạn có chắc chắn muốn xóa booking "${bookingId}" không?`)) {
+        console.log('Deleting booking:', bookingId);
+        
+        // Try multiple delete endpoint first
         fetch('/bookings/delete_multiple', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
             body: JSON.stringify({ ids: [bookingId] })
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Delete response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Delete response data:', data);
             if (data.success) {
                 alert('✅ Đã xóa booking thành công!');
                 // Refresh duplicate analysis to show updated results
                 performDuplicateAnalysis();
             } else {
-                alert('❌ Lỗi khi xóa: ' + data.message);
+                alert('❌ Lỗi khi xóa: ' + (data.message || 'Unknown error'));
             }
         })
         .catch(error => {
-            console.error('Delete error:', error);
-            alert('❌ Lỗi kết nối khi xóa booking');
+            console.error('Primary delete failed, trying fallback:', error);
+            
+            // Fallback: try individual delete endpoint
+            fetch(`/booking/${bookingId}/delete`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('✅ Đã xóa booking thành công (fallback)!');
+                    performDuplicateAnalysis();
+                } else {
+                    throw new Error(`Fallback failed: ${response.status}`);
+                }
+            })
+            .catch(fallbackError => {
+                console.error('Both delete methods failed:', fallbackError);
+                alert('❌ Lỗi kết nối khi xóa booking. Vui lòng thử lại hoặc xóa từ trang quản lý booking.');
+            });
         });
     }
 }
