@@ -68,7 +68,6 @@ class EmailReminderService:
         return subject, body
         
     def send_email(self, subject: str, body: str, to_email: str = None) -> bool:
-    def send_email(self, subject: str, body: str, to_email: str = None) -> bool:
         """
         Gửi email với subject và body được chỉ định
         

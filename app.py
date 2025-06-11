@@ -35,16 +35,6 @@ from logic import (
 # Import dashboard logic module
 from dashboard_routes import process_dashboard_data
 
-# Market Price Analyzer - REMOVED per user request
-# from market_price_analyzer import (
-#     analyze_market_prices, 
-#     format_price_analysis_for_display,
-#     MarketPriceAnalyzer
-# )
-
-# Import AI Pricing Analyst - REMOVED per user request  
-# from ai_pricing_analyst import analyze_budget_pricing_with_ai, analyze_price_range_with_ai
-
 # Import Email & Reminder System
 from email_service import send_test_email, email_service
 from reminder_system import (
@@ -1061,27 +1051,6 @@ def import_templates():
     except Exception as e:
         flash(f'❌ Lỗi khi import: {str(e)}', 'danger')
         return redirect(url_for('get_templates_page'))
-
-# MARKET ANALYSIS ROUTES REMOVED PER USER REQUEST
-# @app.route('/market_analysis')
-# def market_analysis_page():
-#     """Trang Market Price Analysis - Phân tích giá thị trường - REMOVED"""
-#     return redirect(url_for('dashboard'))  # Redirect to dashboard instead
-
-# @app.route('/api/analyze_market_prices', methods=['POST'])
-# def api_analyze_market_prices():
-#     """API endpoint để phân tích giá thị trường từ Booking.com - REMOVED"""
-#     return jsonify({"error": "Market analysis feature has been removed", "success": False}), 410
-
-# @app.route('/api/ai_pricing_analysis', methods=['POST'])
-# def api_ai_pricing_analysis():
-#     """API endpoint để phân tích pricing với AI - REMOVED"""
-#     return jsonify({"error": "AI pricing analysis feature has been removed", "success": False}), 410
-
-# @app.route('/api/get_default_booking_url')
-# def get_default_booking_url():
-#     """API endpoint trả về URL mặc định cho Khu Phố Cổ Hà Nội - REMOVED"""
-#     return jsonify({"error": "Default booking URL feature has been removed", "success": False}), 410
 
 # === EMAIL REMINDER SYSTEM ROUTES ===
 @app.route('/reminder_system')
