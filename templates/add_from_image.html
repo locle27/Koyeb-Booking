@@ -31,7 +31,11 @@
         <p>Dán (Ctrl+V) hình ảnh chứa danh sách đặt phòng vào khu vực dưới đây.</p>
         
         <div id="paste-area">
-            <p>Dán hình ảnh vào đây</p>
+            <p>🖼️ Dán hình ảnh vào đây (Ctrl+V)</p>
+            <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                Hoặc <button type="button" id="file-select-btn" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">📁 Chọn file ảnh</button>
+            </p>
+            <input type="file" id="file-input" accept="image/*" style="display: none;">
         </div>
 
         <div id="results-container">
@@ -46,33 +50,18 @@
     </div>
 
     <script>
-        document.addEventListener('paste', async (event) => {
+        // Unified function to process image
+        async function processImage(imageFile) {
             const pasteArea = document.getElementById('paste-area');
             const spinner = document.getElementById('spinner');
             const messageBox = document.getElementById('message-box');
             const saveForm = document.getElementById('save-form');
             const resultsTable = document.getElementById('results-table');
 
-            // Xóa kết quả cũ
+            // Clear previous results
             messageBox.innerHTML = '';
             resultsTable.innerHTML = '';
             saveForm.style.display = 'none';
-
-            const items = (event.clipboardData || window.clipboardData).items;
-            let imageFile = null;
-
-            for (const item of items) {
-                if (item.type.indexOf('image') !== -1) {
-                    imageFile = item.getAsFile();
-                    break;
-                }
-            }
-
-            if (!imageFile) {
-                messageBox.innerHTML = `<div class="error-message">Lỗi: Dữ liệu dán vào không phải là hình ảnh.</div>`;
-                return;
-            }
-
             spinner.style.display = 'block';
             pasteArea.style.display = 'none';
 
@@ -94,8 +83,8 @@
                         throw new Error(errorData.error || `Lỗi từ server: ${response.status} ${response.statusText}`);
                     }
 
-                    const extractedData = await response.json();
-                    console.log('Extracted data received:', extractedData); // Debug log
+                    let extractedData = await response.json(); // ✅ SỬA: đổi const thành let
+                    console.log('Extracted data received:', extractedData);
 
                     // === PHẦN SỬA LỖI QUAN TRỌNG NHẤT ===
                     console.log('🔍 Raw API Response:', extractedData);
@@ -160,7 +149,7 @@
                         return;
                     }
                     
-                    // Sử dụng array đã chuẩn hóa
+                    // ✅ SỬA: Sử dụng array đã chuẩn hóa
                     extractedData = bookingsArray;
                     console.log(`✅ Final bookings data (${extractedData.length} items):`, extractedData);
 
@@ -270,6 +259,45 @@
                 }
             };
             reader.readAsDataURL(imageFile);
+        }
+
+        // Paste event handler
+        document.addEventListener('paste', async (event) => {
+            const items = (event.clipboardData || window.clipboardData).items;
+            let imageFile = null;
+
+            for (const item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    imageFile = item.getAsFile();
+                    break;
+                }
+            }
+
+            if (!imageFile) {
+                document.getElementById('message-box').innerHTML = `<div class="error-message">❌ Dữ liệu dán vào không phải là hình ảnh. Vui lòng copy ảnh và thử lại.</div>`;
+                return;
+            }
+
+            await processImage(imageFile);
+        });
+
+        // File input event handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileSelectBtn = document.getElementById('file-select-btn');
+            const fileInput = document.getElementById('file-input');
+
+            fileSelectBtn.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', async function(event) {
+                const file = event.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    await processImage(file);
+                } else {
+                    document.getElementById('message-box').innerHTML = `<div class="error-message">❌ Vui lòng chọn file ảnh hợp lệ (PNG, JPG, JPEG).</div>`;
+                }
+            });
         });
     </script>
 </body>
