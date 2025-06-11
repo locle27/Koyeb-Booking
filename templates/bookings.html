@@ -623,15 +623,18 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <div class="card-header bg-primary text-white">
                                         <small><i class="fas fa-star me-1"></i>Booking chính</small>
                                     </div>
-                                    <div class="card-body">
-                                        <p class="mb-1"><strong>ID:</strong> ${main_booking.booking_id}</p>
-                                        <p class="mb-1"><strong>Tên:</strong> ${main_booking.guest_name}</p>
-                                        <p class="mb-1"><strong>Check-in:</strong> ${main_booking.check_in_date}</p>
-                                        <p class="mb-1"><strong>Check-out:</strong> ${main_booking.check_out_date}</p>
-                                        <p class="mb-1"><strong>Giá:</strong> ${main_booking.total_payment.toLocaleString()}đ</p>
-                                        <p class="mb-0"><strong>Trạng thái:</strong> 
+                                    <div class="card-body bg-light">
+                                        <p class="mb-1 text-dark"><strong>ID:</strong> ${main_booking.booking_id}</p>
+                                        <p class="mb-1 text-dark"><strong>Tên:</strong> ${main_booking.guest_name}</p>
+                                        <p class="mb-1 text-dark"><strong>Check-in:</strong> ${main_booking.check_in_date}</p>
+                                        <p class="mb-1 text-dark"><strong>Check-out:</strong> ${main_booking.check_out_date}</p>
+                                        <p class="mb-1 text-dark"><strong>Giá:</strong> ${main_booking.total_payment.toLocaleString()}đ</p>
+                                        <p class="mb-2 text-dark"><strong>Trạng thái:</strong> 
                                             <span class="badge ${main_booking.status === 'OK' ? 'bg-success' : 'bg-danger'}">${main_booking.status}</span>
                                         </p>
+                                        <button class="btn btn-danger btn-sm w-100" onclick="deleteBooking('${main_booking.booking_id}')">
+                                            <i class="fas fa-trash me-1"></i>Xóa Booking này
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -642,20 +645,23 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <div class="card-header bg-danger text-white">
                                         <small><i class="fas fa-exclamation-triangle me-1"></i>${similar_bookings.length} booking tương tự</small>
                                     </div>
-                                    <div class="card-body">
+                                    <div class="card-body bg-light">
             `;
             
             similar_bookings.forEach((similar, idx) => {
                 html += `
                     <div class="border-bottom pb-2 mb-2">
-                        <p class="mb-1"><small><strong>ID:</strong> ${similar.booking_id}</small></p>
-                        <p class="mb-1"><small><strong>Tên:</strong> ${similar.guest_name}</small></p>
-                        <p class="mb-1"><small><strong>Check-in:</strong> ${similar.check_in_date}</small></p>
-                        <p class="mb-1"><small><strong>Giá:</strong> ${similar.total_payment.toLocaleString()}đ</small></p>
-                        <p class="mb-0"><small>
+                        <p class="mb-1 text-dark"><small><strong>ID:</strong> ${similar.booking_id}</small></p>
+                        <p class="mb-1 text-dark"><small><strong>Tên:</strong> ${similar.guest_name}</small></p>
+                        <p class="mb-1 text-dark"><small><strong>Check-in:</strong> ${similar.check_in_date}</small></p>
+                        <p class="mb-1 text-dark"><small><strong>Giá:</strong> ${similar.total_payment.toLocaleString()}đ</small></p>
+                        <p class="mb-1"><small>
                             <span class="badge bg-info">±${similar.date_diff} ngày</span>
-                            <span class="badge bg-warning">±${similar.price_diff.toLocaleString()}đ</span>
+                            <span class="badge bg-warning text-dark">±${similar.price_diff.toLocaleString()}đ</span>
                         </small></p>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteBooking('${similar.booking_id}')">
+                            <i class="fas fa-trash me-1"></i>Xóa
+                        </button>
                     </div>
                 `;
             });
@@ -693,5 +699,30 @@ document.addEventListener('DOMContentLoaded', function () {
         performDuplicateAnalysis();
     });
 });
+
+// Delete booking function for duplicate analysis
+function deleteBooking(bookingId) {
+    if (confirm(`Bạn có chắc chắn muốn xóa booking "${bookingId}" không?`)) {
+        fetch('/bookings/delete_multiple', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: [bookingId] })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Đã xóa booking thành công!');
+                // Refresh duplicate analysis to show updated results
+                performDuplicateAnalysis();
+            } else {
+                alert('❌ Lỗi khi xóa: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            alert('❌ Lỗi kết nối khi xóa booking');
+        });
+    }
+}
 </script>
 {% endblock %} 
