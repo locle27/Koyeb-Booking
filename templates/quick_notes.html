@@ -90,9 +90,18 @@
         .note-item.thu-tien-item { border-left-color: #28a745; background: #f8fff9; }
         .note-item.huy-phong-item { border-left-color: #dc3545; background: #fff8f8; }
         .note-item.taxi-item { border-left-color: #ffc107; background: #fffef8; }
+        .note-item.completed {
+            opacity: 0.7;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
         .note-timestamp {
             font-size: 0.8rem;
             color: #6c757d;
+        }
+        .btn-group .btn-check:checked + .btn {
+            background-color: var(--bs-primary);
+            border-color: var(--bs-primary);
+            color: white;
         }
     </style>
 </head>
@@ -194,9 +203,21 @@
 
         <!-- Recent Notes -->
         <div class="recent-notes mt-4">
-            <h5 class="mb-3">
-                <i class="fas fa-history me-2"></i>Nhắc gần đây
-            </h5>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Quản lý Notes
+                </h5>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="noteFilter" id="activeNotes" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary" for="activeNotes">Đang hoạt động</label>
+                    
+                    <input type="radio" class="btn-check" name="noteFilter" id="completedNotes" autocomplete="off">
+                    <label class="btn btn-outline-success" for="completedNotes">Đã hoàn thành</label>
+                    
+                    <input type="radio" class="btn-check" name="noteFilter" id="allNotes" autocomplete="off">
+                    <label class="btn btn-outline-secondary" for="allNotes">Tất cả</label>
+                </div>
+            </div>
             <div id="recentNotesList">
                 <p class="text-muted text-center py-3">Chưa có nhắc nào được tạo</p>
             </div>
@@ -220,6 +241,11 @@
             document.getElementById('reminderTime').value = now.toTimeString().slice(0,5);
             
             loadRecentNotes();
+            
+            // Add filter event listeners
+            document.querySelectorAll('input[name="noteFilter"]').forEach(radio => {
+                radio.addEventListener('change', loadRecentNotes);
+            });
         });
 
         // Handle note type selection
@@ -310,13 +336,41 @@
             const now = new Date();
             now.setHours(now.getHours() + 1);
             document.getElementById('reminderTime').value = now.toTimeString().slice(0,5);
+            
+            // Reset filter to active notes
+            document.getElementById('activeNotes').checked = true;
+            loadRecentNotes();
         }
 
         function loadRecentNotes() {
             const container = document.getElementById('recentNotesList');
             
-            if (notes.length === 0) {
-                container.innerHTML = '<p class="text-muted text-center py-3">Chưa có nhắc nào được tạo</p>';
+            // Get filter selection
+            const activeFilter = document.querySelector('input[name="noteFilter"]:checked');
+            const filterType = activeFilter ? activeFilter.id : 'activeNotes';
+            
+            // Filter notes based on selection
+            let filteredNotes = [];
+            switch(filterType) {
+                case 'activeNotes':
+                    filteredNotes = notes.filter(note => !note.completed);
+                    break;
+                case 'completedNotes':
+                    filteredNotes = notes.filter(note => note.completed);
+                    break;
+                case 'allNotes':
+                default:
+                    filteredNotes = notes;
+                    break;
+            }
+            
+            if (filteredNotes.length === 0) {
+                const emptyMessages = {
+                    'activeNotes': 'Không có note đang hoạt động',
+                    'completedNotes': 'Chưa có note nào được hoàn thành',
+                    'allNotes': 'Chưa có note nào được tạo'
+                };
+                container.innerHTML = `<p class="text-muted text-center py-3">${emptyMessages[filterType]}</p>`;
                 return;
             }
             
@@ -332,27 +386,95 @@
                 'taxi': 'Taxi'
             };
             
-            container.innerHTML = notes.map(note => `
-                <div class="note-item ${note.type}-item">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center mb-2">
-                                <i class="${typeIcons[note.type]} me-2"></i>
-                                <strong>${typeNames[note.type]}</strong>
-                                <span class="badge bg-secondary ms-2">${note.guestName}</span>
+            // Sort notes: active first, then by reminder date
+            filteredNotes.sort((a, b) => {
+                if (a.completed !== b.completed) {
+                    return a.completed ? 1 : -1;
+                }
+                const dateA = new Date(`${a.date} ${a.time}`);
+                const dateB = new Date(`${b.date} ${b.time}`);
+                return dateA - dateB;
+            });
+            
+            container.innerHTML = filteredNotes.map(note => {
+                const reminderDate = new Date(`${note.date} ${note.time}`);
+                const now = new Date();
+                const isOverdue = reminderDate < now && !note.completed;
+                const isToday = reminderDate.toDateString() === now.toDateString() && !note.completed;
+                
+                let timeStatus = '';
+                if (note.completed) {
+                    timeStatus = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Hoàn thành</span>';
+                } else if (isOverdue) {
+                    timeStatus = '<span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>Quá hạn</span>';
+                } else if (isToday) {
+                    timeStatus = '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Hôm nay</span>';
+                } else {
+                    const diffTime = Math.abs(reminderDate - now);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    timeStatus = `<span class="badge bg-info">${diffDays} ngày nữa</span>`;
+                }
+                
+                const cardOpacity = note.completed ? 'opacity-75' : '';
+                const textStyle = note.completed ? 'text-decoration-line-through' : '';
+                
+                return `
+                    <div class="note-item ${note.type}-item ${cardOpacity}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="${typeIcons[note.type]} me-2"></i>
+                                    <strong class="${textStyle}">${typeNames[note.type]}</strong>
+                                    <span class="badge bg-secondary ms-2">${note.guestName}</span>
+                                    ${timeStatus}
+                                </div>
+                                <p class="mb-2 ${textStyle}">${note.content}</p>
+                                <small class="note-timestamp">
+                                    <i class="fas fa-calendar me-1"></i>${note.date} ${note.time}
+                                    <i class="fas fa-clock ms-2 me-1"></i>Tạo lúc ${new Date(note.created).toLocaleString('vi-VN')}
+                                    ${note.completed ? `<i class="fas fa-check ms-2 me-1 text-success"></i>Hoàn thành lúc ${new Date(note.completedAt).toLocaleString('vi-VN')}` : ''}
+                                </small>
                             </div>
-                            <p class="mb-2">${note.content}</p>
-                            <small class="note-timestamp">
-                                <i class="fas fa-calendar me-1"></i>${note.date} ${note.time}
-                                <i class="fas fa-clock ms-2 me-1"></i>Tạo lúc ${new Date(note.created).toLocaleString('vi-VN')}
-                            </small>
+                            <div class="d-flex flex-column gap-1">
+                                ${!note.completed ? `
+                                    <button class="btn btn-success btn-sm" onclick="markAsCompleted(${note.id})" title="Đánh dấu hoàn thành">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="markAsActive(${note.id})" title="Đánh dấu chưa hoàn thành">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                `}
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteNote(${note.id})" title="Xóa note">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </div>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteNote(${note.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
+        }
+
+        function markAsCompleted(id) {
+            const noteIndex = notes.findIndex(note => note.id === id);
+            if (noteIndex !== -1) {
+                notes[noteIndex].completed = true;
+                notes[noteIndex].completedAt = new Date().toISOString();
+                localStorage.setItem('quickNotes', JSON.stringify(notes));
+                loadRecentNotes();
+                showToast('✅ Đã đánh dấu hoàn thành!', 'success');
+            }
+        }
+
+        function markAsActive(id) {
+            const noteIndex = notes.findIndex(note => note.id === id);
+            if (noteIndex !== -1) {
+                notes[noteIndex].completed = false;
+                delete notes[noteIndex].completedAt;
+                localStorage.setItem('quickNotes', JSON.stringify(notes));
+                loadRecentNotes();
+                showToast('🔄 Đã đánh dấu chưa hoàn thành!', 'info');
+            }
         }
 
         function deleteNote(id) {
@@ -360,7 +482,7 @@
                 notes = notes.filter(note => note.id !== id);
                 localStorage.setItem('quickNotes', JSON.stringify(notes));
                 loadRecentNotes();
-                showToast('Đã xóa nhắc!', 'info');
+                showToast('🗑️ Đã xóa nhắc!', 'info');
             }
         }
 
