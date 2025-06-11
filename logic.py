@@ -212,6 +212,11 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
         header = worksheet.row_values(1)
         print(f"📊 Google Sheet header: {header}")
         
+        # Debug: Print EXACT header structure for diagnosis
+        print(f"📊 RAW Google Sheet header ({len(header)} columns):")
+        for i, col in enumerate(header):
+            print(f"  {i+1:2d}: '{col}' (len={len(col)})")
+        
         # Debug: Check for missing columns
         missing_columns = []
         for booking in bookings:
@@ -221,12 +226,45 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
         
         if missing_columns:
             print(f"⚠️ WARNING: Keys in booking data not found in sheet header: {set(missing_columns)}")
+            print(f"📝 Available header columns: {header}")
+            print(f"🔍 Booking data keys: {list(bookings[0].keys()) if bookings else 'None'}")
         
-        # Create rows with proper mapping
+        # CRITICAL FIX: Clean and normalize header to prevent column drift
+        clean_header = []
+        empty_count = 0
+        
+        for i, col in enumerate(header):
+            col_clean = str(col).strip() if col else ''
+            if col_clean and col_clean != '':
+                # Fix common truncated column names
+                if col_clean == 'ên người đặt':  # Missing "T"
+                    col_clean = 'Tên người đặt'
+                    print(f"🔧 Fixed truncated column: '{col}' → '{col_clean}'")
+                elif col_clean.endswith('ười') or col_clean.endswith('tiền'):  # Truncated endings
+                    if 'thu' in col_clean.lower():
+                        col_clean = 'Người thu tiền'
+                        print(f"🔧 Fixed truncated column: '{col}' → '{col_clean}'")
+                
+                clean_header.append(col_clean)
+                print(f"✅ Column {i+1}: '{col_clean}'")
+            else:
+                empty_count += 1
+                print(f"⚠️ Skipping empty column at position {i+1}")
+        
+        print(f"📊 FINAL Clean header ({len(clean_header)} columns, {empty_count} empty skipped)")
+        print(f"📋 Clean columns: {clean_header}")
+        
+        # Also get the EXACT range for writing to avoid column drift
+        if clean_header:
+            last_col_letter = chr(ord('A') + len(clean_header) - 1)  # Convert to Excel column letter
+            write_range = f"A{worksheet.row_count + 1}:{last_col_letter}{worksheet.row_count + 1}"
+            print(f"🎯 Target write range: {write_range}")
+        
+        # Create rows with proper mapping using clean header
         rows_to_append = []
         for i, booking in enumerate(bookings):
             row = []
-            for col in header:
+            for col in clean_header:
                 value = booking.get(col, '')
                 # Special handling for dates - ensure proper format
                 if 'Date' in col and value:
@@ -243,15 +281,40 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
                 
                 row.append(str(value) if value is not None else '')
             
+            # Ensure row has exactly the same length as clean header
+            while len(row) < len(clean_header):
+                row.append('')
+                
             rows_to_append.append(row)
-            print(f"✅ Mapped booking {i+1}: {booking.get('Tên người đặt', 'Unknown')}")
+            print(f"✅ Mapped booking {i+1}: {booking.get('Tên người đặt', 'Unknown')} ({len(row)} fields)")
         
         if rows_to_append:
             print(f"💾 Writing {len(rows_to_append)} rows to Google Sheet...")
             pre_save_count = worksheet.row_count
             print(f"📊 Pre-save row count: {pre_save_count}")
             
-            worksheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
+            # CRITICAL FIX: Use exact range update instead of append_rows to prevent column drift
+            if clean_header and len(clean_header) <= 26:  # Only for A-Z columns
+                start_row = pre_save_count + 1
+                end_row = start_row + len(rows_to_append) - 1
+                last_col_letter = chr(ord('A') + len(clean_header) - 1)
+                exact_range = f"A{start_row}:{last_col_letter}{end_row}"
+                
+                print(f"🎯 Using EXACT range update: {exact_range}")
+                print(f"📏 Data dimensions: {len(rows_to_append)} rows × {len(clean_header)} columns")
+                
+                # Ensure all rows have exactly the right number of columns
+                normalized_rows = []
+                for row in rows_to_append:
+                    normalized_row = row[:len(clean_header)]  # Truncate if too long
+                    while len(normalized_row) < len(clean_header):  # Pad if too short
+                        normalized_row.append('')
+                    normalized_rows.append(normalized_row)
+                    
+                worksheet.update(normalized_rows, exact_range, value_input_option='USER_ENTERED')
+            else:
+                # Fallback to original method for complex cases
+                worksheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
             
             # CRITICAL: Verify save was successful
             post_save_count = worksheet.row_count  
@@ -843,10 +906,18 @@ def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str
         genai.configure(api_key=api_key)
         print("✅ Successfully configured Google AI API")
 
-        # 2. Xử lý ảnh với error handling tốt hơn
+        # 2. Optimize image size to reduce tokens while maintaining quality
         try:
             img = Image.open(BytesIO(image_bytes))
-            print(f"✅ Successfully loaded image. Size: {img.size}")
+            original_size = img.size
+            print(f"✅ Successfully loaded image. Original size: {original_size}")
+            
+            # Resize if image is too large (limit to 1024px on longest side)
+            max_size = 1024
+            if max(img.size) > max_size:
+                img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                print(f"📏 Resized image from {original_size} to {img.size} for token efficiency")
+            
         except Exception as e:
             error_msg = f"❌ Error processing image: {str(e)}"
             print(error_msg)
@@ -866,50 +937,22 @@ def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str
                 print(error_msg)
                 return [{"error": error_msg}]
         
-        # 4. PROMPT ĐƯỢC NÂNG CẤP MẠNH MẼ
-        enhanced_prompt = """
-🏨 BẠN LÀ CHUYÊN GIA TRÍCH XUẤT THÔNG TIN ĐẶT PHÒNG KHÁCH SẠN
+        # 4. OPTIMIZED PROMPT - Shorter but precise for token efficiency
+        enhanced_prompt = """Extract hotel booking info from image. Return JSON array only.
 
-NHIỆM VỤ: Phân tích ảnh này và trích xuất CHÍNH XÁC thông tin đặt phòng
+Required fields:
+- guest_name: Customer name
+- booking_id: Confirmation/booking number
+- check_in_date: YYYY-MM-DD format
+- check_out_date: YYYY-MM-DD format  
+- room_type: Accommodation type
+- total_payment: Total amount (number)
+- commission: Commission amount (number)
 
-📋 QUY TRÌNH PHÂN TÍCH:
-1. QUÉT TOÀN BỘ ảnh từ trên xuống dưới, trái sang phải
-2. TÌM KIẾM các thông tin quan trọng:
-   - Tên khách hàng (thường ở đầu booking, font lớn)
-   - Mã đặt phòng (booking ID, confirmation number)
-   - Ngày check-in và check-out
-   - Loại phòng đã đặt
-   - Số tiền (tổng tiền, hoa hồng)
-3. Với MỖI đặt phòng tìm thấy, tạo 1 object JSON
+Output format (no markdown):
+[{"guest_name":"Name","booking_id":"ID","check_in_date":"2025-01-15","check_out_date":"2025-01-16","room_type":"Room","total_payment":100,"commission":10}]
 
-🔍 HƯỚNG DẪN CHI TIẾT:
-- TÊN KHÁCH: Tìm tên người đặt (Guest Name, Customer Name, Booker Name)
-- MÃ ĐẶT PHÒNG: Booking ID, Confirmation Code, Reference Number
-- NGÀY: Định dạng YYYY-MM-DD (VD: 2025-01-15)
-- LOẠI PHÒNG: Room Type, Accommodation Type
-- TIỀN: Tìm Total Amount, Price, Cost
-- HOA HỒNG: Commission, Booking Fee (nếu có)
-
-⚠️ QUAN TRỌNG:
-- CHỈ TRẢ VỀ JSON ARRAY thuần túy, KHÔNG có markdown ```json
-- NẾU KHÔNG TÌM THẤY thông tin nào: trả về []
-- NẾU TÌM THẤY ít nhất 1 thông tin: cố gắng điền đầy đủ các trường
-
-📤 OUTPUT FORMAT (bắt buộc):
-[
-  {
-    "guest_name": "Tên khách hàng",
-    "booking_id": "Mã đặt phòng", 
-    "check_in_date": "YYYY-MM-DD",
-    "check_out_date": "YYYY-MM-DD",
-    "room_type": "Loại phòng",
-    "total_payment": số_tiền_số,
-    "commission": số_hoa_hồng_số
-  }
-]
-
-🚀 BẮT ĐẦU PHÂN TÍCH:
-"""
+Return [] if no booking info found."""
 
         # 5. Gọi API với retry mechanism
         max_retries = 3

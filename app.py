@@ -492,22 +492,61 @@ def save_extracted_bookings():
                     errors.append(f"Booking {i+1}: Định dạng ngày check-out không hợp lệ")
                     continue
                 
-                # Use Vietnamese column names to match actual Google Sheet header
+                # Calculate stay duration
+                stay_duration = ''
+                if check_in_date and check_out_date:
+                    try:
+                        checkin_dt = datetime.strptime(check_in_date, '%Y-%m-%d')
+                        checkout_dt = datetime.strptime(check_out_date, '%Y-%m-%d')
+                        duration = (checkout_dt - checkin_dt).days
+                        stay_duration = str(duration)
+                    except:
+                        stay_duration = ''
+                
+                # Format Vietnamese dates
+                checkin_vn = ''
+                checkout_vn = ''
+                if check_in_date:
+                    try:
+                        parts = check_in_date.split('-')
+                        checkin_vn = f"ngày {parts[2]} tháng {parts[1]} năm {parts[0]}"
+                    except:
+                        checkin_vn = ''
+                if check_out_date:
+                    try:
+                        parts = check_out_date.split('-')
+                        checkout_vn = f"ngày {parts[2]} tháng {parts[1]} năm {parts[0]}"
+                    except:
+                        checkout_vn = ''
+                
+                # Use correct column mapping with proper full names
                 formatted_booking = {
                     'Số đặt phòng': booking_id,
                     'Tên người đặt': booking.get('guest_name', '').strip(),
                     'Tên chỗ nghỉ': booking.get('room_type', '').strip() or 'Chưa xác định',
                     'Check-in Date': check_in_date,
                     'Check-out Date': check_out_date,
+                    'Stay Duration': stay_duration,
                     'Tình trạng': 'OK',
                     'Tổng thanh toán': booking.get('total_payment', 0) or 0,
+                    'Giá mỗi đêm': booking.get('total_payment', 0) or 0,
+                    'Booking Date': datetime.now().strftime('%Y-%m-%d'),
+                    'Ngày đến': checkin_vn,
+                    'Ngày đi': checkout_vn,
+                    'Vị trí': 'N/A (Chưa xác định)',
+                    'Thành viên Genius': 'Không',
+                    'Được đặt vào': datetime.now().strftime('%d tháng %m, %Y'),
                     'Hoa hồng': booking.get('commission', 0) or 0,
+                    'Tiền tệ': 'VND',
+                    'Người nhận tiền': '',
                     'Ghi chú thanh toán': f"Thêm từ ảnh lúc {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-                    # Add other fields that might be expected by the sheet
-                    'Người thu tiền': '',  # Empty initially - ensures active filter will show it
-                    'Thành viên Genius': 'Không',  # Default value
-                    'Vị trí': 'Từ ảnh',  # Indicate source
+                    'Người thu tiền': '',
+                    'Taxi': ''
                 }
+                
+                # Remove keys that don't exist in actual sheet header
+                print(f"[DEBUG] Pre-filtering booking keys: {list(formatted_booking.keys())}")
+                # This will be filtered during append process based on actual header
                 
                 # Debug: Print formatted booking
                 print(f"✅ Formatted booking {i+1}: {formatted_booking}")
