@@ -442,6 +442,7 @@ def save_extracted_bookings():
         
         formatted_bookings = []
         errors = []
+        saved_booking_ids = []  # ✅ Track saved booking IDs
         
         for i, booking in enumerate(bookings_to_save):
             try:
@@ -464,10 +465,14 @@ def save_extracted_bookings():
                     errors.append(f"Booking {i+1}: Thiếu ngày check-out")
                     continue
                 
+                # Generate booking ID
+                booking_id = booking.get('booking_id', '').strip() or f"IMG_{datetime.now().strftime('%Y%m%d%H%M%S')}{i:02d}"
+                saved_booking_ids.append(booking_id)  # ✅ Track this ID
+                
                 # Enhanced: Format booking data with better mapping
                 formatted_booking = {
                     'Tên người đặt': booking.get('guest_name', '').strip(),
-                    'Số đặt phòng': booking.get('booking_id', '').strip() or f"AUTO_{datetime.now().strftime('%Y%m%d%H%M%S')}{i:02d}",
+                    'Số đặt phòng': booking_id,
                     'Check-in Date': booking.get('check_in_date', '').strip(),
                     'Check-out Date': booking.get('check_out_date', '').strip(),
                     'Tên chỗ nghỉ': booking.get('room_type', '').strip() or 'Chưa xác định',
@@ -476,7 +481,7 @@ def save_extracted_bookings():
                     'Tình trạng': 'OK',
                     'Ghi chú': f"Thêm từ ảnh lúc {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                     # Add other fields that might be expected by the sheet
-                    'Người thu tiền': '',  # Empty initially
+                    'Người thu tiền': '',  # Empty initially - ensures active filter will show it
                     'Thành viên Genius': 'Không',  # Default value
                     'Nguồn đặt phòng': 'Từ ảnh',  # Indicate source
                 }
@@ -515,6 +520,10 @@ def save_extracted_bookings():
                     success_message += f' ([WARNING] {len(errors)} lỗi bỏ qua)'
                 flash(success_message, 'success')
                 
+                # ✅ NEW: Redirect with show_all=true to display newly saved bookings
+                print(f"[REDIRECT] Redirecting to show all bookings to display newly saved: {saved_booking_ids}")
+                return redirect(url_for('view_bookings', show_all='true'))
+                
             except Exception as save_error:
                 print(f"[SAVE ERROR] Failed to save to Google Sheets: {save_error}")
                 import traceback
@@ -537,7 +546,7 @@ def save_extracted_bookings():
         import traceback
         traceback.print_exc()
         
-    return redirect(url_for('view_bookings'))
+    return redirect(url_for('view_bookings', show_all='true'))  # ✅ Always show all after save attempt
 
 @app.route('/booking/<booking_id>/edit', methods=['GET', 'POST'])
 def edit_booking(booking_id):
