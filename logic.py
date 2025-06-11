@@ -356,47 +356,32 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
             pre_save_count = worksheet.row_count
             print(f"Pre-save row count: {pre_save_count}")
             
-            # ENHANCED: Use exact range update with improved verification
-            if clean_header and len(clean_header) <= 50:  # Support more columns
-                start_row = pre_save_count + 1
-                end_row = start_row + len(rows_to_append) - 1
-                
-                # Generate column letters for wider ranges (A-Z, AA-AZ, etc.)
-                def num_to_col_letters(num):
-                    """Convert number to Excel column letters (1=A, 26=Z, 27=AA, etc.)"""
-                    letters = ''
-                    while num > 0:
-                        num -= 1
-                        letters = chr(num % 26 + ord('A')) + letters
-                        num //= 26
-                    return letters
-                
-                last_col_letter = num_to_col_letters(len(clean_header))
-                exact_range = f"A{start_row}:{last_col_letter}{end_row}"
-                
-                print(f"Using EXACT range update: {exact_range}")
-                print(f"Data dimensions: {len(rows_to_append)} rows × {len(clean_header)} columns")
-                
-                # Ensure all rows have exactly the right number of columns
-                normalized_rows = []
-                for row in rows_to_append:
-                    normalized_row = row[:len(clean_header)]  # Truncate if too long
-                    while len(normalized_row) < len(clean_header):  # Pad if too short
-                        normalized_row.append('')
-                    normalized_rows.append(normalized_row)
-                
-                # Save with enhanced error handling    
+            # EMERGENCY FIX: Always use append_rows to prevent overwriting header
+            # Ensure all rows have exactly the right number of columns
+            normalized_rows = []
+            for row in rows_to_append:
+                normalized_row = row[:len(clean_header)]  # Truncate if too long
+                while len(normalized_row) < len(clean_header):  # Pad if too short
+                    normalized_row.append('')
+                normalized_rows.append(normalized_row)
+            
+            print(f"Using SAFE append_rows method (columns: {len(clean_header)})")
+            print(f"Data dimensions: {len(normalized_rows)} rows × {len(clean_header)} columns")
+            
+            # Save with enhanced error handling    
+            try:
+                worksheet.append_rows(normalized_rows, value_input_option='USER_ENTERED')
+                print(f"Successfully appended {len(normalized_rows)} rows using append_rows")
+            except Exception as append_error:
+                print(f"CRITICAL: append_rows failed: {append_error}")
+                # Last resort: try basic append with minimal data
                 try:
-                    worksheet.update(normalized_rows, exact_range, value_input_option='USER_ENTERED')
-                    print(f"Successfully updated range {exact_range}")
-                except Exception as update_error:
-                    print(f"Range update failed: {update_error}")
-                    print("Falling back to append_rows method...")
-                    worksheet.append_rows(normalized_rows, value_input_option='USER_ENTERED')
-            else:
-                # Fallback to original method for complex cases
-                print(f"Using fallback append_rows (columns: {len(clean_header)})")
-                worksheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
+                    simple_rows = [[str(cell) for cell in row[:min(10, len(clean_header))]] for row in normalized_rows]
+                    worksheet.append_rows(simple_rows, value_input_option='RAW')
+                    print("Fallback: Used simplified append with RAW input")
+                except Exception as final_error:
+                    print(f"FINAL ERROR: All append methods failed: {final_error}")
+                    raise final_error
             
             # CRITICAL: Verify save was successful
             post_save_count = worksheet.row_count  
