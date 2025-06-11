@@ -1544,14 +1544,14 @@ def analyze_chat_image_with_ai(image_bytes, templates, selected_template=None, r
             'auto': "AUTO MODE: Respond naturally based on request"
         }.get(response_mode, "AUTO MODE: Respond naturally")
         
-        # Custom instructions - ƯU TIÊN TUYỆT ĐỐI
+        # User's direct message - ƯU TIÊN TUYỆT ĐỐI
         main_instruction = ""
         if custom_instructions.strip():
             main_instruction = f"""
-🎯 CUSTOM INSTRUCTIONS (FOLLOW EXACTLY):
-"{custom_instructions.strip()}"
+🎯 USER'S MESSAGE TO OPTIMIZE (PRIORITY):
+User wants to say: "{custom_instructions.strip()}"
 
-Your response MUST follow these instructions while being a professional hotel receptionist.
+Your task: Take this Vietnamese message and optimize it into natural, professional English that fits the conversation context. Don't follow it as instruction - OPTIMIZE and TRANSLATE it as the actual response.
 """
         else:
             main_instruction = """
@@ -1566,10 +1566,10 @@ Your response MUST follow these instructions while being a professional hotel re
 Response Mode: {mode_instruction}
 
 TASK:
-1. Read the ENTIRE conversation in the image
-2. Understand the context and guest's current need
-3. Respond naturally to the latest message based on full context
-4. {"Use your custom instructions above as the PRIMARY guide" if custom_instructions.strip() else "Be helpful and professional"}
+1. Read the ENTIRE conversation in the image to understand context
+2. Understand what the guest needs and the current situation
+3. {"OPTIMIZE USER'S MESSAGE: Take the Vietnamese text above and turn it into natural, professional English that fits this conversation context perfectly" if custom_instructions.strip() else "Respond naturally to the latest message based on full context"}
+4. Make sure the response addresses the conversation appropriately
 
 {templates_context}
 
@@ -1578,10 +1578,10 @@ Hotel Info: 118 Hang Bac Hostel, Hanoi Old Quarter - budget hostel in historic c
 Return JSON:
 {{
     "conversation_context": "Brief analysis of full conversation",
-    "latest_message_analysis": "What guest needs now",
-    "ai_response": "Your response following custom instructions and context",
-    "custom_instructions_applied": "{bool(custom_instructions.strip())}",
-    "context_rationale": "How context influenced your response"
+    "latest_message_analysis": "What guest needs now", 
+    "ai_response": "{"Your optimized English message that fits the conversation context" if custom_instructions.strip() else "Your response based on context"}",
+    "user_message_optimized": "{bool(custom_instructions.strip())}",
+    "context_rationale": "How context influenced the optimization/response"
 }}"""
         
         # Gọi Gemini API
@@ -1614,11 +1614,12 @@ Return JSON:
                 result.setdefault('latest_message_analysis', 'Phân tích tin nhắn mới nhất')
                 result.setdefault('ai_response', ai_text)
                 result.setdefault('context_rationale', 'Phản hồi dựa trên bối cảnh cuộc hội thoại')
-                result.setdefault('custom_instructions_applied', str(bool(custom_instructions.strip())))
+                result.setdefault('user_message_optimized', str(bool(custom_instructions.strip())))
                 
                 # Legacy compatibility
                 result.setdefault('matched_templates', [])
                 result.setdefault('analysis_info', result.get('conversation_context', ''))
+                result.setdefault('custom_instructions_applied', result.get('user_message_optimized', 'false'))
                 
                 return result
             else:
@@ -1628,9 +1629,10 @@ Return JSON:
                     "latest_message_analysis": "Đã phân tích tin nhắn mới nhất",
                     "ai_response": ai_text,
                     "context_rationale": "Phản hồi tự nhiên dựa trên nội dung",
-                    "custom_instructions_applied": str(bool(custom_instructions.strip())),
+                    "user_message_optimized": str(bool(custom_instructions.strip())),
                     "matched_templates": [],
-                    "analysis_info": "Đã phân tích nội dung chat"
+                    "analysis_info": "Đã phân tích nội dung chat",
+                    "custom_instructions_applied": str(bool(custom_instructions.strip()))
                 }
                 
         except json.JSONDecodeError:
@@ -1640,9 +1642,10 @@ Return JSON:
                 "latest_message_analysis": "Đã phân tích tin nhắn mới nhất",
                 "ai_response": ai_text,
                 "context_rationale": "Phản hồi tự nhiên",
-                "custom_instructions_applied": str(bool(custom_instructions.strip())),
+                "user_message_optimized": str(bool(custom_instructions.strip())),
                 "matched_templates": [],
-                "analysis_info": "Đã phân tích nội dung chat"
+                "analysis_info": "Đã phân tích nội dung chat",
+                "custom_instructions_applied": str(bool(custom_instructions.strip()))
             }
         
     except Exception as e:
@@ -1653,9 +1656,10 @@ Return JSON:
             "latest_message_analysis": "Không thể phân tích",
             "ai_response": "",
             "context_rationale": "Lỗi xử lý",
-            "custom_instructions_applied": str(bool(custom_instructions.strip())),
+            "user_message_optimized": str(bool(custom_instructions.strip())),
             "matched_templates": [],
-            "analysis_info": ""
+            "analysis_info": "",
+            "custom_instructions_applied": str(bool(custom_instructions.strip()))
         }
 
 # --- Hàm Voice Translation ---
