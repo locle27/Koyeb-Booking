@@ -926,12 +926,23 @@ def prepare_dashboard_data(df: pd.DataFrame, start_date, end_date, sort_by=None,
 def check_duplicate_guests(new_bookings: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Kiểm tra khách trùng lặp trong danh sách booking mới với dữ liệu hiện có
+    Improved logic: name + price + check-in/check-out dates
     """
     try:
         # Lấy dữ liệu hiện có từ sheet
-        df, _ = load_data()
+        import os
+        GCP_CREDS_FILE_PATH = os.getenv("GCP_CREDS_FILE_PATH")
+        DEFAULT_SHEET_ID = os.getenv("DEFAULT_SHEET_ID")
+        WORKSHEET_NAME = os.getenv("WORKSHEET_NAME")
+        
+        try:
+            df = import_from_gsheet(DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH, WORKSHEET_NAME)
+        except Exception as e:
+            print(f"Error loading data for duplicate check: {e}")
+            df = pd.DataFrame()
+            
         if df.empty:
-            return {"has_duplicates": False, "duplicates": [], "new_bookings": new_bookings}
+            return {"has_duplicates": False, "duplicates": [], "clean_bookings": new_bookings}
         
         duplicates = []
         clean_bookings = []
@@ -940,23 +951,40 @@ def check_duplicate_guests(new_bookings: List[Dict[str, Any]]) -> Dict[str, Any]
             guest_name = booking.get('guest_name', '').strip().lower()
             check_in_date = booking.get('check_in_date', '')
             check_out_date = booking.get('check_out_date', '')
+            total_payment = booking.get('total_payment', 0)
             
             if not guest_name:
                 clean_bookings.append(booking)
                 continue
             
-            # Tìm khách trùng tên và thời gian gần nhau (trong vòng 7 ngày)
+            # Enhanced duplicate detection: name + price + dates
             existing_matches = df[
                 df['Tên người đặt'].str.lower().str.contains(guest_name, na=False)
             ].copy()
             
             if not existing_matches.empty:
-                # Kiểm tra thời gian gần nhau
+                # Check for exact or similar matches
                 try:
                     new_checkin = pd.to_datetime(check_in_date)
+                    new_checkout = pd.to_datetime(check_out_date)
+                    
                     for _, existing in existing_matches.iterrows():
                         existing_checkin = pd.to_datetime(existing['Check-in Date'])
-                        if abs((new_checkin - existing_checkin).days) <= 7:
+                        existing_checkout = pd.to_datetime(existing['Check-out Date'])
+                        existing_payment = existing.get('Tổng thanh toán', 0)
+                        
+                        # Check multiple criteria for duplicates
+                        date_match = abs((new_checkin - existing_checkin).days) <= 3 and abs((new_checkout - existing_checkout).days) <= 3
+                        price_match = abs(float(total_payment) - float(existing_payment)) <= 100000  # 100k VND tolerance
+                        exact_dates = new_checkin.date() == existing_checkin.date() and new_checkout.date() == existing_checkout.date()
+                        
+                        # High confidence duplicate if multiple criteria match
+                        confidence_score = 0
+                        if date_match: confidence_score += 30
+                        if price_match: confidence_score += 25
+                        if exact_dates: confidence_score += 45
+                        
+                        if confidence_score >= 50:  # Threshold for duplicate detection
                             duplicates.append({
                                 "new_booking": booking,
                                 "existing_booking": {
@@ -966,12 +994,19 @@ def check_duplicate_guests(new_bookings: List[Dict[str, Any]]) -> Dict[str, Any]
                                     "check_out_date": existing['Check-out Date'].strftime('%Y-%m-%d') if pd.notna(existing['Check-out Date']) else 'N/A',
                                     "total_payment": existing.get('Tổng thanh toán', 0),
                                     "status": existing.get('Tình trạng', 'N/A')
+                                },
+                                "confidence_score": confidence_score,
+                                "match_reasons": {
+                                    "date_match": date_match,
+                                    "price_match": price_match,
+                                    "exact_dates": exact_dates
                                 }
                             })
                             break
                     else:
                         clean_bookings.append(booking)
-                except:
+                except Exception as parse_error:
+                    print(f"Error parsing dates for duplicate check: {parse_error}")
                     clean_bookings.append(booking)
             else:
                 clean_bookings.append(booking)
@@ -985,6 +1020,112 @@ def check_duplicate_guests(new_bookings: List[Dict[str, Any]]) -> Dict[str, Any]
     except Exception as e:
         print(f"Error checking duplicates: {e}")
         return {"has_duplicates": False, "duplicates": [], "clean_bookings": new_bookings}
+
+def analyze_existing_duplicates() -> Dict[str, Any]:
+    """
+    Phân tích và tìm các booking trùng lặp trong dữ liệu hiện có
+    """
+    try:
+        # Lấy dữ liệu hiện có từ sheet
+        import os
+        GCP_CREDS_FILE_PATH = os.getenv("GCP_CREDS_FILE_PATH")
+        DEFAULT_SHEET_ID = os.getenv("DEFAULT_SHEET_ID")
+        WORKSHEET_NAME = os.getenv("WORKSHEET_NAME")
+        
+        try:
+            df = import_from_gsheet(DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH, WORKSHEET_NAME)
+        except Exception as e:
+            print(f"Error loading data for duplicate analysis: {e}")
+            df = pd.DataFrame()
+            
+        if df.empty:
+            return {"duplicate_groups": [], "total_groups": 0, "total_duplicates": 0}
+        
+        # Clean and prepare data
+        df_clean = df[df['Tình trạng'] != 'Đã hủy'].copy()
+        if df_clean.empty:
+            return {"duplicates": [], "total_duplicates": 0}
+        
+        duplicate_groups = []
+        processed_ids = set()
+        
+        for i, booking in df_clean.iterrows():
+            if booking['Số đặt phòng'] in processed_ids:
+                continue
+                
+            guest_name = str(booking['Tên người đặt']).strip().lower()
+            if not guest_name or guest_name == 'nan':
+                continue
+            
+            # Find potential duplicates for this booking
+            similar_bookings = []
+            
+            for j, other_booking in df_clean.iterrows():
+                if i == j or other_booking['Số đặt phòng'] in processed_ids:
+                    continue
+                
+                other_guest_name = str(other_booking['Tên người đặt']).strip().lower()
+                if not other_guest_name or other_guest_name == 'nan':
+                    continue
+                
+                # Check name similarity
+                if guest_name in other_guest_name or other_guest_name in guest_name:
+                    try:
+                        # Check date and price similarity
+                        checkin1 = pd.to_datetime(booking['Check-in Date'])
+                        checkout1 = pd.to_datetime(booking['Check-out Date'])
+                        payment1 = float(booking.get('Tổng thanh toán', 0))
+                        
+                        checkin2 = pd.to_datetime(other_booking['Check-in Date'])
+                        checkout2 = pd.to_datetime(other_booking['Check-out Date'])
+                        payment2 = float(other_booking.get('Tổng thanh toán', 0))
+                        
+                        # Calculate similarity score
+                        date_diff = abs((checkin1 - checkin2).days)
+                        price_diff = abs(payment1 - payment2)
+                        
+                        if date_diff <= 3 and price_diff <= 100000:  # Within 3 days and 100k VND
+                            similar_bookings.append({
+                                "booking_id": other_booking['Số đặt phòng'],
+                                "guest_name": other_booking['Tên người đặt'],
+                                "check_in_date": checkin2.strftime('%Y-%m-%d') if pd.notna(checkin2) else 'N/A',
+                                "check_out_date": checkout2.strftime('%Y-%m-%d') if pd.notna(checkout2) else 'N/A',
+                                "total_payment": payment2,
+                                "status": other_booking.get('Tình trạng', 'N/A'),
+                                "date_diff": date_diff,
+                                "price_diff": price_diff
+                            })
+                            processed_ids.add(other_booking['Số đặt phòng'])
+                    except:
+                        continue
+            
+            if similar_bookings:
+                # Add the original booking to the group
+                main_booking = {
+                    "booking_id": booking['Số đặt phòng'],
+                    "guest_name": booking['Tên người đặt'],
+                    "check_in_date": pd.to_datetime(booking['Check-in Date']).strftime('%Y-%m-%d') if pd.notna(booking['Check-in Date']) else 'N/A',
+                    "check_out_date": pd.to_datetime(booking['Check-out Date']).strftime('%Y-%m-%d') if pd.notna(booking['Check-out Date']) else 'N/A',
+                    "total_payment": float(booking.get('Tổng thanh toán', 0)),
+                    "status": booking.get('Tình trạng', 'N/A')
+                }
+                
+                duplicate_groups.append({
+                    "main_booking": main_booking,
+                    "similar_bookings": similar_bookings,
+                    "group_size": len(similar_bookings) + 1
+                })
+                processed_ids.add(booking['Số đặt phòng'])
+        
+        return {
+            "duplicate_groups": duplicate_groups,
+            "total_groups": len(duplicate_groups),
+            "total_duplicates": sum(group["group_size"] for group in duplicate_groups)
+        }
+        
+    except Exception as e:
+        print(f"Error analyzing existing duplicates: {e}")
+        return {"duplicate_groups": [], "total_groups": 0, "total_duplicates": 0}
 
 def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str, Any]]:
     """

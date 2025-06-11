@@ -10,6 +10,9 @@
             <button id="delete-selected-btn" class="btn btn-danger" style="display:none;">
                 <i class="fas fa-trash-alt"></i> Xóa
             </button>
+            <button id="ai-duplicate-filter-btn" class="btn btn-warning" title="AI phân tích và tìm booking trùng lặp">
+                <i class="fas fa-robot"></i> AI Filter Duplicates
+            </button>
             <a href="{{ url_for('data_health_dashboard') }}" class="btn btn-warning" title="Kiểm tra sức khỏe dữ liệu">
                 <i class="fas fa-heartbeat"></i> Data Health
             </a>
@@ -401,6 +404,34 @@
     </div>
 </div>
 
+<!-- AI Duplicate Analysis Modal -->
+<div class="modal fade" id="aiDuplicateModal" tabindex="-1" aria-labelledby="aiDuplicateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title text-dark" id="aiDuplicateModalLabel">
+                    <i class="fas fa-robot me-2"></i>AI Duplicate Analysis Results
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="duplicateResults">
+                <div class="text-center">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Analyzing...</span>
+                    </div>
+                    <p class="mt-2">🤖 AI đang phân tích các booking trùng lặp...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="refreshDuplicateAnalysis">
+                    <i class="fas fa-sync-alt me-1"></i>Phân tích lại
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 .badge-sm {
     font-size: 0.7rem;
@@ -501,6 +532,166 @@ document.addEventListener('DOMContentLoaded', function () {
         // Giữ lại các filter khác
         window.location.href = url.toString();
     }
+    
+    // === AI Duplicate Analysis ===
+    const aiDuplicateBtn = document.getElementById('ai-duplicate-filter-btn');
+    const duplicateModal = new bootstrap.Modal(document.getElementById('aiDuplicateModal'));
+    const duplicateResults = document.getElementById('duplicateResults');
+    const refreshAnalysisBtn = document.getElementById('refreshDuplicateAnalysis');
+    
+    // Function to perform duplicate analysis
+    function performDuplicateAnalysis() {
+        console.log('🤖 Starting AI duplicate analysis...');
+        
+        // Show loading state
+        duplicateResults.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Analyzing...</span>
+                </div>
+                <p class="mt-2">🤖 AI đang phân tích các booking trùng lặp...</p>
+                <small class="text-muted">Đang sử dụng logic AI để tìm khách có tên + giá + ngày tương tự...</small>
+            </div>
+        `;
+        
+        // Call the API
+        fetch('/api/analyze_duplicates')
+            .then(response => response.json())
+            .then(data => {
+                console.log('AI Analysis result:', data);
+                
+                if (data.success) {
+                    displayDuplicateResults(data.data);
+                } else {
+                    duplicateResults.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6><i class="fas fa-exclamation-triangle me-2"></i>Lỗi phân tích</h6>
+                            <p class="mb-0">${data.message}</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error analyzing duplicates:', error);
+                duplicateResults.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Lỗi kết nối</h6>
+                        <p class="mb-0">Không thể kết nối với server để phân tích. Vui lòng thử lại.</p>
+                    </div>
+                `;
+            });
+    }
+    
+    // Function to display duplicate analysis results
+    function displayDuplicateResults(analysisData) {
+        const { duplicate_groups, total_groups, total_duplicates } = analysisData;
+        
+        if (total_groups === 0) {
+            duplicateResults.innerHTML = `
+                <div class="alert alert-success text-center">
+                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                    <h5>🎉 Không tìm thấy booking trùng lặp!</h5>
+                    <p class="mb-0">AI đã phân tích tất cả booking và không tìm thấy khách có tên + giá + ngày check-in/out tương tự.</p>
+                    <small class="text-muted">Dữ liệu đặt phòng của bạn rất sạch!</small>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = `
+            <div class="alert alert-warning">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Phát hiện ${total_groups} nhóm trùng lặp</h6>
+                <p class="mb-0">Tổng cộng ${total_duplicates} booking có thể trùng lặp được tìm thấy. Kiểm tra và xử lý theo nhu cầu.</p>
+            </div>
+        `;
+        
+        duplicate_groups.forEach((group, index) => {
+            const { main_booking, similar_bookings, group_size } = group;
+            
+            html += `
+                <div class="card mb-3 border-warning">
+                    <div class="card-header bg-warning-subtle">
+                        <h6 class="mb-0">
+                            <i class="fas fa-users me-2"></i>Nhóm ${index + 1}: ${group_size} booking tương tự
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Main Booking -->
+                            <div class="col-md-6">
+                                <div class="card border-primary">
+                                    <div class="card-header bg-primary text-white">
+                                        <small><i class="fas fa-star me-1"></i>Booking chính</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="mb-1"><strong>ID:</strong> ${main_booking.booking_id}</p>
+                                        <p class="mb-1"><strong>Tên:</strong> ${main_booking.guest_name}</p>
+                                        <p class="mb-1"><strong>Check-in:</strong> ${main_booking.check_in_date}</p>
+                                        <p class="mb-1"><strong>Check-out:</strong> ${main_booking.check_out_date}</p>
+                                        <p class="mb-1"><strong>Giá:</strong> ${main_booking.total_payment.toLocaleString()}đ</p>
+                                        <p class="mb-0"><strong>Trạng thái:</strong> 
+                                            <span class="badge ${main_booking.status === 'OK' ? 'bg-success' : 'bg-danger'}">${main_booking.status}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Similar Bookings -->
+                            <div class="col-md-6">
+                                <div class="card border-danger">
+                                    <div class="card-header bg-danger text-white">
+                                        <small><i class="fas fa-exclamation-triangle me-1"></i>${similar_bookings.length} booking tương tự</small>
+                                    </div>
+                                    <div class="card-body">
+            `;
+            
+            similar_bookings.forEach((similar, idx) => {
+                html += `
+                    <div class="border-bottom pb-2 mb-2">
+                        <p class="mb-1"><small><strong>ID:</strong> ${similar.booking_id}</small></p>
+                        <p class="mb-1"><small><strong>Tên:</strong> ${similar.guest_name}</small></p>
+                        <p class="mb-1"><small><strong>Check-in:</strong> ${similar.check_in_date}</small></p>
+                        <p class="mb-1"><small><strong>Giá:</strong> ${similar.total_payment.toLocaleString()}đ</small></p>
+                        <p class="mb-0"><small>
+                            <span class="badge bg-info">±${similar.date_diff} ngày</span>
+                            <span class="badge bg-warning">±${similar.price_diff.toLocaleString()}đ</span>
+                        </small></p>
+                    </div>
+                `;
+            });
+            
+            html += `
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-lightbulb me-1"></i>
+                                <strong>Gợi ý:</strong> Kiểm tra các booking này có phải của cùng một khách không. 
+                                Nếu có, có thể cần xóa booking trùng lặp hoặc cập nhật thông tin.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        duplicateResults.innerHTML = html;
+    }
+    
+    // Event listeners for AI duplicate functionality
+    aiDuplicateBtn.addEventListener('click', function() {
+        console.log('AI Duplicate Filter button clicked');
+        duplicateModal.show();
+        performDuplicateAnalysis();
+    });
+    
+    refreshAnalysisBtn.addEventListener('click', function() {
+        console.log('Refresh Analysis button clicked');
+        performDuplicateAnalysis();
+    });
 });
 </script>
 {% endblock %} 

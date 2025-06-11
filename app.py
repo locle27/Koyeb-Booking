@@ -23,7 +23,7 @@ from logic import (
     import_from_gsheet, create_demo_data,
     get_daily_activity, get_overall_calendar_day_info,
     extract_booking_info_from_image_content,
-    check_duplicate_guests,
+    check_duplicate_guests, analyze_existing_duplicates,
     export_data_to_new_sheet,
     append_multiple_bookings_to_sheet,
     delete_booking_by_id, update_row_in_gsheet,
@@ -429,21 +429,26 @@ def add_booking():
                                      form_data=form_data, 
                                      duplicate_warning=duplicate_check)
         
+        # Generate auto booking ID and current date
+        import random
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        auto_booking_id = f"MANUAL_{datetime.now().strftime('%Y%m%d')}_{random.randint(1000, 9999)}"
+        
         # Prepare data for Google Sheets
         formatted_booking = {
             'Tên người đặt': form_data.get('Tên người đặt', ''),
-            'Số đặt phòng': form_data.get('Số đặt phòng', ''),
-            'Tên chỗ nghỉ': form_data.get('Tên chỗ nghỉ', ''),
+            'Số đặt phòng': auto_booking_id,
+            'Tên chỗ nghỉ': '118 Hang Bac Hostel',
             'Check-in Date': form_data.get('Ngày đến', ''),
             'Check-out Date': form_data.get('Ngày đi', ''),
-            'Được đặt vào': form_data.get('Được đặt vào', ''),
+            'Được đặt vào': current_date,
             'Tổng thanh toán': float(form_data.get('Tổng thanh toán', 0)),
             'Hoa hồng': float(form_data.get('Hoa hồng', 0)),
             'Tình trạng': form_data.get('Tình trạng', 'OK'),
             'Người thu tiền': form_data.get('Người thu tiền', ''),
-            'Tiền tệ': form_data.get('Tiền tệ', 'VND'),
-            'Vị trí': form_data.get('Vị trí', ''),
-            'Thành viên Genius': form_data.get('Thành viên Genius', 'Không')
+            'Tiền tệ': 'VND',
+            'Vị trí': 'Hà Nội',
+            'Thành viên Genius': 'Không'
         }
         
         # Save to Google Sheets
@@ -458,13 +463,33 @@ def add_booking():
         # Clear cache
         load_data.cache_clear()
         
-        flash(f'✅ Đã thêm booking thành công: {booking_data["guest_name"]} ({booking_data["booking_id"]})', 'success')
+        flash(f'✅ Đã thêm booking thành công: {booking_data["guest_name"]} ({auto_booking_id})', 'success')
         return redirect(url_for('view_bookings'))
         
     except Exception as e:
         print(f"[ERROR] Failed to add booking: {e}")
         flash(f'❌ Lỗi khi thêm booking: {str(e)}', 'danger')
         return render_template('add_booking.html', form_data=request.form.to_dict())
+
+@app.route('/api/analyze_duplicates', methods=['GET'])
+def api_analyze_duplicates():
+    """API endpoint để phân tích duplicate bookings hiện có"""
+    try:
+        print("[API] 🔍 Analyzing existing duplicates...")
+        duplicate_analysis = analyze_existing_duplicates()
+        
+        return jsonify({
+            "success": True,
+            "data": duplicate_analysis,
+            "message": f"Tìm thấy {duplicate_analysis['total_groups']} nhóm trùng lặp với tổng {duplicate_analysis['total_duplicates']} booking"
+        })
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to analyze duplicates: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"Lỗi phân tích: {str(e)}"
+        }), 500
 
 @app.route('/api/process_pasted_image', methods=['POST'])
 def process_pasted_image():
