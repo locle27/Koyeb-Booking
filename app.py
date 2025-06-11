@@ -389,6 +389,83 @@ def calendar_details(date_str):
 def add_from_image_page():
     return render_template('add_from_image.html')
 
+@app.route('/bookings/add', methods=['GET', 'POST'])
+def add_booking():
+    """Add new booking manually with duplicate detection"""
+    if request.method == 'GET':
+        return render_template('add_booking.html')
+    
+    try:
+        # Get form data
+        form_data = request.form.to_dict()
+        print(f"[ADD_BOOKING] Received form data: {form_data}")
+        
+        # Convert form data to booking format for duplicate check
+        booking_data = {
+            'guest_name': form_data.get('Tên người đặt', '').strip(),
+            'check_in_date': form_data.get('Ngày đến', ''),
+            'check_out_date': form_data.get('Ngày đi', ''),
+            'room_type': form_data.get('Tên chỗ nghỉ', ''),
+            'booking_id': form_data.get('Số đặt phòng', ''),
+            'total_payment': float(form_data.get('Tổng thanh toán', 0))
+        }
+        
+        # Check for duplicates BEFORE saving
+        print(f"[DUPLICATE_CHECK] Checking for duplicates...")
+        duplicate_check = check_duplicate_guests([booking_data])
+        
+        if duplicate_check['has_duplicates']:
+            # Format duplicate warning message
+            duplicate_guest = duplicate_check['duplicates'][0]
+            existing = duplicate_guest['existing_booking']
+            
+            flash(f'⚠️ CẢNH BÁO: Khách "{booking_data["guest_name"]}" có thể đã tồn tại!\n'
+                  f'🔍 Khách hiện tại: ID {existing["booking_id"]}, Check-in: {existing["check_in_date"]}\n'
+                  f'❓ Bạn có chắc muốn thêm booking này không?', 'warning')
+            
+            # Add force parameter to bypass duplicate check if user confirms
+            if not request.form.get('force_add'):
+                return render_template('add_booking.html', 
+                                     form_data=form_data, 
+                                     duplicate_warning=duplicate_check)
+        
+        # Prepare data for Google Sheets
+        formatted_booking = {
+            'Tên người đặt': form_data.get('Tên người đặt', ''),
+            'Số đặt phòng': form_data.get('Số đặt phòng', ''),
+            'Tên chỗ nghỉ': form_data.get('Tên chỗ nghỉ', ''),
+            'Check-in Date': form_data.get('Ngày đến', ''),
+            'Check-out Date': form_data.get('Ngày đi', ''),
+            'Được đặt vào': form_data.get('Được đặt vào', ''),
+            'Tổng thanh toán': float(form_data.get('Tổng thanh toán', 0)),
+            'Hoa hồng': float(form_data.get('Hoa hồng', 0)),
+            'Tình trạng': form_data.get('Tình trạng', 'OK'),
+            'Người thu tiền': form_data.get('Người thu tiền', ''),
+            'Tiền tệ': form_data.get('Tiền tệ', 'VND'),
+            'Vị trí': form_data.get('Vị trí', ''),
+            'Thành viên Genius': form_data.get('Thành viên Genius', 'Không')
+        }
+        
+        # Save to Google Sheets
+        print(f"[SAVE] Saving single booking to sheets...")
+        append_multiple_bookings_to_sheet(
+            bookings=[formatted_booking],
+            gcp_creds_file_path=GCP_CREDS_FILE_PATH,
+            sheet_id=DEFAULT_SHEET_ID,
+            worksheet_name=WORKSHEET_NAME
+        )
+        
+        # Clear cache
+        load_data.cache_clear()
+        
+        flash(f'✅ Đã thêm booking thành công: {booking_data["guest_name"]} ({booking_data["booking_id"]})', 'success')
+        return redirect(url_for('view_bookings'))
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to add booking: {e}")
+        flash(f'❌ Lỗi khi thêm booking: {str(e)}', 'danger')
+        return render_template('add_booking.html', form_data=request.form.to_dict())
+
 @app.route('/api/process_pasted_image', methods=['POST'])
 def process_pasted_image():
     data = request.get_json()

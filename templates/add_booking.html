@@ -3,33 +3,99 @@
 
 {% block content %}
 <h1 class="mb-4">Thêm Đặt phòng Mới</h1>
+
+<!-- Duplicate Warning Modal -->
+{% if duplicate_warning %}
+<div class="alert alert-warning border-0 shadow-lg mb-4" style="background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%); color: white;">
+    <h4 class="alert-heading">
+        <i class="fas fa-exclamation-triangle me-2"></i>⚠️ Phát hiện khách có thể trùng lặp!
+    </h4>
+    
+    {% for duplicate in duplicate_warning.duplicates %}
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <div class="card bg-white bg-opacity-20 border-0">
+                <div class="card-body">
+                    <h6 class="text-white">📝 Booking MỚI (đang thêm)</h6>
+                    <div class="text-white-75">
+                        <strong>Tên:</strong> {{ duplicate.new_booking.guest_name }}<br>
+                        <strong>Check-in:</strong> {{ duplicate.new_booking.check_in_date }}<br>
+                        <strong>Check-out:</strong> {{ duplicate.new_booking.check_out_date }}<br>
+                        <strong>Phòng:</strong> {{ duplicate.new_booking.room_type }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-white bg-opacity-20 border-0">
+                <div class="card-body">
+                    <h6 class="text-white">🗃️ Booking HIỆN TẠI (trong hệ thống)</h6>
+                    <div class="text-white-75">
+                        <strong>ID:</strong> {{ duplicate.existing_booking.booking_id }}<br>
+                        <strong>Tên:</strong> {{ duplicate.existing_booking.guest_name }}<br>
+                        <strong>Check-in:</strong> {{ duplicate.existing_booking.check_in_date }}<br>
+                        <strong>Check-out:</strong> {{ duplicate.existing_booking.check_out_date }}<br>
+                        <strong>Trạng thái:</strong> {{ duplicate.existing_booking.status }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+    <div class="mt-3">
+        <h6>💡 Lựa chọn của bạn:</h6>
+        <div class="d-flex gap-3">
+            <form method="POST" action="{{ url_for('add_booking') }}" style="display: inline;">
+                {% for key, value in form_data.items() %}
+                <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endfor %}
+                <input type="hidden" name="force_add" value="1">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-plus me-1"></i>✅ Vẫn thêm booking mới
+                </button>
+            </form>
+            <button type="button" class="btn btn-secondary" onclick="clearForm()">
+                <i class="fas fa-times me-1"></i>❌ Hủy và kiểm tra lại
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <form method="POST" action="{{ url_for('add_booking') }}">
     <div class="row g-3">
         <div class="col-md-6">
             <label for="Tên người đặt" class="form-label">Tên người đặt</label>
-            <input type="text" class="form-control" id="Tên người đặt" name="Tên người đặt" required>
+            <input type="text" class="form-control" id="Tên người đặt" name="Tên người đặt" 
+                   value="{{ form_data.get('Tên người đặt', '') if form_data else '' }}" required>
         </div>
         <div class="col-md-6">
             <label for="Số đặt phòng" class="form-label">Số đặt phòng (Booking ID)</label>
-            <input type="text" class="form-control" id="Số đặt phòng" name="Số đặt phòng" required>
+            <input type="text" class="form-control" id="Số đặt phòng" name="Số đặt phòng" 
+                   value="{{ form_data.get('Số đặt phòng', '') if form_data else '' }}" required>
         </div>
 
         <div class="col-md-12">
             <label for="Tên chỗ nghỉ" class="form-label">Tên chỗ nghỉ (Room Name)</label>
-            <input type="text" class="form-control" id="Tên chỗ nghỉ" name="Tên chỗ nghỉ" required>
+            <input type="text" class="form-control" id="Tên chỗ nghỉ" name="Tên chỗ nghỉ" 
+                   value="{{ form_data.get('Tên chỗ nghỉ', '') if form_data else '' }}" required>
         </div>
 
         <div class="col-md-4">
             <label for="Ngày đến" class="form-label">Ngày đến (Check-in)</label>
-            <input type="date" class="form-control" id="Ngày đến" name="Ngày đến" required>
+            <input type="date" class="form-control" id="Ngày đến" name="Ngày đến" 
+                   value="{{ form_data.get('Ngày đến', '') if form_data else '' }}" required>
         </div>
         <div class="col-md-4">
             <label for="Ngày đi" class="form-label">Ngày đi (Check-out)</label>
-            <input type="date" class="form-control" id="Ngày đi" name="Ngày đi" required>
+            <input type="date" class="form-control" id="Ngày đi" name="Ngày đi" 
+                   value="{{ form_data.get('Ngày đi', '') if form_data else '' }}" required>
         </div>
         <div class="col-md-4">
             <label for="Được đặt vào" class="form-label">Ngày đặt (Booking Date)</label>
-            <input type="date" class="form-control" id="Được đặt vào" name="Được đặt vào" required>
+            <input type="date" class="form-control" id="Được đặt vào" name="Được đặt vào" 
+                   value="{{ form_data.get('Được đặt vào', '') if form_data else '' }}" required>
         </div>
 
         <div class="col-md-6">
@@ -75,4 +141,26 @@
     <button type="submit" class="btn btn-primary mt-4">Thêm Đặt phòng</button>
     <a href="{{ url_for('view_bookings') }}" class="btn btn-secondary mt-4">Hủy</a>
 </form>
+
+<script>
+function clearForm() {
+    // Clear all form fields
+    document.querySelectorAll('input, select').forEach(function(element) {
+        if (element.type === 'text' || element.type === 'number' || element.type === 'date') {
+            element.value = '';
+        } else if (element.tagName === 'SELECT') {
+            element.selectedIndex = 0;
+        }
+    });
+    
+    // Hide any duplicate warning
+    const warning = document.querySelector('.alert-warning');
+    if (warning) {
+        warning.style.display = 'none';
+    }
+    
+    // Focus on first input
+    document.querySelector('input[name="Tên người đặt"]').focus();
+}
+</script>
 {% endblock %} 
