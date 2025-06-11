@@ -433,12 +433,12 @@ def save_extracted_bookings():
     try:
         extracted_json_str = request.form.get('extracted_json')
         if not extracted_json_str:
-            flash('❌ Không có dữ liệu để lưu.', 'warning')
+            flash('[ERROR] Không có dữ liệu để lưu.', 'warning')
             return redirect(url_for('add_from_image_page'))
 
         print(f"📥 Received extracted data: {len(extracted_json_str)} characters")
         bookings_to_save = json.loads(extracted_json_str)
-        print(f"📊 Parsed {len(bookings_to_save)} bookings from JSON")
+        print(f"[CHART] Parsed {len(bookings_to_save)} bookings from JSON")
         
         formatted_bookings = []
         errors = []
@@ -447,6 +447,9 @@ def save_extracted_bookings():
             try:
                 if 'error' in booking: 
                     continue
+                    
+                # Debug: Print original booking data
+                print(f"🔍 Original booking {i+1}: {booking}")
                     
                 # Validate essential fields
                 if not booking.get('guest_name', '').strip():
@@ -461,7 +464,7 @@ def save_extracted_bookings():
                     errors.append(f"Booking {i+1}: Thiếu ngày check-out")
                     continue
                 
-                # Format booking data
+                # Enhanced: Format booking data with better mapping
                 formatted_booking = {
                     'Tên người đặt': booking.get('guest_name', '').strip(),
                     'Số đặt phòng': booking.get('booking_id', '').strip() or f"AUTO_{datetime.now().strftime('%Y%m%d%H%M%S')}{i:02d}",
@@ -471,46 +474,65 @@ def save_extracted_bookings():
                     'Tổng thanh toán': booking.get('total_payment', 0) or 0,
                     'Hoa hồng': booking.get('commission', 0) or 0,
                     'Tình trạng': 'OK',
-                    'Ghi chú': f"Thêm từ ảnh lúc {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+                    'Ghi chú': f"Thêm từ ảnh lúc {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                    # Add other fields that might be expected by the sheet
+                    'Người thu tiền': '',  # Empty initially
+                    'Thành viên Genius': 'Không',  # Default value
+                    'Nguồn đặt phòng': 'Từ ảnh',  # Indicate source
                 }
+                
+                # Debug: Print formatted booking
+                print(f"✅ Formatted booking {i+1}: {formatted_booking}")
+                
                 formatted_bookings.append(formatted_booking)
-                print(f"✅ Formatted booking {i+1}: {formatted_booking['Tên người đặt']}")
+                print(f"[OK] Formatted booking {i+1}: {formatted_booking['Tên người đặt']}")
                 
             except Exception as e:
                 errors.append(f"Lỗi xử lý booking {i+1}: {str(e)}")
-                print(f"❌ Error processing booking {i+1}: {e}")
+                print(f"[ERROR] Error processing booking {i+1}: {e}")
+                import traceback
+                traceback.print_exc()
 
         if formatted_bookings:
-            print(f"💾 Attempting to save {len(formatted_bookings)} bookings to Google Sheets...")
+            print(f"[SAVE] Attempting to save {len(formatted_bookings)} bookings to Google Sheets...")
             
-            # Save to Google Sheets
-            append_multiple_bookings_to_sheet(
-                bookings=formatted_bookings,
-                gcp_creds_file_path=GCP_CREDS_FILE_PATH,
-                sheet_id=DEFAULT_SHEET_ID,
-                worksheet_name=WORKSHEET_NAME
-            )
-            
-            # ⚠️ QUAN TRỌNG: Xóa cache sau khi lưu thành công
-            load_data.cache_clear()
-            print("🗑️ Cache cleared successfully after saving")
-            
-            success_message = f'🎉 Đã lưu thành công {len(formatted_bookings)} đặt phòng mới!'
-            if errors:
-                success_message += f' (⚠️ {len(errors)} lỗi bỏ qua)'
-            flash(success_message, 'success')
+            # Save to Google Sheets with enhanced error handling
+            try:
+                append_multiple_bookings_to_sheet(
+                    bookings=formatted_bookings,
+                    gcp_creds_file_path=GCP_CREDS_FILE_PATH,
+                    sheet_id=DEFAULT_SHEET_ID,
+                    worksheet_name=WORKSHEET_NAME
+                )
+                print("[SAVE] ✅ Successfully saved to Google Sheets")
+                
+                # ⚠️ QUAN TRỌNG: Xóa cache sau khi lưu thành công
+                load_data.cache_clear()
+                print("[CACHE] Cache cleared successfully after saving")
+                
+                success_message = f'[SUCCESS] Đã lưu thành công {len(formatted_bookings)} đặt phòng mới!'
+                if errors:
+                    success_message += f' ([WARNING] {len(errors)} lỗi bỏ qua)'
+                flash(success_message, 'success')
+                
+            except Exception as save_error:
+                print(f"[SAVE ERROR] Failed to save to Google Sheets: {save_error}")
+                import traceback
+                traceback.print_exc()
+                flash(f'[ERROR] Lỗi khi lưu vào Google Sheets: {str(save_error)}', 'danger')
+                return redirect(url_for('add_from_image_page'))
             
         else:
-            error_message = '❌ Không có đặt phòng hợp lệ nào để lưu.'
+            error_message = '[ERROR] Không có đặt phòng hợp lệ nào để lưu.'
             if errors:
                 error_message += f' Lỗi: {"; ".join(errors[:3])}'  # Hiển thị 3 lỗi đầu
             flash(error_message, 'warning')
 
     except json.JSONDecodeError as e:
-        flash(f'❌ Lỗi định dạng dữ liệu JSON: {str(e)}', 'danger')
+        flash(f'[ERROR] Lỗi định dạng dữ liệu JSON: {str(e)}', 'danger')
         print(f"JSON Decode Error: {e}")
     except Exception as e:
-        flash(f'❌ Lỗi không xác định khi lưu: {str(e)}', 'danger')
+        flash(f'[ERROR] Lỗi không xác định khi lưu: {str(e)}', 'danger')
         print(f"General Error: {e}")
         import traceback
         traceback.print_exc()
@@ -811,7 +833,142 @@ def check_data_issues():
     except Exception as e:
         return jsonify({"error": f"Check issues error: {str(e)}"})
 
-@app.route('/data_health')
+@app.route('/api/debug_all_bookings')
+def debug_all_bookings():
+    """Debug route để xem TẤT CẢ dữ liệu booking thô từ Google Sheets"""
+    try:
+        # Force clear cache và load fresh data
+        load_data.cache_clear()
+        df, _ = load_data()
+        
+        if df.empty:
+            return jsonify({"error": "No data available", "total_bookings": 0})
+        
+        # Get latest 10 bookings for debugging
+        latest_bookings = df.tail(10)
+        
+        debug_info = {
+            "total_bookings": len(df),
+            "columns": df.columns.tolist(),
+            "latest_10_bookings": latest_bookings.to_dict('records'),
+            "sample_dates": {
+                "check_in_dates": df['Check-in Date'].tail(10).astype(str).tolist() if 'Check-in Date' in df.columns else [],
+                "check_out_dates": df['Check-out Date'].tail(10).astype(str).tolist() if 'Check-out Date' in df.columns else []
+            },
+            "data_types": {col: str(df[col].dtype) for col in df.columns},
+            "null_counts": {col: int(df[col].isna().sum()) for col in df.columns}
+        }
+        
+        return jsonify(debug_info)
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": f"Debug error: {str(e)}", 
+            "traceback": traceback.format_exc()
+        })
+
+@app.route('/api/debug_find_booking/<booking_id>')
+def debug_find_booking(booking_id):
+    """Debug route để tìm booking cụ thể trong raw data"""
+    try:
+        # Import trực tiếp từ Google Sheets để bypass cache
+        from logic import import_from_gsheet
+        print(f"DEBUG: Searching for booking_id: {booking_id}")
+        
+        # Load raw data without any filters
+        raw_df = import_from_gsheet(DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH, WORKSHEET_NAME)
+        
+        if raw_df.empty:
+            return jsonify({"error": "No raw data available"})
+        
+        # Search for the booking in all possible formats
+        search_results = []
+        
+        # Search in 'Số đặt phòng' column
+        if 'Số đặt phòng' in raw_df.columns:
+            exact_match = raw_df[raw_df['Số đặt phòng'].astype(str) == str(booking_id)]
+            if not exact_match.empty:
+                search_results.append({
+                    "match_type": "exact_match_booking_id",
+                    "data": exact_match.to_dict('records')
+                })
+            
+            # Search for partial matches
+            partial_match = raw_df[raw_df['Số đặt phòng'].astype(str).str.contains(str(booking_id), na=False)]
+            if not partial_match.empty:
+                search_results.append({
+                    "match_type": "partial_match_booking_id", 
+                    "data": partial_match.to_dict('records')
+                })
+        
+        # Search in guest name if booking_id might be a name
+        if 'Tên người đặt' in raw_df.columns:
+            name_match = raw_df[raw_df['Tên người đặt'].astype(str).str.contains(str(booking_id), case=False, na=False)]
+            if not name_match.empty:
+                search_results.append({
+                    "match_type": "guest_name_match",
+                    "data": name_match.to_dict('records') 
+                })
+        
+        # Check recent bookings (last 5 rows)
+        recent_bookings = raw_df.tail(5)
+        
+        debug_info = {
+            "search_term": booking_id,
+            "total_raw_bookings": len(raw_df),
+            "search_results": search_results,
+            "recent_5_bookings": recent_bookings.to_dict('records'),
+            "all_booking_ids": raw_df['Số đặt phòng'].astype(str).tolist()[-10:] if 'Số đặt phòng' in raw_df.columns else [],
+            "columns": raw_df.columns.tolist()
+        }
+        
+        return jsonify(debug_info)
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": f"Debug find booking error: {str(e)}", 
+            "traceback": traceback.format_exc()
+        })
+
+@app.route('/bookings/all')
+def view_all_bookings():
+    """Xem TẤT CẢ booking không bị filter để debug"""
+    df, _ = load_data()
+    
+    # Chỉ lấy tham số search và sort, BỎ QUA tất cả filter khác
+    search_term = request.args.get('search_term', '').strip().lower()
+    sort_by = request.args.get('sort_by', 'Check-in Date')
+    order = request.args.get('order', 'desc')  # Mặc định giảm dần để thấy booking mới nhất
+    
+    print(f"DEBUG ALL BOOKINGS: Total raw bookings: {len(df)}")
+    
+    # CHỈ filter theo search term, KHÔNG filter gì khác
+    if search_term:
+        df = df[df.apply(lambda row: search_term in str(row).lower(), axis=1)]
+        print(f"DEBUG: After search filter: {len(df)} bookings")
+    
+    # Sắp xếp dữ liệu  
+    if sort_by in df.columns:
+        ascending = order == 'asc'
+        df = df.sort_values(by=sort_by, ascending=ascending)
+    
+    bookings_list = safe_to_dict_records(df)
+    
+    return render_template('bookings.html',
+                         bookings=bookings_list,
+                         search_term=search_term,
+                         booking_count=len(bookings_list),
+                         current_sort_by=sort_by,
+                         current_order=order,
+                         filter_month='',
+                         filter_year='',
+                         start_date='',
+                         end_date='',
+                         available_months=[],
+                         show_all=True,
+                         debug_mode=True)
 def data_health_dashboard():
     """Trang dashboard để kiểm tra và fix dữ liệu"""
     return render_template('data_health.html')
@@ -1575,11 +1732,11 @@ Translation:
 if __name__ == '__main__':
     # Initialize and start reminder system
     try:
-        print("🤖 Starting Hotel Reminder System...")
+        print("[ROBOT] Starting Hotel Reminder System...")
         start_reminder_system()
-        print("✅ Reminder System started successfully")
+        print("[OK] Reminder System started successfully")
     except Exception as e:
-        print(f"⚠️  Warning: Could not start reminder system: {e}")
+        print(f"[WARNING] Could not start reminder system: {e}")
         print("   Email reminders will be available for manual triggering only")
     
     # Chạy trên cổng từ environment variable hoặc mặc định 8080 cho Koyeb
