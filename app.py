@@ -492,21 +492,21 @@ def save_extracted_bookings():
                     errors.append(f"Booking {i+1}: Định dạng ngày check-out không hợp lệ")
                     continue
                 
-                # Use English column names to match Google Sheet header
+                # Use Vietnamese column names to match actual Google Sheet header
                 formatted_booking = {
-                    'Booker Name': booking.get('guest_name', '').strip(),
-                    'Booking Number': booking_id,
+                    'Số đặt phòng': booking_id,
+                    'Tên người đặt': booking.get('guest_name', '').strip(),
+                    'Tên chỗ nghỉ': booking.get('room_type', '').strip() or 'Chưa xác định',
                     'Check-in Date': check_in_date,
                     'Check-out Date': check_out_date,
-                    'Property Name': booking.get('room_type', '').strip() or 'Chưa xác định',
-                    'Total Payment': booking.get('total_payment', 0) or 0,
-                    'Commission': booking.get('commission', 0) or 0,
-                    'Status': 'OK',
-                    'Payment Notes': f"Thêm từ ảnh lúc {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                    'Tình trạng': 'OK',
+                    'Tổng thanh toán': booking.get('total_payment', 0) or 0,
+                    'Hoa hồng': booking.get('commission', 0) or 0,
+                    'Ghi chú thanh toán': f"Thêm từ ảnh lúc {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                     # Add other fields that might be expected by the sheet
-                    'Cashier': '',  # Empty initially - ensures active filter will show it
-                    'Genius Member': 'No',  # Default value
-                    'Location': 'Từ ảnh',  # Indicate source
+                    'Người thu tiền': '',  # Empty initially - ensures active filter will show it
+                    'Thành viên Genius': 'Không',  # Default value
+                    'Vị trí': 'Từ ảnh',  # Indicate source
                 }
                 
                 # Debug: Print formatted booking
