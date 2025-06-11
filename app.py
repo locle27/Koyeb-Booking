@@ -385,9 +385,7 @@ def calendar_details(date_str):
                            staying_over=activities.get('staying_over', []),
                            current_date=parsed_date)
     
-@app.route('/bookings/add_from_image', methods=['GET'])
-def add_from_image_page():
-    return render_template('add_from_image.html')
+# Combined with add_booking route for unified experience
 
 @app.route('/bookings/add', methods=['GET', 'POST'])
 def add_booking():
