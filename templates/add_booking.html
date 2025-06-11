@@ -171,16 +171,36 @@ function processPhoto(imageData) {
     .then(data => {
         document.getElementById('photo-processing').style.display = 'none';
         
+        console.log('Photo processing response:', data);
+        
+        // Check for AI processing error
+        if (data.error) {
+            alert('❌ Lỗi xử lý ảnh: ' + data.error);
+            return;
+        }
+        
+        // Extract bookings array from various possible response formats
+        let bookings = [];
+        if (Array.isArray(data)) {
+            bookings = data;
+        } else if (data.bookings && Array.isArray(data.bookings)) {
+            bookings = data.bookings;
+        } else if (data.data && Array.isArray(data.data)) {
+            bookings = data.data;
+        }
+        
+        console.log('Extracted bookings:', bookings);
+        
         // Check if multiple bookings were extracted
-        if (data.bookings && Array.isArray(data.bookings) && data.bookings.length > 1) {
+        if (bookings.length > 1) {
             // Multiple bookings detected - show save button
-            showMultipleBookingsInterface(data.bookings);
+            showMultipleBookingsInterface(bookings);
             return;
         }
         
         // Single booking - auto-fill form as before
-        if (data.bookings && data.bookings[0] && !data.bookings[0].error) {
-            const booking = data.bookings[0];
+        if (bookings.length === 1 && !bookings[0].error) {
+            const booking = bookings[0];
             // Auto-fill form
             document.querySelector('input[name="Tên người đặt"]').value = booking.guest_name || '';
             document.querySelector('input[name="Ngày đến"]').value = booking.check_in_date || '';
@@ -188,6 +208,8 @@ function processPhoto(imageData) {
             document.querySelector('input[name="Tổng thanh toán"]').value = booking.total_payment || '';
             document.querySelector('input[name="Hoa hồng"]').value = booking.commission || '';
             document.querySelector('input[name="Số khách"]').value = booking.guest_count || '1';
+        } else {
+            alert('⚠️ Không thể trích xuất thông tin booking từ ảnh này. Vui lòng thử ảnh khác hoặc nhập thủ công.');
         }
     })
     .catch(error => {
