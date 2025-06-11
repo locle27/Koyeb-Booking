@@ -978,6 +978,7 @@ def view_all_bookings():
                          available_months=[],
                          show_all=True,
                          debug_mode=True)
+@app.route('/data_health_dashboard')
 def data_health_dashboard():
     """Trang dashboard để kiểm tra và fix dữ liệu"""
     return render_template('data_health.html')
