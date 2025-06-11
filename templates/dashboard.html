@@ -4,6 +4,48 @@
 
 {% block content %}
 <div class="container-fluid px-4">
+    <!-- ⚠️ PIN NOTIFICATION CHO NGÀY QUÁ TẢI (FIXED TOP) -->
+    {% if overcrowded_days and overcrowded_days|length > 0 %}
+    {% set urgent_days = overcrowded_days | selectattr('alert_level', 'equalto', 'urgent') | list %}
+    {% set today_overcrowded = overcrowded_days | selectattr('is_today', 'equalto', true) | list %}
+    
+    <div class="alert alert-warning border-0 shadow-lg mb-0 fixed-top" 
+         style="top: 0; z-index: 1050; border-radius: 0 0 10px 10px; background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);">
+        <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    <i class="fas fa-exclamation-triangle fa-2x text-white"></i>
+                </div>
+                <div class="text-white">
+                    <div class="fw-bold fs-6 mb-1">
+                        ⚠️ CẢNH BÁO QUÁ TẢI: {{ overcrowded_days|length }} ngày có >4 khách
+                    </div>
+                    <div class="small">
+                        {% if today_overcrowded %}
+                            <span class="badge bg-danger me-2">HÔM NAY: {{ today_overcrowded[0].guest_count }} khách</span>
+                        {% endif %}
+                        {% if urgent_days %}
+                            <span class="badge bg-warning text-dark me-2">Khẩn cấp: {{ urgent_days|length }} ngày</span>
+                        {% endif %}
+                        <span class="text-white-75">Tối đa: 4 phòng có sẵn</span>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light btn-sm me-2" onclick="scrollToOvercrowdedSection()">
+                    <i class="fas fa-eye me-1"></i>Xem chi tiết
+                </button>
+                <button class="btn btn-outline-light btn-sm" onclick="dismissPinNotification()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Spacer để content không bị che bởi fixed notification -->
+    <div style="height: 80px;"></div>
+    {% endif %}
+
     <h1 class="mt-4">📊 Dashboard Tổng quan</h1>
     <ol class="breadcrumb mb-4">
         <li class="breadcrumb-item active">Tổng quan về hiệu suất khách sạn</li>
@@ -174,7 +216,7 @@
 
     <!-- ⚠️ CẢNH BÁO NGÀY QUÁ TẢI (QUÁ 4 KHÁCH) -->
     {% if overcrowded_days and overcrowded_days|length > 0 %}
-    <div class="alert border-0 shadow-lg mb-4" style="background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);">
+    <div class="alert border-0 shadow-lg mb-4" id="overcrowdedSection" style="background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);">
         <div class="d-flex align-items-center justify-content-between">
             <div>
                 <h4 class="alert-heading text-white mb-2">
@@ -689,6 +731,134 @@ function showDashboardToast(message, type = 'success') {
     setTimeout(() => {
         toast.remove();
     }, 3000);
+}
+
+// ==================== PIN NOTIFICATION FUNCTIONS ====================
+function scrollToOvercrowdedSection() {
+    const section = document.getElementById('overcrowdedSection');
+    if (section) {
+        section.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+        });
+        
+        // Highlight the section briefly
+        section.style.boxShadow = '0 0 20px rgba(255, 149, 0, 0.8)';
+        setTimeout(() => {
+            section.style.boxShadow = '';
+        }, 2000);
+    }
+}
+
+function dismissPinNotification() {
+    const notification = document.querySelector('.fixed-top.alert-warning');
+    const spacer = notification?.nextElementSibling;
+    
+    if (notification) {
+        notification.style.transform = 'translateY(-100%)';
+        setTimeout(() => {
+            notification.remove();
+            if (spacer && spacer.style.height === '80px') {
+                spacer.remove();
+            }
+        }, 300);
+        
+        // Save dismiss state for this session
+        sessionStorage.setItem('overcrowdedPinDismissed', 'true');
+        showDashboardToast('ℹ️ Notification đã được ẩn cho phiên này', 'info');
+    }
+}
+
+// Check if pin notification should be shown
+document.addEventListener('DOMContentLoaded', function() {
+    const dismissed = sessionStorage.getItem('overcrowdedPinDismissed');
+    const pinNotification = document.querySelector('.fixed-top.alert-warning');
+    
+    if (dismissed === 'true' && pinNotification) {
+        pinNotification.style.display = 'none';
+        const spacer = pinNotification.nextElementSibling;
+        if (spacer && spacer.style.height === '80px') {
+            spacer.style.display = 'none';
+        }
+    }
+});
+
+// Toggle overcrowded details section
+function toggleOvercrowdedDetails() {
+    const details = document.getElementById('overcrowdedDetails');
+    const toggleText = document.getElementById('overcrowdToggleText');
+    
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+        toggleText.textContent = 'Ẩn chi tiết';
+    } else {
+        details.style.display = 'none';
+        toggleText.textContent = 'Chi tiết';
+    }
+}
+
+// Show day details modal
+function showDayDetails(date, guestCount, guestNames, bookingIds) {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">
+                        <i class="fas fa-users me-2"></i>Chi tiết ngày quá tải: ${date}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <strong><i class="fas fa-exclamation-triangle me-2"></i>Cảnh báo:</strong> 
+                        Ngày này có ${guestCount} khách check-in, vượt quá sức chứa 4 phòng.
+                    </div>
+                    <h6><i class="fas fa-list me-2"></i>Danh sách khách check-in:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Tên khách</th>
+                                    <th>Mã booking</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${guestNames.map((name, index) => `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td><strong>${name}</strong></td>
+                                        <td><span class="badge bg-info">${bookingIds[index]}</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        <h6><i class="fas fa-lightbulb me-2"></i>Đề xuất giải pháp:</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success me-2"></i>Liên hệ khách để sắp xếp lại lịch check-in</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Tìm phòng trống ở khách sạn khác gần đó</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Đề xuất upgrade hoặc early check-in ngày hôm trước</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    modal.addEventListener('hidden.bs.modal', () => {
+        modal.remove();
+    });
 }
 </script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>

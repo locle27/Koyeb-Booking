@@ -151,6 +151,52 @@
                                 </div>
                             </div>
                             
+                            <!-- Custom Instructions Section -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="card border-info bg-light">
+                                        <div class="card-header py-2 bg-info text-white">
+                                            <small class="fw-bold">
+                                                <i class="fas fa-magic me-1"></i>Hướng dẫn tùy chỉnh (Custom Instructions)
+                                            </small>
+                                            <button class="btn btn-sm btn-outline-light ms-2" onclick="toggleCustomInstructions()" id="customToggleBtn">
+                                                <i class="fas fa-chevron-down" id="customToggleIcon"></i>
+                                            </button>
+                                        </div>
+                                        <div class="card-body py-2" id="customInstructionsSection" style="display: none;">
+                                            <div class="mb-2">
+                                                <label class="form-label small mb-1">
+                                                    <strong>Hướng dẫn AI theo ý muốn của bạn:</strong>
+                                                    <span class="text-muted">(Text hoặc Voice)</span>
+                                                </label>
+                                                <div class="input-group">
+                                                    <textarea id="customInstructions" class="form-control" rows="3" 
+                                                        placeholder="VD: Trả lời ngắn gọn và thân thiện, sử dụng emoji, đề cập đến tên khách hàng..."></textarea>
+                                                    <button class="btn btn-outline-danger" type="button" onclick="startVoiceInstructions()" id="voiceInstructBtn">
+                                                        <i class="fas fa-microphone"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="form-text">
+                                                    <i class="fas fa-info-circle"></i> AI sẽ ưu tiên hướng dẫn này khi tạo phản hồi. 
+                                                    Bạn có thể nhập bằng text hoặc dùng voice (nút mic).
+                                                </div>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-sm btn-outline-info" onclick="loadSampleInstructions()">
+                                                    <i class="fas fa-lightbulb"></i> Mẫu
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="clearCustomInstructions()">
+                                                    <i class="fas fa-trash"></i> Xóa
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-success" onclick="saveCustomInstructions()">
+                                                    <i class="fas fa-save"></i> Lưu
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div id="templatePreview" class="mt-2" style="display: none;">
                                 <div class="alert alert-light border-start border-4 border-primary py-2 px-3 mb-0">
                                     <small class="text-muted d-block mb-1">Preview mẫu đã chọn:</small>
@@ -947,6 +993,7 @@
         const categorySelect = document.getElementById('templateCategory');
         const specificSelect = document.getElementById('specificTemplate');
         const responseModeRadios = document.getElementsByName('responseMode');
+        const customInstructions = document.getElementById('customInstructions').value.trim();
         
         let selectedTemplate = null;
         if (specificSelect.value && specificSelect.categoryTemplates) {
@@ -969,7 +1016,8 @@
         return {
             selectedCategory: categorySelect.value,
             selectedTemplate: selectedTemplate,
-            responseMode: responseMode
+            responseMode: responseMode,
+            customInstructions: customInstructions
         };
     }
     
@@ -997,6 +1045,12 @@
                             </span>
                         </div>
                     </div>
+                    ${aiConfig.customInstructions ? `
+                        <div class="mt-2">
+                            <strong>Custom Instructions:</strong> 
+                            <div class="small bg-light p-2 rounded">${aiConfig.customInstructions}</div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
@@ -1311,6 +1365,132 @@
     function switchToChat() {
         const chatTab = new bootstrap.Tab(document.getElementById('chat-tab'));
         chatTab.show();
+    }
+    
+    // ==================== CUSTOM INSTRUCTIONS FUNCTIONS ====================
+    let voiceInstructionRecognition = null;
+    let isVoiceInstructionRecording = false;
+    
+    function toggleCustomInstructions() {
+        const section = document.getElementById('customInstructionsSection');
+        const icon = document.getElementById('customToggleIcon');
+        
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+            icon.className = 'fas fa-chevron-up';
+            // Load saved instructions
+            loadSavedInstructions();
+        } else {
+            section.style.display = 'none';
+            icon.className = 'fas fa-chevron-down';
+        }
+    }
+    
+    function loadSavedInstructions() {
+        const saved = localStorage.getItem('aiCustomInstructions');
+        if (saved) {
+            document.getElementById('customInstructions').value = saved;
+        }
+    }
+    
+    function saveCustomInstructions() {
+        const instructions = document.getElementById('customInstructions').value.trim();
+        if (instructions) {
+            localStorage.setItem('aiCustomInstructions', instructions);
+            showSuccess('💾 Đã lưu custom instructions!');
+        } else {
+            localStorage.removeItem('aiCustomInstructions');
+            showSuccess('🗑️ Đã xóa custom instructions!');
+        }
+    }
+    
+    function clearCustomInstructions() {
+        document.getElementById('customInstructions').value = '';
+        localStorage.removeItem('aiCustomInstructions');
+        showSuccess('🗑️ Đã xóa custom instructions!');
+    }
+    
+    function loadSampleInstructions() {
+        const samples = [
+            "Trả lời ngắn gọn và thân thiện, sử dụng emoji phù hợp, luôn đề cập đến tên khách hàng",
+            "Phản hồi chuyên nghiệp và lịch sự, tập trung vào giải pháp, không dùng emoji",
+            "Trả lời chi tiết và nhiệt tình, giải thích rõ ràng các dịch vụ, sử dụng tone tích cực",
+            "Phong cách thân mật như bạn bè, dùng ngôn ngữ đơn giản, nhiều emoji vui vẻ",
+            "Tập trung vào việc bán hàng, đề xuất upgrade dịch vụ, nhấn mạnh ưu đãi"
+        ];
+        
+        const randomSample = samples[Math.floor(Math.random() * samples.length)];
+        document.getElementById('customInstructions').value = randomSample;
+        showSuccess('💡 Đã tải mẫu instructions!');
+    }
+    
+    function startVoiceInstructions() {
+        const btn = document.getElementById('voiceInstructBtn');
+        
+        if (isVoiceInstructionRecording) {
+            stopVoiceInstructions();
+            return;
+        }
+        
+        if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+            showError('❌ Trình duyệt không hỗ trợ nhận diện giọng nói');
+            return;
+        }
+        
+        try {
+            const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+            voiceInstructionRecognition = new SpeechRecognition();
+            
+            voiceInstructionRecognition.continuous = false;
+            voiceInstructionRecognition.interimResults = true;
+            voiceInstructionRecognition.maxAlternatives = 1;
+            voiceInstructionRecognition.lang = 'vi-VN';
+            
+            voiceInstructionRecognition.onstart = function() {
+                isVoiceInstructionRecording = true;
+                btn.innerHTML = '<i class="fas fa-stop"></i>';
+                btn.className = 'btn btn-danger';
+                showSuccess('🎤 Đang nghe... Nói hướng dẫn cho AI');
+            };
+            
+            voiceInstructionRecognition.onresult = function(event) {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        document.getElementById('customInstructions').value = transcript;
+                        showSuccess('✅ Đã ghi nhận hướng dẫn bằng voice!');
+                    }
+                }
+            };
+            
+            voiceInstructionRecognition.onerror = function(event) {
+                console.error('Voice instruction error:', event.error);
+                showError('❌ Lỗi nhận diện giọng nói: ' + event.error);
+                stopVoiceInstructions();
+            };
+            
+            voiceInstructionRecognition.onend = function() {
+                stopVoiceInstructions();
+            };
+            
+            voiceInstructionRecognition.start();
+            
+        } catch (error) {
+            console.error('Error starting voice instructions:', error);
+            showError('❌ Lỗi khởi động voice instructions: ' + error.message);
+        }
+    }
+    
+    function stopVoiceInstructions() {
+        if (voiceInstructionRecognition) {
+            voiceInstructionRecognition.stop();
+        }
+        
+        isVoiceInstructionRecording = false;
+        const btn = document.getElementById('voiceInstructBtn');
+        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+        btn.className = 'btn btn-outline-danger';
     }
 </script>
 {% endblock %}
