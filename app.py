@@ -469,6 +469,11 @@ def add_booking():
         flash(f'❌ Lỗi khi thêm booking: {str(e)}', 'danger')
         return render_template('add_booking.html', form_data=request.form.to_dict())
 
+@app.route('/bookings/add_from_image')
+def add_from_image_page():
+    """Route to serve the add from image page for multi-booking extraction"""
+    return render_template('add_from_image.html')
+
 @app.route('/api/analyze_duplicates', methods=['GET'])
 def api_analyze_duplicates():
     """API endpoint để phân tích duplicate bookings hiện có"""
