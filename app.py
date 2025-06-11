@@ -433,41 +433,87 @@ def save_extracted_bookings():
     try:
         extracted_json_str = request.form.get('extracted_json')
         if not extracted_json_str:
-            flash('Không có dữ liệu để lưu.', 'warning')
+            flash('❌ Không có dữ liệu để lưu.', 'warning')
             return redirect(url_for('add_from_image_page'))
 
+        print(f"📥 Received extracted data: {len(extracted_json_str)} characters")
         bookings_to_save = json.loads(extracted_json_str)
+        print(f"📊 Parsed {len(bookings_to_save)} bookings from JSON")
         
         formatted_bookings = []
-        for booking in bookings_to_save:
-            if 'error' in booking: continue
-            formatted_booking = {
-                'Tên người đặt': booking.get('guest_name'),
-                'Số đặt phòng': booking.get('booking_id'),
-                'Check-in Date': booking.get('check_in_date'),
-                'Check-out Date': booking.get('check_out_date'),
-                'Tên chỗ nghỉ': booking.get('room_type'),
-                'Tổng thanh toán': booking.get('total_payment'),
-                'Hoa hồng': booking.get('commission', 0),  # Thêm hoa hồng
-                'Tình trạng': 'OK'
-            }
-            formatted_bookings.append(formatted_booking)
+        errors = []
+        
+        for i, booking in enumerate(bookings_to_save):
+            try:
+                if 'error' in booking: 
+                    continue
+                    
+                # Validate essential fields
+                if not booking.get('guest_name', '').strip():
+                    errors.append(f"Booking {i+1}: Thiếu tên khách")
+                    continue
+                    
+                if not booking.get('check_in_date', '').strip():
+                    errors.append(f"Booking {i+1}: Thiếu ngày check-in")
+                    continue
+                    
+                if not booking.get('check_out_date', '').strip():
+                    errors.append(f"Booking {i+1}: Thiếu ngày check-out")
+                    continue
+                
+                # Format booking data
+                formatted_booking = {
+                    'Tên người đặt': booking.get('guest_name', '').strip(),
+                    'Số đặt phòng': booking.get('booking_id', '').strip() or f"AUTO_{datetime.now().strftime('%Y%m%d%H%M%S')}{i:02d}",
+                    'Check-in Date': booking.get('check_in_date', '').strip(),
+                    'Check-out Date': booking.get('check_out_date', '').strip(),
+                    'Tên chỗ nghỉ': booking.get('room_type', '').strip() or 'Chưa xác định',
+                    'Tổng thanh toán': booking.get('total_payment', 0) or 0,
+                    'Hoa hồng': booking.get('commission', 0) or 0,
+                    'Tình trạng': 'OK',
+                    'Ghi chú': f"Thêm từ ảnh lúc {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+                }
+                formatted_bookings.append(formatted_booking)
+                print(f"✅ Formatted booking {i+1}: {formatted_booking['Tên người đặt']}")
+                
+            except Exception as e:
+                errors.append(f"Lỗi xử lý booking {i+1}: {str(e)}")
+                print(f"❌ Error processing booking {i+1}: {e}")
 
         if formatted_bookings:
+            print(f"💾 Attempting to save {len(formatted_bookings)} bookings to Google Sheets...")
+            
+            # Save to Google Sheets
             append_multiple_bookings_to_sheet(
                 bookings=formatted_bookings,
                 gcp_creds_file_path=GCP_CREDS_FILE_PATH,
                 sheet_id=DEFAULT_SHEET_ID,
                 worksheet_name=WORKSHEET_NAME
             )
-            # === SỬA LỖI QUAN TRỌNG: Xóa cache sau khi thêm ===
+            
+            # ⚠️ QUAN TRỌNG: Xóa cache sau khi lưu thành công
             load_data.cache_clear()
-            flash(f'Đã lưu thành công {len(formatted_bookings)} đặt phòng mới!', 'success')
+            print("🗑️ Cache cleared successfully after saving")
+            
+            success_message = f'🎉 Đã lưu thành công {len(formatted_bookings)} đặt phòng mới!'
+            if errors:
+                success_message += f' (⚠️ {len(errors)} lỗi bỏ qua)'
+            flash(success_message, 'success')
+            
         else:
-            flash('Không có đặt phòng hợp lệ nào để lưu.', 'info')
+            error_message = '❌ Không có đặt phòng hợp lệ nào để lưu.'
+            if errors:
+                error_message += f' Lỗi: {"; ".join(errors[:3])}'  # Hiển thị 3 lỗi đầu
+            flash(error_message, 'warning')
 
+    except json.JSONDecodeError as e:
+        flash(f'❌ Lỗi định dạng dữ liệu JSON: {str(e)}', 'danger')
+        print(f"JSON Decode Error: {e}")
     except Exception as e:
-        flash(f'Lỗi khi lưu các đặt phòng đã trích xuất: {e}', 'danger')
+        flash(f'❌ Lỗi không xác định khi lưu: {str(e)}', 'danger')
+        print(f"General Error: {e}")
+        import traceback
+        traceback.print_exc()
         
     return redirect(url_for('view_bookings'))
 
@@ -1052,7 +1098,46 @@ def import_templates():
         flash(f'❌ Lỗi khi import: {str(e)}', 'danger')
         return redirect(url_for('get_templates_page'))
 
-# === EMAIL REMINDER SYSTEM ROUTES ===
+# === QUICK NOTES SYSTEM ===
+@app.route('/quick_notes')
+def quick_notes_page():
+    """Trang Quick Notes - Tạo nhắc nhanh với 3 option: Thu tiền lại, Hủy phòng, Taxi"""
+    return render_template('quick_notes.html')
+
+@app.route('/api/quick_notes', methods=['GET'])
+def get_quick_notes():
+    """API để lấy danh sách quick notes (có thể mở rộng sau để lưu vào database)"""
+    # Hiện tại sử dụng localStorage, sau có thể mở rộng lưu vào database
+    return jsonify({'message': 'Quick notes are stored in localStorage for now'})
+
+@app.route('/api/quick_notes', methods=['POST'])
+def save_quick_note():
+    """API để lưu quick note (có thể mở rộng sau để lưu vào database)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'Không có dữ liệu'}), 400
+        
+        # Validate required fields
+        required_fields = ['type', 'content', 'date', 'time']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'success': False, 'message': f'Thiếu field: {field}'}), 400
+        
+        # Log the note (có thể mở rộng sau để lưu vào database)
+        print(f"📝 Quick Note saved: {data['type']} - {data['content'][:50]}...")
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Đã lưu quick note thành công!',
+            'note_id': data.get('id', datetime.now().isoformat())
+        })
+        
+    except Exception as e:
+        print(f"Error saving quick note: {e}")
+        return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
+
+# === EMAIL REMINDER SYSTEM ROUTES (GIỮ LẠI ĐỂ TƯƠNG THÍCH) ===
 @app.route('/reminder_system')
 def reminder_system_page():
     """Trang quản lý Email Reminder System"""

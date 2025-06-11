@@ -98,46 +98,71 @@
                     console.log('Extracted data received:', extractedData); // Debug log
 
                     // === PHẦN SỬA LỖI QUAN TRỌNG NHẤT ===
+                    console.log('🔍 Raw API Response:', extractedData);
+                    
                     // Xử lý trường hợp API trả về object với error message
                     if (extractedData && extractedData.error) {
-                        messageBox.innerHTML = `<div class="error-message">Lỗi xử lý ảnh: ${extractedData.error}</div>`;
+                        messageBox.innerHTML = `<div class="error-message">❌ Lỗi xử lý ảnh: ${extractedData.error}</div>`;
                         pasteArea.style.display = 'block';
                         return;
                     }
 
-                    // Luôn kiểm tra dữ liệu trả về có phải là một mảng (Array) hay không trước khi dùng .length
-                    if (!extractedData || !Array.isArray(extractedData)) {
-                        console.log('Invalid response format, trying to extract from object...');
+                    // Kiểm tra và chuẩn hóa dữ liệu trả về
+                    let bookingsArray = null;
+                    
+                    if (Array.isArray(extractedData)) {
+                        bookingsArray = extractedData;
+                        console.log('✅ Data is already an array:', bookingsArray);
+                    } else if (extractedData && typeof extractedData === 'object') {
+                        console.log('🔄 Data is object, searching for bookings array...');
                         
-                        // Kiểm tra nếu data được wrap trong object
-                        let bookingsArray = null;
-                        if (extractedData && typeof extractedData === 'object') {
-                            // Tìm array trong các properties của object
+                        // Tìm array trong các properties của object
+                        const possibleKeys = ['bookings', 'data', 'results', 'items'];
+                        for (const key of possibleKeys) {
+                            if (Array.isArray(extractedData[key])) {
+                                bookingsArray = extractedData[key];
+                                console.log(`✅ Found bookings in property '${key}':`, bookingsArray);
+                                break;
+                            }
+                        }
+                        
+                        // Nếu không tìm thấy, tìm bất kỳ array nào
+                        if (!bookingsArray) {
                             for (const key in extractedData) {
                                 if (Array.isArray(extractedData[key])) {
                                     bookingsArray = extractedData[key];
+                                    console.log(`✅ Found array in property '${key}':`, bookingsArray);
                                     break;
                                 }
                             }
                         }
                         
-                        if (!bookingsArray || bookingsArray.length === 0) {
-                            messageBox.innerHTML = `<div class="error-message">
-                                Không tìm thấy đặt phòng nào trong ảnh. Vui lòng thử:
-                                <ul style="margin-top: 10px;">
-                                    <li>Chụp ảnh rõ nét hơn</li>
-                                    <li>Đảm bảo văn bản trong ảnh dễ đọc</li>
-                                    <li>Ảnh chứa thông tin đặt phòng hoàn chỉnh</li>
-                                </ul>
-                            </div>`;
-                            pasteArea.style.display = 'block';
-                            return;
+                        // Nếu vẫn không tìm thấy, thử convert object thành array
+                        if (!bookingsArray && Object.keys(extractedData).length > 0) {
+                            bookingsArray = [extractedData];
+                            console.log('🔄 Converting single object to array:', bookingsArray);
                         }
-                        
-                        // Sử dụng array tìm được
-                        console.log('Found bookings array in object:', bookingsArray);
-                        extractedData = bookingsArray;
                     }
+                    
+                    // Kiểm tra kết quả cuối cùng
+                    if (!bookingsArray || !Array.isArray(bookingsArray) || bookingsArray.length === 0) {
+                        console.log('❌ No valid bookings found');
+                        messageBox.innerHTML = `<div class="error-message">
+                            ❌ Không tìm thấy đặt phòng nào trong ảnh. Vui lòng thử:
+                            <ul style="margin-top: 10px;">
+                                <li>📷 Chụp ảnh rõ nét hơn</li>
+                                <li>📝 Đảm bảo văn bản trong ảnh dễ đọc</li>
+                                <li>📋 Ảnh chứa thông tin đặt phòng hoàn chỉnh</li>
+                                <li>🔍 Thử với ảnh khác</li>
+                            </ul>
+                        </div>`;
+                        pasteArea.style.display = 'block';
+                        return;
+                    }
+                    
+                    // Sử dụng array đã chuẩn hóa
+                    extractedData = bookingsArray;
+                    console.log(`✅ Final bookings data (${extractedData.length} items):`, extractedData);
 
                     if (extractedData.length === 0) {
                         messageBox.innerHTML = `<div class="error-message">Không tìm thấy thông tin đặt phòng nào trong ảnh này.</div>`;
@@ -151,6 +176,8 @@
                     let invalidCount = 0;
 
                     for (const booking of extractedData) {
+                        console.log('🔍 Processing booking:', booking);
+                        
                         // Nếu có lỗi trong từng booking, hiển thị lỗi đó
                         if (booking.error) {
                             invalidCount++;
@@ -158,33 +185,45 @@
                             continue;
                         }
                         
-                        // Validate required fields
-                        const hasRequiredFields = booking.guest_name && 
-                                                booking.check_in_date && 
-                                                booking.check_out_date;
+                        // Validate required fields với thông báo cụ thể hơn
+                        const hasGuestName = booking.guest_name && booking.guest_name.trim() !== '';
+                        const hasCheckinDate = booking.check_in_date && booking.check_in_date.trim() !== '';
+                        const hasCheckoutDate = booking.check_out_date && booking.check_out_date.trim() !== '';
                         
-                        if (!hasRequiredFields) {
+                        if (!hasGuestName || !hasCheckinDate || !hasCheckoutDate) {
                             invalidCount++;
+                            const missingFields = [];
+                            if (!hasGuestName) missingFields.push('👤 Tên khách');
+                            if (!hasCheckinDate) missingFields.push('📅 Ngày đến');
+                            if (!hasCheckoutDate) missingFields.push('📅 Ngày đi');
+                            
                             tableHtml += `<tr style="background-color: #f8d7da;">
-                                <td colspan="8" class="error-message">❌ Thiếu thông tin bắt buộc: ${booking.guest_name || 'Tên khách'}</td>
+                                <td colspan="8" class="error-message">❌ Thiếu thông tin: ${missingFields.join(', ')}</td>
                             </tr>`;
                             continue;
                         }
                         
+                        // Booking hợp lệ
                         validBookings.push(booking);
                         
-                        // Xử lý hoa hồng
+                        // Xử lý hoa hồng an toàn
                         const commission = booking.commission || 0;
-                        const commissionDisplay = commission > 0 ? commission.toLocaleString('vi-VN') + ' VND' : 'Chưa có';
+                        const commissionDisplay = commission > 0 ? 
+                            `💰 ${commission.toLocaleString('vi-VN')} VND` : '➖ Chưa có';
+                        
+                        // Xử lý tổng tiền an toàn
+                        const totalPayment = booking.total_payment || 0;
+                        const totalPaymentDisplay = totalPayment > 0 ?
+                            `💸 ${totalPayment.toLocaleString('vi-VN')} VND` : '➖ Chưa có';
                         
                         tableHtml += `
                             <tr style="background-color: #d4edda;">
-                                <td>${booking.guest_name || 'N/A'}</td>
-                                <td>${booking.booking_id || 'Tự tạo'}</td>
-                                <td>${booking.check_in_date || 'N/A'}</td>
-                                <td>${booking.check_out_date || 'N/A'}</td>
-                                <td>${booking.room_type || 'N/A'}</td>
-                                <td>${booking.total_payment ? booking.total_payment.toLocaleString('vi-VN') + ' VND' : 'N/A'}</td>
+                                <td>👤 ${booking.guest_name || 'N/A'}</td>
+                                <td>🏷️ ${booking.booking_id || 'Tự tạo'}</td>
+                                <td>📅 ${booking.check_in_date || 'N/A'}</td>
+                                <td>📅 ${booking.check_out_date || 'N/A'}</td>
+                                <td>🏠 ${booking.room_type || 'N/A'}</td>
+                                <td style="font-weight: bold;">${totalPaymentDisplay}</td>
                                 <td style="color: #e67e22; font-weight: bold;">${commissionDisplay}</td>
                                 <td>✅ Hợp lệ</td>
                             </tr>
@@ -198,19 +237,28 @@
                         document.getElementById('extracted_json_input').value = JSON.stringify(validBookings);
                         saveForm.style.display = 'block';
                         
-                        let successMessage = `✅ Đã trích xuất thành công ${validBookings.length} đặt phòng hợp lệ`;
+                        let successMessage = `🎉 Đã trích xuất thành công <strong>${validBookings.length}</strong> đặt phòng hợp lệ`;
                         if (invalidCount > 0) {
-                            successMessage += ` (${invalidCount} mục không hợp lệ)`;
+                            successMessage += ` (⚠️ ${invalidCount} mục không hợp lệ)`;
                         }
-                        successMessage += '. Kiểm tra thông tin và nhấn Lưu.';
+                        successMessage += '.<br>📋 Kiểm tra thông tin và nhấn <strong>💾 Lưu</strong> để thêm vào hệ thống.';
                         
                         messageBox.innerHTML = `<div class="success-message">${successMessage}</div>`;
+                        
+                        // Scroll to results để user dễ thấy
+                        resultsTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     } else {
                         let errorMessage = `❌ Không có đặt phòng nào hợp lệ để lưu`;
                         if (invalidCount > 0) {
-                            errorMessage += ` (${invalidCount} mục không hợp lệ)`;
+                            errorMessage += ` (🔍 Đã tìm thấy ${invalidCount} mục nhưng thiếu thông tin quan trọng)`;
                         }
-                        errorMessage += `. Vui lòng thử với ảnh khác hoặc kiểm tra lại định dạng thông tin.`;
+                        errorMessage += `.<br><br>💡 <strong>Gợi ý khắc phục:</strong>
+                            <ul style="margin-top: 8px; text-align: left;">
+                                <li>📸 Chụp ảnh rõ nét và đủ sáng</li>
+                                <li>📋 Đảm bảo ảnh có đầy đủ: Tên khách, Ngày đến, Ngày đi</li>
+                                <li>🔤 Văn bản trong ảnh dễ đọc, không bị che khuất</li>
+                                <li>🔄 Thử chụp ảnh khác hoặc screenshot từ màn hình</li>
+                            </ul>`;
                         
                         messageBox.innerHTML = `<div class="error-message">${errorMessage}</div>`;
                     }
