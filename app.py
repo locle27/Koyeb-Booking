@@ -33,7 +33,7 @@ from logic import (
 )
 
 # Import dashboard logic module
-from dashboard_routes import process_dashboard_data
+from dashboard_routes import process_dashboard_data, safe_to_dict_records
 
 # Import Email & Reminder System
 from email_service import send_test_email, email_service
@@ -214,7 +214,7 @@ def dashboard():
         end_date=end_date.strftime('%Y-%m-%d'),
         current_sort_by=sort_by,
         current_sort_order=sort_order,
-        collector_revenue_list=dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records'),
+        collector_revenue_list=safe_to_dict_records(dashboard_data.get('collector_revenue_selected', pd.DataFrame())),
         **processed_data  # Unpack all processed dashboard data
     )
 
@@ -309,7 +309,7 @@ def view_bookings():
         ascending = order == 'asc'
         df = df.sort_values(by=sort_by, ascending=ascending)
     
-    bookings_list = df.to_dict(orient='records')
+    bookings_list = safe_to_dict_records(df)
     
     # Tạo danh sách tháng/năm có sẵn để dropdown
     all_df, _ = load_data()
@@ -520,7 +520,7 @@ def save_extracted_bookings():
 @app.route('/booking/<booking_id>/edit', methods=['GET', 'POST'])
 def edit_booking(booking_id):
     df, _ = load_data()
-    booking = df[df['Số đặt phòng'] == booking_id].to_dict('records')[0] if not df.empty else {}
+    booking = safe_to_dict_records(df[df['Số đặt phòng'] == booking_id])[0] if not df.empty else {}
     
     if request.method == 'POST':
         new_data = {

@@ -66,7 +66,24 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
         if not data or len(data) < 2:
             return pd.DataFrame()
         
-        df = pd.DataFrame(data[1:], columns=data[0])
+        # === FIX: HANDLE DUPLICATE COLUMN NAMES ===
+        original_columns = data[0]
+        print(f"DEBUG: Original columns: {original_columns}")
+        
+        # Detect and fix duplicate columns
+        seen_columns = {}
+        clean_columns = []
+        for col in original_columns:
+            if col in seen_columns:
+                seen_columns[col] += 1
+                clean_columns.append(f"{col}_{seen_columns[col]}")
+                print(f"WARNING: Duplicate column '{col}' renamed to '{col}_{seen_columns[col]}'")
+            else:
+                seen_columns[col] = 0
+                clean_columns.append(col)
+        
+        df = pd.DataFrame(data[1:], columns=clean_columns)
+        print(f"DEBUG: Cleaned columns: {clean_columns}")
         
         # === SỬA LỖI: LỌC BỎ HÀNG TRỐNG ===
         print(f"DEBUG: Du lieu ban dau co {len(df)} hang")

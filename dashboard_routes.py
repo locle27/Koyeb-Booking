@@ -5,6 +5,29 @@ import calendar
 import pandas as pd
 import plotly.express as px
 import json
+import warnings
+
+def safe_to_dict_records(df):
+    """
+    Safely convert DataFrame to dict records, handling duplicate columns
+    """
+    if df.empty:
+        return []
+    
+    try:
+        # Check for duplicate columns and clean if necessary
+        if df.columns.duplicated().any():
+            print("WARNING: DataFrame has duplicate columns, cleaning...")
+            # Keep only the first occurrence of each column
+            df = df.loc[:, ~df.columns.duplicated()]
+            
+        # Suppress the warning temporarily
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="DataFrame columns are not unique")
+            return df.to_dict('records')
+    except Exception as e:
+        print(f"Error in safe_to_dict_records: {e}")
+        return []
 
 
 def process_dashboard_data(df, start_date, end_date, sort_by, sort_order, dashboard_data):
@@ -12,11 +35,11 @@ def process_dashboard_data(df, start_date, end_date, sort_by, sort_order, dashbo
     Xử lý dữ liệu dashboard phức tạp
     """
     # Chuẩn bị dữ liệu cho template
-    monthly_revenue_list = dashboard_data.get('monthly_revenue_all_time', pd.DataFrame()).to_dict('records')
-    genius_stats_list = dashboard_data.get('genius_stats', pd.DataFrame()).to_dict('records')
-    monthly_guests_list = dashboard_data.get('monthly_guests_all_time', pd.DataFrame()).to_dict('records')
-    weekly_guests_list = dashboard_data.get('weekly_guests_all_time', pd.DataFrame()).to_dict('records')
-    monthly_collected_revenue_list = dashboard_data.get('monthly_collected_revenue', pd.DataFrame()).to_dict('records')
+    monthly_revenue_list = safe_to_dict_records(dashboard_data.get('monthly_revenue_all_time', pd.DataFrame()))
+    genius_stats_list = safe_to_dict_records(dashboard_data.get('genius_stats', pd.DataFrame()))
+    monthly_guests_list = safe_to_dict_records(dashboard_data.get('monthly_guests_all_time', pd.DataFrame()))
+    weekly_guests_list = safe_to_dict_records(dashboard_data.get('weekly_guests_all_time', pd.DataFrame()))
+    monthly_collected_revenue_list = safe_to_dict_records(dashboard_data.get('monthly_collected_revenue', pd.DataFrame()))
 
     # Tạo biểu đồ doanh thu hàng tháng
     monthly_revenue_chart_json = create_revenue_chart(monthly_revenue_list)
@@ -135,7 +158,7 @@ def process_overdue_guests(df):
             if 'Tổng thanh toán' in overdue_df.columns:
                 overdue_total_amount = pd.to_numeric(overdue_df['Tổng thanh toán'], errors='coerce').fillna(0).sum()
             
-            overdue_unpaid_guests = overdue_df.to_dict('records')
+            overdue_unpaid_guests = safe_to_dict_records(overdue_df)
     
     except Exception as e:
         print(f"Process overdue guests error: {e}")
@@ -202,7 +225,7 @@ def process_monthly_revenue_with_unpaid(df, start_date, end_date):
         
         if not merged_data.empty:
             merged_data = merged_data.sort_values('Tháng')
-            monthly_revenue_with_unpaid = merged_data.to_dict('records')
+            monthly_revenue_with_unpaid = safe_to_dict_records(merged_data)
     
     except Exception as e:
         print(f"Process monthly revenue error: {e}")
@@ -277,7 +300,7 @@ def detect_overcrowded_days(df):
 
 def create_collector_chart(dashboard_data):
     """Tạo biểu đồ donut chart cho người thu tiền"""
-    collector_revenue_data = dashboard_data.get('collector_revenue_selected', pd.DataFrame()).to_dict('records')
+    collector_revenue_data = safe_to_dict_records(dashboard_data.get('collector_revenue_selected', pd.DataFrame()))
     
     return {
         'data': [{
