@@ -920,12 +920,21 @@ NHIỆM VỤ: Phân tích ảnh này và trích xuất CHÍNH XÁC thông tin đ
                     print(f"⚠️ Booking {i+1} is not dict, skipping")
                     continue
                 
-                # Ensure all required fields exist
+                # Ensure all required fields exist and validate dates
+                check_in_date = str(booking.get("check_in_date", "")).strip() or None
+                check_out_date = str(booking.get("check_out_date", "")).strip() or None
+                
+                # Normalize date formats to YYYY-MM-DD
+                if check_in_date:
+                    check_in_date = normalize_date_format(check_in_date)
+                if check_out_date:
+                    check_out_date = normalize_date_format(check_out_date)
+                
                 validated_booking = {
                     "guest_name": str(booking.get("guest_name", "")).strip() or None,
                     "booking_id": str(booking.get("booking_id", "")).strip() or None,
-                    "check_in_date": str(booking.get("check_in_date", "")).strip() or None,
-                    "check_out_date": str(booking.get("check_out_date", "")).strip() or None,
+                    "check_in_date": check_in_date,
+                    "check_out_date": check_out_date,
                     "room_type": str(booking.get("room_type", "")).strip() or None,
                     "total_payment": booking.get("total_payment", 0),
                     "commission": booking.get("commission", 0)
@@ -967,6 +976,38 @@ NHIỆM VỤ: Phân tích ảnh này và trích xuất CHÍNH XÁC thông tin đ
         import traceback
         traceback.print_exc()
         return [{"error": f"Image processing error: {str(main_error)}"}]
+
+def normalize_date_format(date_str: str) -> str:
+    """
+    Normalize various date formats to YYYY-MM-DD
+    """
+    if not date_str or date_str.strip() == '':
+        return None
+    
+    date_str = date_str.strip()
+    
+    # Common date formats to try
+    formats_to_try = [
+        '%Y-%m-%d',      # 2025-01-15
+        '%d/%m/%Y',      # 15/01/2025
+        '%m/%d/%Y',      # 01/15/2025
+        '%d-%m-%Y',      # 15-01-2025
+        '%m-%d-%Y',      # 01-15-2025
+        '%Y/%m/%d',      # 2025/01/15
+        '%d.%m.%Y',      # 15.01.2025
+        '%Y.%m.%d',      # 2025.01.15
+    ]
+    
+    for fmt in formats_to_try:
+        try:
+            parsed_date = datetime.datetime.strptime(date_str, fmt)
+            return parsed_date.strftime('%Y-%m-%d')
+        except ValueError:
+            continue
+    
+    # If no format matches, return original string
+    print(f"⚠️ Could not normalize date format: {date_str}")
+    return date_str
 
 def parse_app_standard_date(date_input: Any) -> Optional[datetime.date]:
     """

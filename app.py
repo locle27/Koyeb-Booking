@@ -469,12 +469,34 @@ def save_extracted_bookings():
                 booking_id = booking.get('booking_id', '').strip() or f"IMG_{datetime.now().strftime('%Y%m%d%H%M%S')}{i:02d}"
                 saved_booking_ids.append(booking_id)  # ✅ Track this ID
                 
-                # Enhanced: Format booking data with better mapping
+                # Enhanced: Format booking data with better mapping and date validation
+                check_in_date = booking.get('check_in_date', '').strip()
+                check_out_date = booking.get('check_out_date', '').strip()
+                
+                # Validate and normalize dates
+                try:
+                    if check_in_date:
+                        check_in_parsed = datetime.strptime(check_in_date, '%Y-%m-%d')
+                        check_in_date = check_in_parsed.strftime('%Y-%m-%d')
+                except ValueError:
+                    print(f"⚠️ Invalid check-in date format: {check_in_date}")
+                    errors.append(f"Booking {i+1}: Định dạng ngày check-in không hợp lệ")
+                    continue
+                
+                try:
+                    if check_out_date:
+                        check_out_parsed = datetime.strptime(check_out_date, '%Y-%m-%d')
+                        check_out_date = check_out_parsed.strftime('%Y-%m-%d')
+                except ValueError:
+                    print(f"⚠️ Invalid check-out date format: {check_out_date}")
+                    errors.append(f"Booking {i+1}: Định dạng ngày check-out không hợp lệ")
+                    continue
+                
                 formatted_booking = {
                     'Tên người đặt': booking.get('guest_name', '').strip(),
                     'Số đặt phòng': booking_id,
-                    'Check-in Date': booking.get('check_in_date', '').strip(),
-                    'Check-out Date': booking.get('check_out_date', '').strip(),
+                    'Check-in Date': check_in_date,
+                    'Check-out Date': check_out_date,
                     'Tên chỗ nghỉ': booking.get('room_type', '').strip() or 'Chưa xác định',
                     'Tổng thanh toán': booking.get('total_payment', 0) or 0,
                     'Hoa hồng': booking.get('commission', 0) or 0,
@@ -503,6 +525,9 @@ def save_extracted_bookings():
             
             # Save to Google Sheets with enhanced error handling
             try:
+                print(f"[SAVE] Attempting to save {len(formatted_bookings)} bookings...")
+                print(f"[SAVE] Sample booking data: {formatted_bookings[0] if formatted_bookings else 'None'}")
+                
                 append_multiple_bookings_to_sheet(
                     bookings=formatted_bookings,
                     gcp_creds_file_path=GCP_CREDS_FILE_PATH,
@@ -512,8 +537,15 @@ def save_extracted_bookings():
                 print("[SAVE] ✅ Successfully saved to Google Sheets")
                 
                 # ⚠️ QUAN TRỌNG: Xóa cache sau khi lưu thành công
+                print("[CACHE] Clearing cache...")
                 load_data.cache_clear()
                 print("[CACHE] Cache cleared successfully after saving")
+                
+                # Verify data was saved by checking fresh data
+                print("[VERIFY] Loading fresh data to verify save...")
+                fresh_df, _ = load_data()
+                recent_bookings = fresh_df[fresh_df['Số đặt phòng'].isin(saved_booking_ids)] if not fresh_df.empty else pd.DataFrame()
+                print(f"[VERIFY] Found {len(recent_bookings)} newly saved bookings in fresh data")
                 
                 success_message = f'[SUCCESS] Đã lưu thành công {len(formatted_bookings)} đặt phòng mới!'
                 if errors:
