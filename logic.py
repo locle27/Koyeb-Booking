@@ -106,6 +106,17 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
             if invalid_mask.any():
                 invalid_bookings = df[invalid_mask][['Số đặt phòng', 'Tên người đặt']].head(3)
                 print(f"DEBUG: Sample invalid bookings to be removed: {invalid_bookings.to_dict('records')}")
+                
+                # CRITICAL DEBUG: Check if our target booking is being filtered out
+                target_id = '6481690399'
+                target_booking = df[df['Số đặt phòng'].astype(str) == target_id]
+                if not target_booking.empty:
+                    booking_data = target_booking[['Số đặt phòng', 'Tên người đặt']].iloc[0]
+                    print(f"DEBUG: Target booking {target_id} found - ID: '{booking_data['Số đặt phòng']}', Name: '{booking_data['Tên người đặt']}'")
+                    if target_booking.index[0] in df[invalid_mask].index:
+                        print(f"ERROR: Target booking {target_id} is being INCORRECTLY filtered out!")
+                        print(f"ERROR: ID valid: {df_booking_id_valid.iloc[target_booking.index[0]]}")
+                        print(f"ERROR: Name valid: {df_guest_name_valid.iloc[target_booking.index[0]]}")
             
             df = df[df_booking_id_valid & df_guest_name_valid]
             final_count = len(df)
