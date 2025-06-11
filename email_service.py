@@ -30,12 +30,26 @@ class EmailReminderService:
         self.to_emails = [self.reminder_email]
         self.smtp_configured = bool(self.email_user and self.email_password and self.enabled)
         
+        # Debug information
+        print(f"[EMAIL DEBUG] Environment variables loaded:")
+        print(f"  SMTP_SERVER: {self.smtp_server}")
+        print(f"  SMTP_PORT: {self.smtp_port}")
+        print(f"  EMAIL_USER: {'***SET***' if self.email_user else 'NOT SET'}")
+        print(f"  EMAIL_PASSWORD: {'***SET***' if self.email_password else 'NOT SET'}")
+        print(f"  REMINDER_EMAIL: {self.reminder_email}")
+        print(f"  EMAIL_REMINDERS_ENABLED: {self.enabled}")
+        
         if not self.enabled:
             print("[EMAIL] Email reminders DISABLED via EMAIL_REMINDERS_ENABLED=false")
         elif not self.smtp_configured:
-            print("[EMAIL] Email service initialized - SMTP NOT configured (missing EMAIL_USER/PASSWORD)")
+            print("[EMAIL] ❌ SMTP NOT configured - Missing required environment variables:")
+            if not self.email_user:
+                print("  - EMAIL_USER is empty or not set")
+            if not self.email_password:
+                print("  - EMAIL_PASSWORD is empty or not set")
+            print("  💡 Set these in Koyeb dashboard environment variables")
         else:
-            print(f"[EMAIL] Email service initialized - SMTP configured: {self.smtp_configured}")
+            print(f"[EMAIL] ✅ SMTP configured successfully")
         
     def _create_checkin_reminder_email(self, booking_data: Dict):
         """Create check-in reminder email content for testing"""
@@ -90,10 +104,20 @@ class EmailReminderService:
                 
             # Kiểm tra cấu hình email
             if not self.email_user or not self.email_password:
-                print(f"[EMAIL] SKIPPED (no config): {subject}")
-                print("   💡 To enable emails: Set EMAIL_USER and EMAIL_PASSWORD in .env")
-                print("   📝 Guide: Use Gmail App Password, not real password!")
+                print(f"[EMAIL] ❌ SKIPPED (missing config): {subject}")
+                print(f"[EMAIL DEBUG] Configuration status:")
+                print(f"  EMAIL_USER: {'SET' if self.email_user else 'NOT SET'}")
+                print(f"  EMAIL_PASSWORD: {'SET' if self.email_password else 'NOT SET'}")
+                print(f"  SMTP_SERVER: {self.smtp_server}")
+                print(f"  SMTP_PORT: {self.smtp_port}")
+                print("   💡 For Koyeb: Set EMAIL_USER and EMAIL_PASSWORD in dashboard environment variables")
+                print("   📝 Gmail: Use App Password, not real password!")
                 return False
+            
+            print(f"[EMAIL] 🔄 Attempting to send: {subject}")
+            print(f"[EMAIL] 📤 From: {self.email_user}")
+            print(f"[EMAIL] 📥 To: {to_email}")
+            print(f"[EMAIL] 🌐 SMTP: {self.smtp_server}:{self.smtp_port}")
             
             # Tạo message
             msg = MIMEMultipart('alternative')
@@ -105,19 +129,39 @@ class EmailReminderService:
             html_part = MIMEText(body, 'html', 'utf-8')
             msg.attach(html_part)
             
-            # Kết nối SMTP và gửi email
+            # Kết nối SMTP và gửi email với chi tiết debug
+            print(f"[EMAIL] 🔌 Connecting to SMTP server...")
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                print(f"[EMAIL] 🔐 Starting TLS encryption...")
                 server.starttls()
+                print(f"[EMAIL] 🔑 Logging in with credentials...")
                 server.login(self.email_user, self.email_password)
+                print(f"[EMAIL] 📧 Sending message...")
                 server.send_message(msg)
                 
-            print(f"[EMAIL] ✅ Sent successfully to {to_email}: {subject}")
+            print(f"[EMAIL] ✅ Successfully sent to {to_email}: {subject}")
             return True
             
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"[EMAIL] ❌ SMTP Authentication Error: {str(e)}")
+            print(f"   💡 Check EMAIL_USER and EMAIL_PASSWORD")
+            print(f"   📝 For Gmail: Use App Password instead of regular password")
+            print(f"   🔗 Generate App Password: https://myaccount.google.com/apppasswords")
+            return False
+        except smtplib.SMTPConnectError as e:
+            print(f"[EMAIL] ❌ SMTP Connection Error: {str(e)}")
+            print(f"   💡 Check SMTP_SERVER ({self.smtp_server}) and SMTP_PORT ({self.smtp_port})")
+            print(f"   🌐 Network connectivity issue or firewall blocking")
+            return False
+        except smtplib.SMTPRecipientsRefused as e:
+            print(f"[EMAIL] ❌ Recipient Refused: {str(e)}")
+            print(f"   💡 Check recipient email address: {to_email}")
+            return False
         except Exception as e:
-            print(f"[EMAIL] ❌ Error sending: {str(e)}")
+            print(f"[EMAIL] ❌ Unexpected error: {str(e)}")
             print(f"   Subject: {subject}")
-            print("   💡 Check EMAIL_USER and EMAIL_PASSWORD in .env")
+            print(f"   Error type: {type(e).__name__}")
+            print("   💡 This might be a network issue or server configuration problem")
             return False
     
     def send_checkin_reminder(self, booking_data: Dict) -> bool:

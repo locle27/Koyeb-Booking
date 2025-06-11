@@ -1430,18 +1430,69 @@ def reminder_system_page():
 
 @app.route('/api/test_email', methods=['POST'])
 def test_email_connection():
-    """Test email connection"""
+    """Test email connection với debug chi tiết"""
     try:
+        print("[API] 🧪 Testing email connection...")
+        
+        # Check email service configuration first
+        if not email_service.enabled:
+            return jsonify({
+                "success": False,
+                "message": "❌ Email reminders are disabled. Set EMAIL_REMINDERS_ENABLED=true",
+                "debug_info": {
+                    "enabled": email_service.enabled,
+                    "smtp_configured": email_service.smtp_configured
+                }
+            })
+        
+        if not email_service.smtp_configured:
+            missing_vars = []
+            if not email_service.email_user:
+                missing_vars.append("EMAIL_USER")
+            if not email_service.email_password:
+                missing_vars.append("EMAIL_PASSWORD")
+            
+            return jsonify({
+                "success": False,
+                "message": f"❌ Missing environment variables: {', '.join(missing_vars)}",
+                "debug_info": {
+                    "missing_variables": missing_vars,
+                    "smtp_server": email_service.smtp_server,
+                    "smtp_port": email_service.smtp_port,
+                    "reminder_email": email_service.reminder_email,
+                    "setup_guide": "Set EMAIL_USER and EMAIL_PASSWORD in Koyeb dashboard"
+                }
+            })
+        
+        # Attempt to send test email
         success = send_test_email()
+        
         if success:
             return jsonify({
                 "success": True,
-                "message": "✅ Email test thành công! Kiểm tra inbox của bạn."
+                "message": "✅ Email test thành công! Kiểm tra inbox của bạn.",
+                "debug_info": {
+                    "smtp_server": email_service.smtp_server,
+                    "smtp_port": email_service.smtp_port,
+                    "from_email": email_service.email_user,
+                    "to_email": email_service.reminder_email
+                }
             })
         else:
             return jsonify({
                 "success": False, 
-                "message": "❌ Email test thất bại. Kiểm tra cấu hình SMTP."
+                "message": "❌ Email test failed. Check SMTP configuration.",
+                "debug_info": {
+                    "smtp_server": email_service.smtp_server,
+                    "smtp_port": email_service.smtp_port,
+                    "possible_issues": [
+                        "Invalid EMAIL_USER or EMAIL_PASSWORD",
+                        "Need Gmail App Password (not regular password)",
+                        "SMTP server connection blocked",
+                        "Network connectivity issue"
+                    ],
+                    "setup_guide": "For Gmail: Generate App Password at https://myaccount.google.com/apppasswords"
+                }
             })
     except Exception as e:
         return jsonify({

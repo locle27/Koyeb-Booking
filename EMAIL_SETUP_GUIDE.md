@@ -1,5 +1,37 @@
 # 📧 Email Reminder System - Setup Guide
 
+## 🚨 URGENT FIX: "❌ Email test failed. Check SMTP configuration."
+
+**Problem**: Email environment variables not set in Koyeb deployment.
+
+**Quick Solution**: 
+1. Go to **Koyeb Dashboard** → Your App → **Settings** → **Environment Variables**
+2. Add missing variables (see section below)
+3. **Redeploy** your app
+
+## 🔧 KOYEB DEPLOYMENT SETUP
+
+### Required Environment Variables for Koyeb:
+
+| Variable | Value | Required |
+|----------|-------|----------|
+| `EMAIL_USER` | `your-gmail@gmail.com` | ✅ **YES** |
+| `EMAIL_PASSWORD` | `your-16-char-app-password` | ✅ **YES** |
+| `SMTP_SERVER` | `smtp.gmail.com` | Optional (default) |
+| `SMTP_PORT` | `587` | Optional (default) |
+| `REMINDER_EMAIL` | `loc22100302@gmail.com` | Optional (default) |
+| `EMAIL_REMINDERS_ENABLED` | `true` | Optional (default) |
+
+### Koyeb Setup Steps:
+1. **Get Gmail App Password** (see steps below)
+2. **Add to Koyeb Environment Variables**:
+   ```
+   EMAIL_USER=youremail@gmail.com
+   EMAIL_PASSWORD=abcd efgh ijkl mnop
+   ```
+3. **Redeploy** your Koyeb app
+4. **Test** via app UI `/reminder_system` page
+
 ## 🤔 TẠI SAO CẦN EMAIL PASSWORD?
 
 **Email Reminder System** tự động gửi email khi:
