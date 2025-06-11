@@ -1,0 +1,28 @@
+Google Sheets Header Analysis
+==================================================
+
+Total columns: 21
+Empty columns: 0
+
+Column Details:
+ 1: 'Số đặt phòng' (len=12)
+ 2: 'Tên người đặt' (len=13)
+ 3: 'Tên chỗ nghỉ' (len=12)
+ 4: 'Check-in Date' (len=13)
+ 5: 'Check-out Date' (len=14)
+ 6: 'Stay Duration' (len=13)
+ 7: 'Tình trạng' (len=10)
+ 8: 'Tổng thanh toán' (len=15)
+ 9: 'Giá mỗi đêm' (len=11)
+10: 'Booking Date' (len=12)
+11: 'Ngày đến' (len=8)
+12: 'Ngày đi' (len=7)
+13: 'Vị trí' (len=6)
+14: 'Thành viên Genius' (len=17)
+15: 'Được đặt vào' (len=12)
+16: 'Hoa hồng' (len=8)
+17: 'Tiền tệ' (len=7)
+18: 'Người nhận tiền' (len=15)
+19: 'Ghi chú thanh toán' (len=18)
+20: 'Người thu tiền' (len=14)
+21: 'Taxi' (len=4)

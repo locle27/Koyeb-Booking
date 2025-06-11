@@ -68,7 +68,11 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
         
         # === FIX: HANDLE DUPLICATE COLUMN NAMES ===
         original_columns = data[0]
-        print(f"DEBUG: Original columns: {original_columns}")
+        # Safe print for Windows encoding
+        try:
+            print(f"DEBUG: Original columns: {original_columns}")
+        except UnicodeEncodeError:
+            print(f"DEBUG: Original columns count: {len(original_columns)}")
         
         # Detect and fix duplicate columns
         seen_columns = {}
@@ -83,7 +87,11 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
                 clean_columns.append(col)
         
         df = pd.DataFrame(data[1:], columns=clean_columns)
-        print(f"DEBUG: Cleaned columns: {clean_columns}")
+        # Safe print for Windows encoding
+        try:
+            print(f"DEBUG: Cleaned columns: {clean_columns}")
+        except UnicodeEncodeError:
+            print(f"DEBUG: Cleaned columns count: {len(clean_columns)}")
         
         # === SỬA LỖI: LỌC BỎ HÀNG TRỐNG ===
         print(f"DEBUG: Original data has {len(df)} rows")
@@ -194,26 +202,26 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
     Enhanced version với debug chi tiết để fix vấn đề mapping columns
     """
     try:
-        print(f"🔄 Starting append {len(bookings)} bookings to Google Sheet")
+        print(f"Starting append {len(bookings)} bookings to Google Sheet")
         
         gc = _get_gspread_client(gcp_creds_file_path)
         spreadsheet = gc.open_by_key(sheet_id)
         worksheet = spreadsheet.worksheet(worksheet_name)
         
         # Debug: Verify worksheet details
-        print(f"📋 Worksheet Info: Name='{worksheet.title}', ID={worksheet.id}")
-        print(f"📋 Worksheet Row Count: {worksheet.row_count}")
+        print(f"Worksheet Info: Name='{worksheet.title}', ID={worksheet.id}")
+        print(f"Worksheet Row Count: {worksheet.row_count}")
         
         # Debug: Print first booking structure
         if bookings:
-            print(f"📝 Sample booking data keys: {list(bookings[0].keys())}")
+            print(f"Sample booking data keys: {list(bookings[0].keys())}")
         
         # Get header from Google Sheet
         header = worksheet.row_values(1)
-        print(f"📊 Google Sheet header: {header}")
+        print(f"Google Sheet header: {header}")
         
         # Debug: Print EXACT header structure for diagnosis
-        print(f"📊 RAW Google Sheet header ({len(header)} columns):")
+        print(f"RAW Google Sheet header ({len(header)} columns):")
         for i, col in enumerate(header):
             print(f"  {i+1:2d}: '{col}' (len={len(col)})")
         
@@ -225,34 +233,60 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
                     missing_columns.append(key)
         
         if missing_columns:
-            print(f"⚠️ WARNING: Keys in booking data not found in sheet header: {set(missing_columns)}")
-            print(f"📝 Available header columns: {header}")
-            print(f"🔍 Booking data keys: {list(bookings[0].keys()) if bookings else 'None'}")
+            print(f"WARNING: Keys in booking data not found in sheet header: {set(missing_columns)}")
+            print(f"Available header columns: {header}")
+            print(f"Booking data keys: {list(bookings[0].keys()) if bookings else 'None'}")
         
-        # CRITICAL FIX: Clean and normalize header to prevent column drift
+        # CRITICAL FIX: Exact column matching to prevent column drift
+        # Expected columns in exact order from debug analysis
+        EXPECTED_COLUMNS = [
+            'Số đặt phòng', 'Tên người đặt', 'Tên chỗ nghỉ', 'Check-in Date', 'Check-out Date',
+            'Stay Duration', 'Tình trạng', 'Tổng thanh toán', 'Giá mỗi đêm', 'Booking Date',
+            'Ngày đến', 'Ngày đi', 'Vị trí', 'Thành viên Genius', 'Được đặt vào',
+            'Hoa hồng', 'Tiền tệ', 'Người nhận tiền', 'Ghi chú thanh toán', 'Người thu tiền', 'Taxi'
+        ]
+        
         clean_header = []
-        empty_count = 0
         
-        for i, col in enumerate(header):
-            col_clean = str(col).strip() if col else ''
-            if col_clean and col_clean != '':
-                # Fix common truncated column names
-                if col_clean == 'ên người đặt':  # Missing "T"
-                    col_clean = 'Tên người đặt'
-                    print(f"🔧 Fixed truncated column: '{col}' → '{col_clean}'")
-                elif col_clean.endswith('ười') or col_clean.endswith('tiền'):  # Truncated endings
-                    if 'thu' in col_clean.lower():
-                        col_clean = 'Người thu tiền'
-                        print(f"🔧 Fixed truncated column: '{col}' → '{col_clean}'")
-                
-                clean_header.append(col_clean)
-                print(f"✅ Column {i+1}: '{col_clean}'")
+        # Use expected columns if header matches (with some tolerance for extra columns)
+        if len(header) >= len(EXPECTED_COLUMNS):
+            print(f"Using EXPECTED column structure ({len(EXPECTED_COLUMNS)} columns)")
+            clean_header = EXPECTED_COLUMNS.copy()
+            
+            # Verify that key columns exist in actual header
+            key_columns = ['Số đặt phòng', 'Tên người đặt', 'Check-in Date', 'Check-out Date']
+            missing_key_cols = []
+            for key_col in key_columns:
+                if key_col not in header:
+                    missing_key_cols.append(key_col)
+            
+            if missing_key_cols:
+                print(f"WARNING: Missing key columns in sheet: {missing_key_cols}")
+                print("Falling back to dynamic header detection...")
+                # Fall back to original logic
+                clean_header = []
+                for i, col in enumerate(header):
+                    col_clean = str(col).strip() if col else ''
+                    if col_clean and col_clean != '':
+                        clean_header.append(col_clean)
+                    else:
+                        print(f"Skipping empty column at position {i+1}")
             else:
-                empty_count += 1
-                print(f"⚠️ Skipping empty column at position {i+1}")
+                print(f"All key columns found in sheet header")
+        else:
+            print(f"Sheet has fewer columns ({len(header)}) than expected ({len(EXPECTED_COLUMNS)})")
+            print("Using dynamic header detection...")
+            # Use original dynamic logic
+            clean_header = []
+            for i, col in enumerate(header):
+                col_clean = str(col).strip() if col else ''
+                if col_clean and col_clean != '':
+                    clean_header.append(col_clean)
+                else:
+                    print(f"Skipping empty column at position {i+1}")
         
-        print(f"📊 FINAL Clean header ({len(clean_header)} columns, {empty_count} empty skipped)")
-        print(f"📋 Clean columns: {clean_header}")
+        print(f"FINAL Clean header ({len(clean_header)} columns)")
+        print(f"First 10 columns: {clean_header[:10]}")
         
         # Also get the EXACT range for writing to avoid column drift
         if clean_header:
@@ -260,15 +294,17 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
             write_range = f"A{worksheet.row_count + 1}:{last_col_letter}{worksheet.row_count + 1}"
             print(f"🎯 Target write range: {write_range}")
         
-        # Create rows with proper mapping using clean header
+        # Create rows with EXACT column mapping
         rows_to_append = []
         for i, booking in enumerate(bookings):
             row = []
+            
+            # Map booking data to exact column positions
             for col in clean_header:
                 value = booking.get(col, '')
+                
                 # Special handling for dates - ensure proper format
                 if 'Date' in col and value:
-                    # Ensure date is in YYYY-MM-DD format
                     try:
                         if isinstance(value, str) and value.strip():
                             # Validate date format
@@ -279,29 +315,67 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
                         print(f"⚠️ Invalid date format for {col}: {value} in booking {i+1}")
                         value = ''  # Set empty if invalid
                 
+                # Convert to string and handle None
                 row.append(str(value) if value is not None else '')
             
-            # Ensure row has exactly the same length as clean header
+            # CRITICAL: Ensure row has exactly the same length as clean header
             while len(row) < len(clean_header):
                 row.append('')
-                
+            
+            # Truncate if somehow longer than header  
+            if len(row) > len(clean_header):
+                row = row[:len(clean_header)]
+            
             rows_to_append.append(row)
-            print(f"✅ Mapped booking {i+1}: {booking.get('Tên người đặt', 'Unknown')} ({len(row)} fields)")
+            
+            # Enhanced logging for first booking
+            if i == 0:
+                print(f"Sample mapping for booking 1:")
+                print(f"   Guest: {booking.get('Tên người đặt', 'N/A')}")
+                print(f"   Booking ID: {booking.get('Số đặt phòng', 'N/A')}")
+                print(f"   Row length: {len(row)} (header: {len(clean_header)})")
+                print(f"   First 5 values: {row[:5]}")
+            else:
+                print(f"Mapped booking {i+1}: {booking.get('Tên người đặt', 'Unknown')} ({len(row)} fields)")
+            
+            # Validation: Check that critical fields are in correct positions
+            if 'Số đặt phòng' in booking and 'Tên người đặt' in booking:
+                try:
+                    booking_id_col_idx = clean_header.index('Số đặt phòng')
+                    guest_name_col_idx = clean_header.index('Tên người đặt')
+                    
+                    if row[booking_id_col_idx] != str(booking.get('Số đặt phòng', '')):
+                        print(f"MAPPING ERROR: Booking ID mismatch for booking {i+1}")
+                    if row[guest_name_col_idx] != str(booking.get('Tên người đặt', '')):
+                        print(f"MAPPING ERROR: Guest name mismatch for booking {i+1}")
+                except (ValueError, IndexError) as e:
+                    print(f"Validation error for booking {i+1}: {e}")
         
         if rows_to_append:
-            print(f"💾 Writing {len(rows_to_append)} rows to Google Sheet...")
+            print(f"Writing {len(rows_to_append)} rows to Google Sheet...")
             pre_save_count = worksheet.row_count
-            print(f"📊 Pre-save row count: {pre_save_count}")
+            print(f"Pre-save row count: {pre_save_count}")
             
-            # CRITICAL FIX: Use exact range update instead of append_rows to prevent column drift
-            if clean_header and len(clean_header) <= 26:  # Only for A-Z columns
+            # ENHANCED: Use exact range update with improved verification
+            if clean_header and len(clean_header) <= 50:  # Support more columns
                 start_row = pre_save_count + 1
                 end_row = start_row + len(rows_to_append) - 1
-                last_col_letter = chr(ord('A') + len(clean_header) - 1)
+                
+                # Generate column letters for wider ranges (A-Z, AA-AZ, etc.)
+                def num_to_col_letters(num):
+                    """Convert number to Excel column letters (1=A, 26=Z, 27=AA, etc.)"""
+                    letters = ''
+                    while num > 0:
+                        num -= 1
+                        letters = chr(num % 26 + ord('A')) + letters
+                        num //= 26
+                    return letters
+                
+                last_col_letter = num_to_col_letters(len(clean_header))
                 exact_range = f"A{start_row}:{last_col_letter}{end_row}"
                 
-                print(f"🎯 Using EXACT range update: {exact_range}")
-                print(f"📏 Data dimensions: {len(rows_to_append)} rows × {len(clean_header)} columns")
+                print(f"Using EXACT range update: {exact_range}")
+                print(f"Data dimensions: {len(rows_to_append)} rows × {len(clean_header)} columns")
                 
                 # Ensure all rows have exactly the right number of columns
                 normalized_rows = []
@@ -310,18 +384,26 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
                     while len(normalized_row) < len(clean_header):  # Pad if too short
                         normalized_row.append('')
                     normalized_rows.append(normalized_row)
-                    
-                worksheet.update(normalized_rows, exact_range, value_input_option='USER_ENTERED')
+                
+                # Save with enhanced error handling    
+                try:
+                    worksheet.update(normalized_rows, exact_range, value_input_option='USER_ENTERED')
+                    print(f"Successfully updated range {exact_range}")
+                except Exception as update_error:
+                    print(f"Range update failed: {update_error}")
+                    print("Falling back to append_rows method...")
+                    worksheet.append_rows(normalized_rows, value_input_option='USER_ENTERED')
             else:
                 # Fallback to original method for complex cases
+                print(f"Using fallback append_rows (columns: {len(clean_header)})")
                 worksheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
             
             # CRITICAL: Verify save was successful
             post_save_count = worksheet.row_count  
-            print(f"📊 Post-save row count: {post_save_count}")
+            print(f"Post-save row count: {post_save_count}")
             
             if post_save_count > pre_save_count:
-                print(f"🎉 Successfully appended {len(rows_to_append)} bookings to sheet!")
+                print(f"Successfully appended {len(rows_to_append)} bookings to sheet!")
                 
                 # Verify last row contains our data
                 if bookings and 'Số đặt phòng' in bookings[0]:
@@ -329,17 +411,17 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
                     try:
                         last_row_data = worksheet.row_values(post_save_count)
                         if last_row_data and len(last_row_data) > 0:
-                            print(f"✅ Last row data preview: {last_row_data[:3]}")  # First 3 cells
+                            print(f"Last row data preview: {last_row_data[:3]}")  # First 3 cells
                             if target_id in str(last_row_data):
-                                print(f"✅ CONFIRMED: Target ID {target_id} found in saved row!")
+                                print(f"CONFIRMED: Target ID {target_id} found in saved row!")
                             else:
-                                print(f"⚠️ WARNING: Target ID {target_id} NOT found in saved row!")
+                                print(f"WARNING: Target ID {target_id} NOT found in saved row!")
                     except Exception as verify_error:
-                        print(f"⚠️ Could not verify saved data: {verify_error}")
+                        print(f"Could not verify saved data: {verify_error}")
             else:
-                print(f"❌ ERROR: Row count did not increase! Expected increase but got {post_save_count} (was {pre_save_count})")
+                print(f"ERROR: Row count did not increase! Expected increase but got {post_save_count} (was {pre_save_count})")
         else:
-            print("❌ No valid rows to append")
+            print("No valid rows to append")
             
     except Exception as e:
         print(f"💥 Error in append_multiple_bookings_to_sheet: {e}")

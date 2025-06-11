@@ -519,7 +519,7 @@ def save_extracted_bookings():
                     except:
                         checkout_vn = ''
                 
-                # Use correct column mapping with proper full names
+                # Use correct column mapping with proper full names - EXACT MATCH với Google Sheets
                 formatted_booking = {
                     'Số đặt phòng': booking_id,
                     'Tên người đặt': booking.get('guest_name', '').strip(),
