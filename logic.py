@@ -126,6 +126,16 @@ def import_from_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: 
                 removed_count = original_count - final_count
                 print(f"DEBUG: Removed {removed_count} rows with missing info")
         
+        # CRITICAL DEBUG: Check for target booking in RAW data before filtering
+        target_id = '6481690399'
+        raw_target_check = df[df['Số đặt phòng'].astype(str) == target_id]
+        if not raw_target_check.empty:
+            print(f"DEBUG RAW: Target booking {target_id} FOUND in raw data at row {raw_target_check.index[0]}")
+            print(f"DEBUG RAW: Data: {raw_target_check[['Số đặt phòng', 'Tên người đặt']].iloc[0].to_dict()}")
+        else:
+            print(f"DEBUG RAW: Target booking {target_id} NOT FOUND in raw data!")
+            print(f"DEBUG RAW: Sample booking IDs in raw data: {df['Số đặt phòng'].head(10).tolist()}")
+        
         # Reset index sau khi loại bỏ hàng
         df = df.reset_index(drop=True)
         
