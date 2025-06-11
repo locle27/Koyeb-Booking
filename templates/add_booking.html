@@ -87,11 +87,17 @@
 <form method="POST" action="{{ url_for('add_booking') }}">
     <div class="row g-3">
         <!-- Essential Information -->
-        <div class="col-md-12">
+        <div class="col-md-8">
             <label for="Tên người đặt" class="form-label"><i class="fas fa-user me-1"></i>Tên người đặt *</label>
             <input type="text" class="form-control" id="Tên người đặt" name="Tên người đặt" 
                    value="{{ form_data.get('Tên người đặt', '') if form_data else '' }}" 
                    placeholder="Nhập tên khách hàng" required>
+        </div>
+        <div class="col-md-4">
+            <label for="Số khách" class="form-label"><i class="fas fa-users me-1"></i>Số khách</label>
+            <input type="number" class="form-control" id="Số khách" name="Số khách" 
+                   value="{{ form_data.get('Số khách', '1') if form_data else '1' }}" 
+                   placeholder="1" min="1" max="10">
         </div>
 
         <!-- Dates -->
@@ -172,6 +178,7 @@ function processPhoto(imageData) {
             document.querySelector('input[name="Ngày đi"]').value = booking.check_out_date || '';
             document.querySelector('input[name="Tổng thanh toán"]').value = booking.total_payment || '';
             document.querySelector('input[name="Hoa hồng"]').value = booking.commission || '';
+            document.querySelector('input[name="Số khách"]').value = booking.guest_count || '1';
         }
     })
     .catch(error => {
