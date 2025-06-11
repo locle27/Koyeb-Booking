@@ -415,6 +415,11 @@
                             <i class="fas fa-robot me-1"></i>AI Assistant Hub
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'reminder_system_page' %}active{% endif %}" href="{{ url_for('reminder_system_page') }}">
+                            <i class="fas fa-bell me-1"></i>Email Reminders
+                        </a>
+                    </li>
                     <!-- Market Analysis menu removed per user request -->
                 </ul>
                 <ul class="navbar-nav">

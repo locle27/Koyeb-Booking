@@ -40,8 +40,16 @@ from logic import (
 #     MarketPriceAnalyzer
 # )
 
-# AI Pricing Analyst - REMOVED per user request  
+# Import AI Pricing Analyst - REMOVED per user request  
 # from ai_pricing_analyst import analyze_budget_pricing_with_ai, analyze_price_range_with_ai
+
+# Import Email & Reminder System
+from email_service import send_test_email, email_service
+from reminder_system import (
+    start_reminder_system, stop_reminder_system, 
+    get_reminder_status, manual_trigger_reminders,
+    enable_reminders, disable_reminders
+)
 
 # Cấu hình
 BASE_DIR = Path(__file__).resolve().parent
@@ -1431,6 +1439,103 @@ def import_templates():
 #     """API endpoint trả về URL mặc định cho Khu Phố Cổ Hà Nội - REMOVED"""
 #     return jsonify({"error": "Default booking URL feature has been removed", "success": False}), 410
 
+# === EMAIL REMINDER SYSTEM ROUTES ===
+@app.route('/reminder_system')
+def reminder_system_page():
+    """Trang quản lý Email Reminder System"""
+    return render_template('reminder_system.html')
+
+@app.route('/api/test_email', methods=['POST'])
+def test_email_connection():
+    """Test email connection"""
+    try:
+        success = send_test_email()
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "✅ Email test thành công! Kiểm tra inbox của bạn."
+            })
+        else:
+            return jsonify({
+                "success": False, 
+                "message": "❌ Email test thất bại. Kiểm tra cấu hình SMTP."
+            })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"❌ Lỗi test email: {str(e)}"
+        }), 500
+
+@app.route('/api/trigger_reminders', methods=['POST'])
+def trigger_reminders_manually():
+    """Manual trigger reminders ngay lập tức"""
+    try:
+        results = manual_trigger_reminders()
+        
+        if "error" in results:
+            return jsonify({
+                "success": False,
+                "message": results["error"]
+            }), 500
+        
+        return jsonify({
+            "success": True,
+            "message": f"✅ Đã gửi {results['emails_sent']} email reminder!",
+            "details": results
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"❌ Lỗi trigger reminders: {str(e)}"
+        }), 500
+
+@app.route('/api/reminder_status')
+def get_reminder_system_status():
+    """Lấy status của reminder system"""
+    try:
+        status = get_reminder_status()
+        return jsonify({
+            "success": True,
+            "status": status
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"❌ Lỗi lấy status: {str(e)}"
+        }), 500
+
+@app.route('/api/reminder_control', methods=['POST'])
+def control_reminder_system():
+    """Enable/Disable reminder system"""
+    try:
+        data = request.get_json()
+        action = data.get('action', '')
+        
+        if action == 'enable':
+            enable_reminders()
+            return jsonify({
+                "success": True,
+                "message": "✅ Reminder system đã được bật"
+            })
+        elif action == 'disable':
+            disable_reminders()
+            return jsonify({
+                "success": True,
+                "message": "🔕 Reminder system đã được tắt"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": "❌ Action không hợp lệ. Dùng 'enable' hoặc 'disable'"
+            }), 400
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"❌ Lỗi control system: {str(e)}"
+        }), 500
+
 # Thêm route sau các route hiện có
 @app.route('/templates/export')
 def export_templates_route():
@@ -1752,6 +1857,15 @@ Translation:
 
 # --- Chạy ứng dụng ---
 if __name__ == '__main__':
+    # Initialize and start reminder system
+    try:
+        print("🤖 Starting Hotel Reminder System...")
+        start_reminder_system()
+        print("✅ Reminder System started successfully")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not start reminder system: {e}")
+        print("   Email reminders will be available for manual triggering only")
+    
     # Chạy trên cổng từ environment variable hoặc mặc định 8080 cho Koyeb
     port = int(os.getenv("PORT", 8080))
     app.run(host='0.0.0.0', port=port, debug=False)

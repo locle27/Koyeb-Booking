@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+{% block title %}Email Reminder System{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="text-primary mb-1">
+                <i class="fas fa-bell me-2"></i>Email Reminder System
+            </h3>
+            <p class="text-muted mb-0">Tự động gửi email nhắc hẹn cho check-in, check-out và thanh toán</p>
+        </div>
+        <a href="/" class="btn btn-outline-primary">
+            <i class="fas fa-home me-1"></i>Về trang chủ
+        </a>
+    </div>
+
+    <!-- System Status Card -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Trạng thái Hệ thống
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="systemStatusContainer">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Đang tải...</span>
+                            </div>
+                            <p class="mt-2">Đang lấy trạng thái hệ thống...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>Điều khiển
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button id="enableBtn" class="btn btn-success btn-sm" onclick="controlSystem('enable')">
+                            <i class="fas fa-play me-1"></i>Bật Reminders
+                        </button>
+                        <button id="disableBtn" class="btn btn-warning btn-sm" onclick="controlSystem('disable')">
+                            <i class="fas fa-pause me-1"></i>Tắt Reminders
+                        </button>
+                        <button id="refreshBtn" class="btn btn-outline-info btn-sm" onclick="refreshStatus()">
+                            <i class="fas fa-sync-alt me-1"></i>Làm mới
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-envelope-circle-check me-2"></i>Test Email
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">Kiểm tra kết nối email và gửi email test tới: <strong>loc22100302@gmail.com</strong></p>
+                    <button id="testEmailBtn" class="btn btn-warning w-100" onclick="testEmailConnection()">
+                        <i class="fas fa-paper-plane me-2"></i>Gửi Email Test
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>Manual Trigger
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">Chạy kiểm tra và gửi email reminder ngay lập tức (không chờ lịch tự động)</p>
+                    <button id="triggerBtn" class="btn btn-info w-100" onclick="triggerReminders()">
+                        <i class="fas fa-rocket me-2"></i>Chạy Reminders Ngay
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Display -->
+    <div id="resultsSection" class="row mb-4" style="display: none;">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Kết quả Reminder
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="resultsContent">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Configuration Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-secondary">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-gear me-2"></i>Cấu hình Email
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-server me-2"></i>SMTP Settings:</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Server:</strong> smtp.gmail.com:587</li>
+                                <li><strong>Security:</strong> STARTTLS</li>
+                                <li><strong>Email người gửi:</strong> <span id="senderEmail">{{ EMAIL_USER or 'Chưa cấu hình' }}</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-clock me-2"></i>Reminder Schedule:</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Tần suất check:</strong> Mỗi giờ</li>
+                                <li><strong>Email nhận reminder:</strong> loc22100302@gmail.com</li>
+                                <li><strong>Loại reminder:</strong> Check-in, Check-out, Payment</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <h6><i class="fas fa-lightbulb me-2"></i>Hướng dẫn cấu hình:</h6>
+                        <ol>
+                            <li>Tạo Gmail App Password tại <a href="https://myaccount.google.com/apppasswords" target="_blank">Google Account Settings</a></li>
+                            <li>Cập nhật <code>EMAIL_USER</code> và <code>EMAIL_PASSWORD</code> trong file <code>.env</code></li>
+                            <li>Test email connection để đảm bảo cấu hình đúng</li>
+                            <li>Bật hệ thống reminder để bắt đầu nhận email tự động</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reminder Types Info -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-center border-success">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="fas fa-sign-in-alt me-2"></i>Check-in Reminders</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">Gửi email nhắc nhở khi có khách check-in trong ngày</p>
+                    <ul class="list-unstyled small text-start">
+                        <li>✅ Thông tin booking</li>
+                        <li>✅ Checklist chuẩn bị</li>
+                        <li>✅ Hướng dẫn đón khách</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="fas fa-sign-out-alt me-2"></i>Check-out Reminders</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">Gửi email nhắc nhở khi có khách check-out trong ngày</p>
+                    <ul class="list-unstyled small text-start">
+                        <li>✅ Thông tin checkout</li>
+                        <li>✅ Checklist kiểm tra phòng</li>
+                        <li>✅ Thu hồi chìa khóa</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0"><i class="fas fa-money-bill-wave me-2"></i>Payment Reminders</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">Gửi email nhắc nhở thu tiền khách đã check-in nhưng chưa thanh toán</p>
+                    <ul class="list-unstyled small text-start">
+                        <li>✅ Thông tin thanh toán</li>
+                        <li>✅ Số tiền cần thu</li>
+                        <li>✅ Hướng dẫn thu tiền</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notifications -->
+<div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+<style>
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-running {
+    background-color: #28a745;
+    animation: pulse 2s infinite;
+}
+
+.status-stopped {
+    background-color: #dc3545;
+}
+
+.status-disabled {
+    background-color: #6c757d;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.loading-btn {
+    position: relative;
+}
+
+.loading-btn .btn-text {
+    opacity: 0;
+}
+
+.loading-btn::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Reminder System page loaded');
+    refreshStatus();
+    
+    // Auto-refresh status every 30 seconds
+    setInterval(refreshStatus, 30000);
+});
+
+// Test email connection
+async function testEmailConnection() {
+    const btn = document.getElementById('testEmailBtn');
+    setButtonLoading(btn, true);
+    
+    try {
+        const response = await fetch('/api/test_email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('success', 'Email Test Thành Công', result.message);
+        } else {
+            showToast('error', 'Email Test Thất Bại', result.message);
+        }
+        
+    } catch (error) {
+        showToast('error', 'Lỗi Kết Nối', 'Không thể kết nối tới server: ' + error.message);
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
+// Manual trigger reminders
+async function triggerReminders() {
+    const btn = document.getElementById('triggerBtn');
+    setButtonLoading(btn, true);
+    
+    try {
+        const response = await fetch('/api/trigger_reminders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('success', 'Reminders Triggered', result.message);
+            displayTriggerResults(result.details);
+        } else {
+            showToast('error', 'Trigger Thất Bại', result.message);
+        }
+        
+    } catch (error) {
+        showToast('error', 'Lỗi Kết Nối', 'Không thể kết nối tới server: ' + error.message);
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
+// Control system (enable/disable)
+async function controlSystem(action) {
+    const btn = document.getElementById(action + 'Btn');
+    setButtonLoading(btn, true);
+    
+    try {
+        const response = await fetch('/api/reminder_control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('success', 'System Control', result.message);
+            setTimeout(refreshStatus, 1000); // Refresh status after 1 second
+        } else {
+            showToast('error', 'Control Thất Bại', result.message);
+        }
+        
+    } catch (error) {
+        showToast('error', 'Lỗi Kết Nối', 'Không thể kết nối tới server: ' + error.message);
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
+// Refresh system status
+async function refreshStatus() {
+    const btn = document.getElementById('refreshBtn');
+    if (btn) setButtonLoading(btn, true);
+    
+    try {
+        const response = await fetch('/api/reminder_status');
+        const result = await response.json();
+        
+        if (result.success) {
+            displaySystemStatus(result.status);
+        } else {
+            showError('Không thể lấy trạng thái hệ thống');
+        }
+        
+    } catch (error) {
+        showError('Lỗi kết nối: ' + error.message);
+    } finally {
+        if (btn) setButtonLoading(btn, false);
+    }
+}
+
+// Display system status
+function displaySystemStatus(status) {
+    const container = document.getElementById('systemStatusContainer');
+    
+    const runningStatus = status.running && status.enabled ? 'running' : 
+                         status.running && !status.enabled ? 'disabled' : 'stopped';
+    
+    const statusClass = runningStatus === 'running' ? 'status-running' : 
+                       runningStatus === 'disabled' ? 'status-disabled' : 'status-stopped';
+    
+    const statusText = runningStatus === 'running' ? 'Đang hoạt động' :
+                      runningStatus === 'disabled' ? 'Tạm dừng' : 'Đã dừng';
+    
+    const statusColor = runningStatus === 'running' ? 'success' :
+                       runningStatus === 'disabled' ? 'warning' : 'danger';
+    
+    container.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-info-circle me-2"></i>Trạng thái chính:</h6>
+                <div class="mb-3">
+                    <span class="status-indicator ${statusClass}"></span>
+                    <span class="badge bg-${statusColor}">${statusText}</span>
+                </div>
+                
+                <div class="mb-2">
+                    <strong>Lần check cuối:</strong> 
+                    <span class="text-muted">${status.last_check_time || 'Chưa có'}</span>
+                </div>
+                
+                <div class="mb-2">
+                    <strong>Check tiếp theo:</strong> 
+                    <span class="text-muted">${status.next_check_estimate || 'Không xác định'}</span>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <h6><i class="fas fa-cogs me-2"></i>Cấu hình:</h6>
+                <div class="mb-2">
+                    <strong>Tần suất check:</strong> 
+                    <span class="text-info">${status.check_interval_hours} giờ/lần</span>
+                </div>
+                
+                <div class="mb-2">
+                    <strong>Scheduler:</strong> 
+                    <span class="badge ${status.running ? 'bg-success' : 'bg-secondary'}">
+                        ${status.running ? 'Đang chạy' : 'Đã dừng'}
+                    </span>
+                </div>
+                
+                <div class="mb-2">
+                    <strong>Reminders:</strong> 
+                    <span class="badge ${status.enabled ? 'bg-success' : 'bg-warning'}">
+                        ${status.enabled ? 'Đã bật' : 'Đã tắt'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Display trigger results
+function displayTriggerResults(results) {
+    const resultsSection = document.getElementById('resultsSection');
+    const resultsContent = document.getElementById('resultsContent');
+    
+    resultsContent.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-chart-bar me-2"></i>Thống kê:</h6>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="h4 text-primary">${results.checkin_today}</div>
+                            <small>Check-in hôm nay</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="h4 text-warning">${results.checkout_today}</div>
+                            <small>Check-out hôm nay</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="h4 text-danger">${results.payment_overdue}</div>
+                            <small>Chưa thanh toán</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <h6><i class="fas fa-envelope me-2"></i>Kết quả gửi email:</h6>
+                <div class="alert alert-${results.emails_sent > 0 ? 'success' : 'info'}">
+                    <strong>📧 Đã gửi: ${results.emails_sent} email</strong><br>
+                    <small>Thời gian thực hiện: ${results.execution_time}</small><br>
+                    <small>Tổng booking: ${results.total_bookings}</small>
+                </div>
+                
+                ${results.errors && results.errors.length > 0 ? `
+                    <div class="alert alert-warning">
+                        <strong>⚠️ Có lỗi xảy ra:</strong>
+                        <ul class="mb-0 mt-2">
+                            ${results.errors.map(error => `<li>${error}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    resultsSection.style.display = 'block';
+    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Utility functions
+function setButtonLoading(button, loading) {
+    if (loading) {
+        button.disabled = true;
+        button.classList.add('loading-btn');
+        button.innerHTML = '<span class="btn-text">' + button.innerHTML + '</span>';
+    } else {
+        button.disabled = false;
+        button.classList.remove('loading-btn');
+        button.innerHTML = button.querySelector('.btn-text') ? 
+            button.querySelector('.btn-text').innerHTML : button.innerHTML;
+    }
+}
+
+function showToast(type, title, message) {
+    const toastContainer = document.getElementById('toastContainer');
+    const toastId = 'toast-' + Date.now();
+    
+    const bgClass = type === 'success' ? 'bg-success' : 
+                   type === 'error' ? 'bg-danger' : 'bg-info';
+    
+    const icon = type === 'success' ? 'check-circle' : 
+                type === 'error' ? 'exclamation-triangle' : 'info-circle';
+    
+    const toastHtml = `
+        <div id="${toastId}" class="toast ${bgClass} text-white" role="alert">
+            <div class="toast-header ${bgClass} text-white border-0">
+                <i class="fas fa-${icon} me-2"></i>
+                <strong class="me-auto">${title}</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+    
+    // Remove toast after it's hidden
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+}
+
+function showError(message) {
+    const container = document.getElementById('systemStatusContainer');
+    container.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Lỗi:</strong> ${message}
+        </div>
+    `;
+}
+</script>
+{% endblock %}
