@@ -549,10 +549,20 @@ def save_extracted_bookings():
                     print(f"[VERIFY] Total bookings in fresh data: {len(fresh_df)}")
                     print(f"[VERIFY] Looking for booking IDs: {saved_booking_ids}")
                     print(f"[VERIFY] Sample booking IDs in sheet: {fresh_df['Số đặt phòng'].head().tolist()}")
-                    recent_bookings = fresh_df[fresh_df['Số đặt phòng'].isin(saved_booking_ids)]
+                    # Force string comparison to avoid type mismatches
+                    fresh_df['Số đặt phòng'] = fresh_df['Số đặt phòng'].astype(str)
+                    saved_booking_ids_str = [str(id) for id in saved_booking_ids]
+                    recent_bookings = fresh_df[fresh_df['Số đặt phòng'].isin(saved_booking_ids_str)]
                     print(f"[VERIFY] Found {len(recent_bookings)} newly saved bookings in fresh data")
                     if len(recent_bookings) > 0:
                         print(f"[VERIFY] Success! New booking found: {recent_bookings['Tên người đặt'].tolist()}")
+                    else:
+                        # Alternative verification: check for recently added bookings by notes
+                        recent_by_notes = fresh_df[fresh_df['Ghi chú thanh toán'].str.contains('Thêm từ ảnh', na=False)]
+                        print(f"[VERIFY] Alternative check: Found {len(recent_by_notes)} bookings with 'Thêm từ ảnh' notes")
+                        if len(recent_by_notes) > 0:
+                            latest = recent_by_notes.tail(1)
+                            print(f"[VERIFY] Latest booking from image: {latest['Tên người đặt'].iloc[0]} (ID: {latest['Số đặt phòng'].iloc[0]})")
                 else:
                     print("[VERIFY] Fresh data is empty")
                 
