@@ -728,6 +728,10 @@
     let isRecording = false;
     let finalTranscript = '';
     
+    // Voice instruction variables
+    let voiceInstructionRecognition = null;
+    let isVoiceInstructionRecording = false;
+    
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         console.log('AI Assistant Hub initializing...');
@@ -1218,11 +1222,35 @@
         const supportText = document.getElementById('supportText');
         const recordButton = document.getElementById('recordButton');
         
+        // Enhanced mobile detection
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        
+        console.log('Browser detection:', {
+            isMobile,
+            isIOS, 
+            isAndroid,
+            userAgent: navigator.userAgent,
+            hasWebkitSpeech: 'webkitSpeechRecognition' in window,
+            hasSpeech: 'SpeechRecognition' in window
+        });
+        
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            supportText.innerHTML = '✅ Hỗ trợ nhận diện giọng nói';
+            if (isIOS) {
+                supportText.innerHTML = '⚠️ iOS: Chỉ hoạt động trên Safari. Cần nhấn MIC và nói ngay.';
+            } else if (isAndroid) {
+                supportText.innerHTML = '✅ Android: Hỗ trợ đầy đủ. Nhấn MIC để bắt đầu.';
+            } else {
+                supportText.innerHTML = '✅ Desktop: Hỗ trợ nhận diện giọng nói';
+            }
             initializeSpeechRecognition();
         } else {
-            supportText.innerHTML = '❌ Trình duyệt không hỗ trợ nhận diện giọng nói';
+            if (isIOS) {
+                supportText.innerHTML = '❌ iOS: Cần sử dụng Safari browser để dùng tính năng này';
+            } else {
+                supportText.innerHTML = '❌ Trình duyệt không hỗ trợ nhận diện giọng nói';
+            }
             recordButton.disabled = true;
             recordButton.innerHTML = '<i class="fas fa-times"></i>';
         }
@@ -1233,24 +1261,52 @@
             const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
             recognition = new SpeechRecognition();
             
-            recognition.continuous = false;
+            // Mobile-optimized settings
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            
+            // Enhanced settings for mobile
+            recognition.continuous = !isMobile; // iOS works better with false
             recognition.interimResults = true;
             recognition.maxAlternatives = 1;
+            
+            // Start with default language
             recognition.lang = getLanguageCode(document.getElementById('sourceLanguage').value);
             
+            // iOS specific settings
+            if (isIOS) {
+                recognition.continuous = false;
+                recognition.interimResults = false; // More reliable on iOS
+            }
+            
             recognition.onstart = function() {
-                updateStatus('listening', 'Đang nghe...');
-                document.getElementById('recordButton').innerHTML = '<i class="fas fa-stop"></i>';
-                document.getElementById('recordButton').classList.add('recording');
+                console.log('Speech recognition started');
+                updateStatus('listening', '🎤 Đang nghe... (nói ngay)');
+                const button = document.getElementById('recordButton');
+                button.innerHTML = '<i class="fas fa-stop"></i>';
+                button.classList.add('recording');
+                button.style.backgroundColor = '#dc3545';
                 isRecording = true;
+                
+                // Auto-stop on mobile after 10 seconds
+                if (isMobile) {
+                    setTimeout(() => {
+                        if (isRecording) {
+                            recognition.stop();
+                        }
+                    }, 10000);
+                }
             };
             
             recognition.onresult = function(event) {
+                console.log('Speech recognition result:', event.results);
                 let interimTranscript = '';
                 let newFinalTranscript = '';
                 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript;
+                    console.log(`Result ${i}: "${transcript}" (final: ${event.results[i].isFinal})`);
+                    
                     if (event.results[i].isFinal) {
                         newFinalTranscript += transcript;
                     } else {
@@ -1260,25 +1316,57 @@
                 
                 if (newFinalTranscript) {
                     finalTranscript += newFinalTranscript;
+                    console.log('Final transcript updated:', finalTranscript);
                 }
                 
                 const fullText = finalTranscript + interimTranscript;
                 document.getElementById('recognizedText').value = fullText;
                 document.getElementById('manualText').value = fullText;
                 checkTranslateButton();
+                
+                // On mobile, auto-translate when we get final result
+                if (isMobile && newFinalTranscript) {
+                    setTimeout(() => {
+                        if (document.getElementById('translateButton') && !document.getElementById('translateButton').disabled) {
+                            performTranslation();
+                        }
+                    }, 500);
+                }
             };
             
             recognition.onerror = function(event) {
-                console.error('Speech recognition error:', event.error);
-                updateStatus('ready', 'Lỗi nhận diện giọng nói');
+                console.error('Speech recognition error:', event.error, event);
+                let errorMessage = 'Lỗi nhận diện giọng nói';
+                
+                switch(event.error) {
+                    case 'no-speech':
+                        errorMessage = '⚠️ Không nghe thấy giọng nói. Thử lại.';
+                        break;
+                    case 'audio-capture':
+                        errorMessage = '❌ Không thể truy cập microphone';
+                        break;
+                    case 'not-allowed':
+                        errorMessage = '❌ Microphone bị chặn. Cho phép trong cài đặt browser.';
+                        break;
+                    case 'network':
+                        errorMessage = '❌ Lỗi mạng. Kiểm tra kết nối internet.';
+                        break;
+                    default:
+                        errorMessage = `❌ Lỗi: ${event.error}`;
+                }
+                
+                updateStatus('error', errorMessage);
                 resetRecordButton();
             };
             
             recognition.onend = function() {
+                console.log('Speech recognition ended');
                 isRecording = false;
-                updateStatus('ready', 'Sẵn sàng ghi âm');
+                updateStatus('ready', finalTranscript ? '✅ Đã ghi âm xong' : 'Sẵn sàng ghi âm');
                 resetRecordButton();
             };
+            
+            console.log('Speech recognition initialized successfully');
             
         } catch (error) {
             console.error('Failed to initialize speech recognition:', error);
@@ -1295,23 +1383,60 @@
     }
     
     function toggleRecording() {
+        console.log('Toggle recording clicked, recognition:', !!recognition, 'isRecording:', isRecording);
+        
         if (!recognition) {
-            alert('Speech recognition không khả dụng!');
+            alert('Speech recognition không khả dụng!\n\nKiểm tra:\n- Dùng Chrome/Safari\n- Cho phép truy cập microphone\n- Kết nối internet ổn định');
             return;
         }
         
         if (isRecording) {
+            console.log('Stopping recognition...');
             recognition.stop();
         } else {
             try {
-                recognition.lang = getLanguageCode(document.getElementById('sourceLanguage').value);
-                finalTranscript = '';
-                document.getElementById('recognizedText').value = '';
-                document.getElementById('manualText').value = '';
-                recognition.start();
+                // Request microphone permission explicitly on mobile
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({ audio: true })
+                        .then(stream => {
+                            console.log('Microphone access granted');
+                            // Stop the stream since speech recognition will handle it
+                            stream.getTracks().forEach(track => track.stop());
+                            startRecognition();
+                        })
+                        .catch(error => {
+                            console.error('Microphone access denied:', error);
+                            alert('❌ Không thể truy cập microphone!\n\nCách khắc phục:\n1. Cho phép microphone trong browser\n2. Kiểm tra cài đặt thiết bị\n3. Thử làm mới trang');
+                        });
+                } else {
+                    // Fallback for browsers without getUserMedia
+                    startRecognition();
+                }
             } catch (error) {
                 console.error('Error starting recognition:', error);
                 alert('Lỗi khởi động ghi âm: ' + error.message);
+            }
+        }
+    }
+    
+    function startRecognition() {
+        try {
+            console.log('Starting speech recognition...');
+            recognition.lang = getLanguageCode(document.getElementById('sourceLanguage').value);
+            finalTranscript = '';
+            document.getElementById('recognizedText').value = '';
+            document.getElementById('manualText').value = '';
+            
+            // Clear any previous errors
+            updateStatus('ready', 'Đang khởi động...');
+            
+            recognition.start();
+        } catch (error) {
+            console.error('Recognition start error:', error);
+            if (error.name === 'InvalidStateError') {
+                alert('⚠️ Microphone đang được sử dụng.\nĐợi 1 giây rồi thử lại.');
+            } else {
+                alert('Lỗi khởi động: ' + error.message);
             }
         }
     }
@@ -1325,8 +1450,13 @@
     }
     
     function resetRecordButton() {
-        document.getElementById('recordButton').innerHTML = '<i class="fas fa-microphone"></i>';
-        document.getElementById('recordButton').classList.remove('recording');
+        const button = document.getElementById('recordButton');
+        if (button) {
+            button.innerHTML = '<i class="fas fa-microphone"></i>';
+            button.classList.remove('recording');
+            button.style.backgroundColor = '';
+            button.style.animation = '';
+        }
     }
     
     function syncTextAndCheck() {
@@ -1563,53 +1693,130 @@
             return;
         }
         
+        // Enhanced mobile detection and support
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        
         if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-            showError('❌ Trình duyệt không hỗ trợ nhận diện giọng nói');
+            if (isIOS) {
+                showError('❌ iOS: Cần sử dụng Safari browser để dùng voice');
+            } else {
+                showError('❌ Trình duyệt không hỗ trợ nhận diện giọng nói');
+            }
             return;
         }
+        
+        // Request microphone permission first on mobile
+        if (isMobile && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    console.log('Microphone access granted for voice instructions');
+                    stream.getTracks().forEach(track => track.stop());
+                    initVoiceInstructionRecognition();
+                })
+                .catch(error => {
+                    console.error('Microphone access denied for voice instructions:', error);
+                    showError('❌ Không thể truy cập microphone!\nCho phép microphone trong browser settings.');
+                    return;
+                });
+        } else {
+            initVoiceInstructionRecognition();
+        }
+    }
+    
+    function initVoiceInstructionRecognition() {
+        const btn = document.getElementById('voiceInstructBtn');
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         
         try {
             const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
             voiceInstructionRecognition = new SpeechRecognition();
             
-            voiceInstructionRecognition.continuous = false;
-            voiceInstructionRecognition.interimResults = true;
+            // Mobile-optimized settings
+            voiceInstructionRecognition.continuous = !isMobile;
+            voiceInstructionRecognition.interimResults = !isIOS; // iOS works better without interim
             voiceInstructionRecognition.maxAlternatives = 1;
             voiceInstructionRecognition.lang = 'vi-VN';
             
             voiceInstructionRecognition.onstart = function() {
+                console.log('Voice instruction recognition started');
                 isVoiceInstructionRecording = true;
                 btn.innerHTML = '<i class="fas fa-stop"></i>';
                 btn.className = 'btn btn-danger';
-                showSuccess('🎤 Đang nghe... Nói hướng dẫn cho AI');
+                btn.style.animation = 'pulse 1s infinite';
+                showSuccess('🎤 Đang nghe... Nói hướng dẫn cho AI (max 15s)');
+                
+                // Auto-stop on mobile after 15 seconds
+                if (isMobile) {
+                    setTimeout(() => {
+                        if (isVoiceInstructionRecording) {
+                            voiceInstructionRecognition.stop();
+                        }
+                    }, 15000);
+                }
             };
             
             voiceInstructionRecognition.onresult = function(event) {
+                console.log('Voice instruction result:', event.results);
                 let transcript = '';
+                let finalText = '';
+                
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    transcript += event.results[i][0].transcript;
+                    const text = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
-                        document.getElementById('customInstructions').value = transcript;
-                        showSuccess('✅ Đã ghi nhận hướng dẫn bằng voice!');
+                        finalText += text;
+                    } else {
+                        transcript += text;
                     }
+                }
+                
+                // Update textarea with current text
+                if (finalText) {
+                    document.getElementById('customInstructions').value = finalText;
+                    showSuccess('✅ Đã ghi nhận hướng dẫn bằng voice!');
+                } else if (transcript) {
+                    // Show interim results
+                    document.getElementById('customInstructions').placeholder = `Đang nghe: "${transcript}"...`;
                 }
             };
             
             voiceInstructionRecognition.onerror = function(event) {
-                console.error('Voice instruction error:', event.error);
-                showError('❌ Lỗi nhận diện giọng nói: ' + event.error);
+                console.error('Voice instruction error:', event.error, event);
+                let errorMessage = 'Lỗi nhận diện giọng nói';
+                
+                switch(event.error) {
+                    case 'no-speech':
+                        errorMessage = '⚠️ Không nghe thấy giọng nói. Thử lại.';
+                        break;
+                    case 'audio-capture':
+                        errorMessage = '❌ Không thể truy cập microphone';
+                        break;
+                    case 'not-allowed':
+                        errorMessage = '❌ Microphone bị chặn. Cho phép trong cài đặt browser.';
+                        break;
+                    case 'network':
+                        errorMessage = '❌ Lỗi mạng. Kiểm tra kết nối internet.';
+                        break;
+                    default:
+                        errorMessage = `❌ Lỗi: ${event.error}`;
+                }
+                
+                showError(errorMessage);
                 stopVoiceInstructions();
             };
             
             voiceInstructionRecognition.onend = function() {
+                console.log('Voice instruction recognition ended');
                 stopVoiceInstructions();
             };
             
+            // Start recognition
             voiceInstructionRecognition.start();
             
         } catch (error) {
-            console.error('Error starting voice instructions:', error);
-            showError('❌ Lỗi khởi động voice instructions: ' + error.message);
+            console.error('Failed to initialize voice instruction recognition:', error);
+            showError('❌ Lỗi khởi tạo nhận diện giọng nói: ' + error.message);
         }
     }
     
