@@ -413,11 +413,6 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}#quickNotesContainer">
-                            <i class="fas fa-sticky-note me-1"></i>Quick Notes
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'reminder_system_page' %}active{% endif %}" href="{{ url_for('reminder_system_page') }}">
                             <i class="fas fa-bell me-1"></i>Email Reminders
                         </a>
