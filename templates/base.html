@@ -550,6 +550,66 @@
     
     <!-- PWA Service Worker Registration -->
     <script>
+        // PWA Install Prompt
+        let deferredPrompt;
+        
+        // Check if already installed
+        function isPWAInstalled() {
+            return window.matchMedia('(display-mode: standalone)').matches || 
+                   window.navigator.standalone === true;
+        }
+
+        // Only show install button if not already installed
+        window.addEventListener('load', function() {
+            if (!isPWAInstalled()) {
+                // Only show if native install prompt is NOT available
+                setTimeout(() => {
+                    if (!deferredPrompt) {
+                        // Don't show install instructions if PWA is working
+                        console.log('PWA: Install instructions skipped - app working normally');
+                    }
+                }, 1000);
+            }
+        });
+
+        function showInstallInstructions() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isAndroid = /Android/.test(navigator.userAgent);
+            
+            let instructions = '';
+            if (isIOS) {
+                instructions = 'Trên iPhone/iPad:\n1. Nhấn nút Share (□↑)\n2. Chọn "Add to Home Screen"\n3. Nhấn "Add"';
+            } else if (isAndroid) {
+                instructions = 'Trên Android:\n1. Nhấn menu Chrome (⋮)\n2. Chọn "Add to Home Screen"\n3. Nhấn "Add"';
+            } else {
+                instructions = 'Trong trình duyệt:\n1. Tìm nút Install trong thanh địa chỉ\n2. Hoặc menu → "Install app"';
+            }
+            
+            alert(instructions);
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('PWA: Install prompt available');
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Replace manual button with native prompt
+            const existingBtn = document.querySelector('.btn[onclick*="showInstallInstructions"]');
+            if (existingBtn) {
+                existingBtn.innerHTML = '<i class="fas fa-download me-2"></i>Cài đặt App';
+                existingBtn.onclick = () => {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('PWA: User accepted install');
+                            existingBtn.remove();
+                        }
+                        deferredPrompt = null;
+                    });
+                };
+            }
+        });
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/static/sw.js')

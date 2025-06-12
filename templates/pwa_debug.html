@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}PWA Debug{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h1>🔧 PWA Debug Information</h1>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>PWA Status</h5>
+                </div>
+                <div class="card-body">
+                    <div id="pwa-status"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Installation</h5>
+                </div>
+                <div class="card-body">
+                    <button id="install-btn" class="btn btn-primary">Install PWA</button>
+                    <div id="install-status" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5>Debug Log</h5>
+        </div>
+        <div class="card-body">
+            <pre id="debug-log" style="height: 300px; overflow-y: scroll; background: #f8f9fa; padding: 10px;"></pre>
+        </div>
+    </div>
+</div>
+
+<script>
+const log = document.getElementById('debug-log');
+const status = document.getElementById('pwa-status');
+const installStatus = document.getElementById('install-status');
+const installBtn = document.getElementById('install-btn');
+
+function addLog(message) {
+    const time = new Date().toLocaleTimeString();
+    log.textContent += `[${time}] ${message}\n`;
+    log.scrollTop = log.scrollHeight;
+}
+
+// Check PWA support
+addLog('Starting PWA debug...');
+
+// Check service worker
+if ('serviceWorker' in navigator) {
+    addLog('✅ Service Worker supported');
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+        addLog(`📊 Service Worker registrations: ${registrations.length}`);
+        registrations.forEach((reg, i) => {
+            addLog(`  ${i+1}. ${reg.scope} - ${reg.active ? 'active' : 'inactive'}`);
+        });
+    });
+} else {
+    addLog('❌ Service Worker NOT supported');
+}
+
+// Check manifest
+fetch('/static/manifest.json')
+    .then(response => response.json())
+    .then(manifest => {
+        addLog('✅ Manifest loaded successfully');
+        addLog(`📱 App name: ${manifest.name}`);
+        addLog(`🎨 Theme color: ${manifest.theme_color}`);
+        addLog(`🖼️ Icons: ${manifest.icons.length} defined`);
+        
+        // Test icon loading
+        manifest.icons.forEach((icon, i) => {
+            const img = new Image();
+            img.onload = () => addLog(`✅ Icon ${icon.sizes} loaded`);
+            img.onerror = () => addLog(`❌ Icon ${icon.sizes} FAILED to load`);
+            img.src = icon.src;
+        });
+    })
+    .catch(err => {
+        addLog(`❌ Manifest error: ${err}`);
+    });
+
+// Check if already installed
+function checkInstallStatus() {
+    const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                       window.navigator.standalone === true;
+    
+    if (isInstalled) {
+        status.innerHTML = '<span class="badge bg-success">PWA Installed</span>';
+        addLog('✅ PWA is currently running as installed app');
+        installBtn.style.display = 'none';
+    } else {
+        status.innerHTML = '<span class="badge bg-warning">Not Installed</span>';
+        addLog('📱 PWA not installed - running in browser');
+    }
+}
+
+// Install prompt
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    addLog('🎯 Install prompt available!');
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'block';
+    installStatus.innerHTML = '<span class="text-success">Ready to install</span>';
+});
+
+installBtn.addEventListener('click', async () => {
+    if (deferredPrompt) {
+        addLog('🚀 Triggering install prompt...');
+        deferredPrompt.prompt();
+        const result = await deferredPrompt.userChoice;
+        addLog(`📊 User choice: ${result.outcome}`);
+        
+        if (result.outcome === 'accepted') {
+            installStatus.innerHTML = '<span class="text-success">Installing...</span>';
+        } else {
+            installStatus.innerHTML = '<span class="text-danger">Cancelled</span>';
+        }
+        deferredPrompt = null;
+    } else {
+        addLog('❌ No install prompt available');
+        // Show manual instructions
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/.test(navigator.userAgent);
+        
+        let instructions = '';
+        if (isIOS) {
+            instructions = 'iOS: Share button → Add to Home Screen';
+        } else if (isAndroid) {
+            instructions = 'Android: Menu (⋮) → Add to Home Screen';
+        } else {
+            instructions = 'Desktop: Look for install icon in address bar';
+        }
+        
+        installStatus.innerHTML = `<small class="text-info">${instructions}</small>`;
+        addLog(`💡 Manual install: ${instructions}`);
+    }
+});
+
+// Check environment
+addLog(`🌐 Protocol: ${location.protocol}`);
+addLog(`📍 Host: ${location.host}`);
+addLog(`🖥️ User Agent: ${navigator.userAgent}`);
+
+// Initial status check
+checkInstallStatus();
+
+// Listen for app installed event
+window.addEventListener('appinstalled', (evt) => {
+    addLog('🎉 PWA was installed successfully!');
+    checkInstallStatus();
+});
+
+addLog('🔍 Debug initialization complete');
+</script>
+{% endblock %}

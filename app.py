@@ -2265,6 +2265,11 @@ def manifest():
     """Serve manifest with correct MIME type"""
     return send_from_directory('static', 'manifest.json', mimetype='application/json')
 
+@app.route('/pwa-debug')
+def pwa_debug():
+    """PWA debugging page"""
+    return render_template('pwa_debug.html')
+
 # --- Chạy ứng dụng ---
 if __name__ == '__main__':
     # Initialize and start reminder system
