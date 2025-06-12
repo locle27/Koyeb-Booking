@@ -200,12 +200,12 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="total_payment"><i class="fas fa-coins me-1"></i>Tổng thanh toán (VND)</label>
-                            <input type="number" id="total_payment" name="Tổng thanh toán" value="{{ booking.get('Tổng thanh toán', 0) }}" required>
+                            <input type="number" id="total_payment" name="Tổng thanh toán" value="{{ booking.get('Tổng thanh toán', 0) }}" step="any" required>
                         </div>
                         <div class="form-group">
                             <label for="commission"><i class="fas fa-percentage me-1 text-warning"></i>Hoa hồng (VND)</label>
                             <input type="number" id="commission" name="Hoa hồng" value="{{ booking.get('Hoa hồng', 0) }}" 
-                                   placeholder="Nhập số tiền hoa hồng" min="0" step="1000">
+                                   placeholder="Nhập số tiền hoa hồng" min="0" step="any">
                             <small class="text-muted">Tiền hoa hồng cho booking này</small>
                         </div>
                     </div>

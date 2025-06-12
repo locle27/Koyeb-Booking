@@ -115,13 +115,13 @@
         <!-- Payment Information -->
         <div class="col-md-6">
             <label for="Tổng thanh toán" class="form-label"><i class="fas fa-coins me-1"></i>Tổng thanh toán (VND) *</label>
-            <input type="number" step="1000" class="form-control" id="Tổng thanh toán" name="Tổng thanh toán" 
+            <input type="number" step="any" class="form-control" id="Tổng thanh toán" name="Tổng thanh toán" 
                    value="{{ form_data.get('Tổng thanh toán', '') if form_data else '' }}"
                    placeholder="0" min="0" required>
         </div>
         <div class="col-md-6">
             <label for="Hoa hồng" class="form-label"><i class="fas fa-percentage me-1"></i>Hoa hồng (VND)</label>
-            <input type="number" step="1000" class="form-control" id="Hoa hồng" name="Hoa hồng" 
+            <input type="number" step="any" class="form-control" id="Hoa hồng" name="Hoa hồng" 
                    value="{{ form_data.get('Hoa hồng', '') if form_data else '0' }}"
                    placeholder="0" min="0">
         </div>
