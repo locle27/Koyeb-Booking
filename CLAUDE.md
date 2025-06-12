@@ -120,7 +120,8 @@ def process_overdue_guests(df):
 
 ### **Google Sheets Integration:**
 - **Main Sheet:** Stores all booking data
-- **Columns:** Số đặt phòng, Tên người đặt, Check-in Date, Check-out Date, Tổng thanh toán, Hoa hồng, Taxi, etc.
+- **Core Columns:** Số đặt phòng, Tên người đặt, Check-in Date, Check-out Date, Tổng thanh toán, Hoa hồng, Taxi, etc.
+- **Redundant Columns to Remove:** Ngày đến, Ngày đi, Được đặt vào, Tiền tệ, Người nhận tiền, Vị trí
 - **Functions:** `import_from_gsheet()`, `append_multiple_bookings_to_sheet()`, `update_row_in_gsheet()`
 
 ### **Key Environment Variables:**
