@@ -311,6 +311,36 @@
             const originalText = submitBtn.innerHTML;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Đang lưu...';
             submitBtn.disabled = true;
+            
+            // ✅ TRIGGER DASHBOARD REFRESH EVENT
+            const bookingId = "{{ booking.get('Số đặt phòng', '') }}";
+            console.log(`[EDIT_BOOKING] Triggering dashboard refresh for booking: ${bookingId}`);
+            
+            // Store update info for parent windows/tabs
+            if (window.opener) {
+                // Notify parent window (if opened as popup)
+                window.opener.postMessage({
+                    type: 'bookingUpdated',
+                    bookingId: bookingId,
+                    action: 'edit_booking'
+                }, '*');
+            }
+            
+            // Store in localStorage for cross-tab communication
+            localStorage.setItem('lastBookingUpdate', JSON.stringify({
+                bookingId: bookingId,
+                timestamp: Date.now(),
+                action: 'edit_booking'
+            }));
+            
+            // Dispatch custom event for same page
+            window.dispatchEvent(new CustomEvent('bookingUpdated', {
+                detail: { 
+                    bookingId: bookingId, 
+                    action: 'edit_booking',
+                    timestamp: Date.now()
+                }
+            }));
         });
 
         // Auto-save functionality (optional)

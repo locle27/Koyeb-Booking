@@ -275,3 +275,47 @@ function showSuccessAlert(message) {
         }
     }, 5000);
 }
+
+// ==================== DASHBOARD REFRESH FUNCTIONS ====================
+function refreshDashboardData() {
+    console.log('🔄 Refreshing dashboard overdue data...');
+    
+    // Show loading indicator
+    const overdueSection = document.querySelector('[data-section="overdue"]') || 
+                          document.querySelector('.overdue-guests') ||
+                          document.querySelector('#overdue-section');
+    
+    if (overdueSection) {
+        const originalContent = overdueSection.innerHTML;
+        overdueSection.innerHTML = `
+            <div class="text-center py-3">
+                <i class="fas fa-spinner fa-spin fa-2x text-primary mb-2"></i>
+                <p class="text-muted">Đang cập nhật dữ liệu overdue payment...</p>
+            </div>
+        `;
+        
+        // Reload the page after a short delay to ensure backend data is fresh
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+    } else {
+        // Fallback: just reload the page
+        window.location.reload();
+    }
+}
+
+// Listen for custom events from other pages (like edit booking page)
+window.addEventListener('bookingUpdated', function(event) {
+    console.log('📢 Received booking update event:', event.detail);
+    refreshDashboardData();
+});
+
+// Add refresh button functionality if exists
+document.addEventListener('DOMContentLoaded', function() {
+    const refreshBtn = document.querySelector('[data-action="refresh-dashboard"]');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            refreshDashboardData();
+        });
+    }
+});

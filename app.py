@@ -825,11 +825,20 @@ def edit_booking(booking_id):
         )
         
         if success:
-            # Xóa cache để tải lại dữ liệu mới
+            # ⚠️ CRITICAL: Force clear ALL caches for dashboard update
             load_data.cache_clear()
-            flash('Đã cập nhật số tiền thành công!', 'success')
+            print(f"[EDIT_TAXI] Cache cleared after updating taxi fare for {booking_id}")
+            
+            # Verify data is actually updated
+            fresh_df, _ = load_data()
+            updated_booking = fresh_df[fresh_df['Số đặt phòng'] == booking_id]
+            if not updated_booking.empty:
+                new_taxi = updated_booking.iloc[0].get('Taxi', '')
+                print(f"[EDIT_TAXI] Verified update: booking {booking_id} taxi = {new_taxi}")
+            
+            flash('✅ Đã cập nhật số tiền thành công! Dashboard sẽ tự động cập nhật.', 'success')
         else:
-            flash('Có lỗi xảy ra khi cập nhật đặt phòng trên Google Sheet.', 'danger')
+            flash('❌ Có lỗi xảy ra khi cập nhật đặt phòng trên Google Sheet.', 'danger')
             
         return redirect(url_for('view_bookings'))
         
@@ -1075,7 +1084,9 @@ def update_guest_amounts():
             
             return jsonify({
                 'success': True, 
-                'message': f'Đã cập nhật số tiền thành công cho booking {booking_id}'
+                'message': f'Đã cập nhật số tiền thành công cho booking {booking_id}',
+                'refresh_dashboard': True,  # ✅ Signal frontend to refresh dashboard
+                'updated_booking_id': booking_id
             })
         else:
             print(f"[UPDATE_AMOUNTS] Failed to update booking {booking_id}")

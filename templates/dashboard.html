@@ -51,6 +51,40 @@
         <li class="breadcrumb-item active">Tổng quan về hiệu suất khách sạn</li>
     </ol>
 
+    <!-- ⚡ DASHBOARD CONTROLS - Quick Actions -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card border-0 bg-light">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-tools text-primary me-2"></i>
+                            <small class="text-muted fw-bold">Dashboard Controls</small>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                    onclick="refreshDashboardData()" 
+                                    data-action="refresh-dashboard"
+                                    title="Làm mới dữ liệu overdue payment">
+                                <i class="fas fa-sync-alt me-1"></i>Refresh Data
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success" 
+                                    onclick="window.location.reload()" 
+                                    title="Tải lại toàn bộ trang">
+                                <i class="fas fa-redo me-1"></i>Reload Page
+                            </button>
+                            <a href="{{ url_for('view_bookings', show_all='true') }}" 
+                               class="btn btn-sm btn-outline-info" 
+                               title="Xem tất cả booking">
+                                <i class="fas fa-list me-1"></i>All Bookings
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Filter Form -->
     <div class="card mb-4">
         <div class="card-header">
