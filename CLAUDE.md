@@ -69,6 +69,7 @@ def process_overdue_guests(df):
 - **Voice Translator Text:** Changed from white to black with text-shadow in `ai_assistant.html` lines 243-244
 - **Template Import Redirects:** Fixed broken routes to `ai_assistant_hub` in `app.py` line 1573
 - **Navbar Text Visibility:** Enhanced with text-shadows in `base.html` lines 52, 62
+- **Message Template Category Bug:** Fixed duplicate ID conflict (`templateCategory` → `addTemplateCategory`) in `ai_assistant.html` line 444
 
 ### **3. Auto Duplicate Filtering System**
 **Location:** `templates/bookings.html`, `app.py` (lines 313-336)
@@ -289,6 +290,12 @@ git log --oneline -5
 - Optimize image processing for large photos
 - Review database query efficiency
 - Monitor overdue calculation performance
+
+#### **Message Template Category Selection Issues:**
+1. Check duplicate IDs in `ai_assistant.html`: Search for `id="templateCategory"`
+2. Verify JavaScript function `addNewTemplate()` finds correct element 
+3. Look for duplicate element IDs causing form confusion
+4. Test category dropdown and "OTHER" custom category functionality
 
 ### **Critical System Dependencies:**
 - **Google Sheets API:** For data storage

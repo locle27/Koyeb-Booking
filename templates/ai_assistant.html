@@ -440,8 +440,8 @@
             <div class="modal-body">
                 <form id="addTemplateForm">
                     <div class="mb-3">
-                        <label for="templateCategory" class="form-label">Danh mục <span class="text-danger">*</span></label>
-                        <select class="form-select" id="templateCategory" required>
+                        <label for="addTemplateCategory" class="form-label">Danh mục <span class="text-danger">*</span></label>
+                        <select class="form-select" id="addTemplateCategory" required>
                             <option value="">-- Chọn danh mục --</option>
                             <option value="WELCOME">WELCOME</option>
                             <option value="ARRIVAL">ARRIVAL</option>
@@ -1810,7 +1810,7 @@
     
     // Handle category change for add template modal
     document.addEventListener('DOMContentLoaded', function() {
-        const categorySelect = document.getElementById('templateCategory');
+        const categorySelect = document.getElementById('addTemplateCategory');
         if (categorySelect) {
             categorySelect.addEventListener('change', function() {
                 const customDiv = document.getElementById('customCategoryDiv');
@@ -1827,19 +1827,36 @@
     
     // Add new template
     async function addNewTemplate() {
+        console.log('🔧 Starting addNewTemplate function...');
+        
         const form = document.getElementById('addTemplateForm');
         
-        // Validate form
-        if (!form.checkValidity()) {
-            form.reportValidity();
+        // Get form data first with enhanced element checking
+        const categorySelect = document.getElementById('addTemplateCategory');
+        
+        // Debug: Check if we have the right element
+        console.log('🔍 Element debugging:', {
+            categorySelectElement: categorySelect,
+            categorySelectId: categorySelect ? categorySelect.id : 'NOT FOUND',
+            categorySelectTagName: categorySelect ? categorySelect.tagName : 'NOT FOUND',
+            allElementsWithSameId: document.querySelectorAll('#addTemplateCategory').length
+        });
+        
+        if (!categorySelect) {
+            showError('❌ Lỗi: Không tìm thấy dropdown danh mục!');
             return;
         }
         
-        // Get form data
-        const categorySelect = document.getElementById('templateCategory');
         const customCategory = document.getElementById('customCategory').value.trim();
         const label = document.getElementById('templateLabel').value.trim();
         const message = document.getElementById('templateMessage').value.trim();
+        
+        console.log('📝 Form data:', {
+            categoryValue: categorySelect.value,
+            customCategory: customCategory,
+            label: label,
+            message: message
+        });
         
         // Determine final category
         let finalCategory = categorySelect.value;
@@ -1847,21 +1864,49 @@
             finalCategory = customCategory.toUpperCase();
         }
         
-        // Additional validation
-        if (!finalCategory || finalCategory === 'OTHER') {
-            showError('❌ Vui lòng chọn hoặc nhập danh mục!');
+        console.log('🎯 Final category determined:', finalCategory);
+        
+        // Enhanced validation with detailed logging
+        if (!finalCategory || finalCategory === '' || finalCategory === 'OTHER') {
+            console.error('❌ Category validation failed:', {
+                finalCategory: finalCategory,
+                categorySelectValue: categorySelect.value,
+                customCategory: customCategory
+            });
+            
+            // Highlight the category field
+            categorySelect.classList.add('is-invalid');
+            setTimeout(() => categorySelect.classList.remove('is-invalid'), 3000);
+            
+            if (categorySelect.value === 'OTHER' && !customCategory) {
+                showError('❌ Bạn đã chọn "Khác" - vui lòng nhập tên danh mục tùy chỉnh!');
+            } else if (!categorySelect.value) {
+                showError('❌ Vui lòng chọn danh mục từ dropdown!');
+            } else {
+                showError('❌ Lỗi danh mục: "' + finalCategory + '"');
+            }
             return;
         }
         
-        if (!label) {
+        if (!label || label === '') {
+            console.error('❌ Label validation failed');
+            const labelField = document.getElementById('templateLabel');
+            labelField.classList.add('is-invalid');
+            setTimeout(() => labelField.classList.remove('is-invalid'), 3000);
             showError('❌ Vui lòng nhập nhãn!');
             return;
         }
         
-        if (!message) {
+        if (!message || message === '') {
+            console.error('❌ Message validation failed');
+            const messageField = document.getElementById('templateMessage');
+            messageField.classList.add('is-invalid');
+            setTimeout(() => messageField.classList.remove('is-invalid'), 3000);
             showError('❌ Vui lòng nhập nội dung tin nhắn!');
             return;
         }
+        
+        console.log('✅ All validations passed, proceeding with template creation...');
         
         // Prepare new template data
         const newTemplate = {
