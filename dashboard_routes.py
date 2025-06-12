@@ -153,12 +153,56 @@ def process_overdue_guests(df):
             days_overdue_list = [(today - date).days if date else 0 for date in checkin_dates]
             overdue_df['days_overdue'] = [max(0, days) for days in days_overdue_list]
             
-            # Sort and calculate total
+            # Calculate total amount including taxi fees
             overdue_df = overdue_df.sort_values('days_overdue', ascending=False)
-            if 'Tổng thanh toán' in overdue_df.columns:
-                overdue_total_amount = pd.to_numeric(overdue_df['Tổng thanh toán'], errors='coerce').fillna(0).sum()
             
-            overdue_unpaid_guests = safe_to_dict_records(overdue_df)
+            # Calculate room fees
+            room_total = 0
+            if 'Tổng thanh toán' in overdue_df.columns:
+                room_total = pd.to_numeric(overdue_df['Tổng thanh toán'], errors='coerce').fillna(0).sum()
+            
+            # Calculate taxi fees
+            taxi_total = 0
+            if 'Taxi' in overdue_df.columns:
+                # Extract numeric values from taxi column (handles formats like "50,000đ", "50000", etc.)
+                taxi_series = overdue_df['Taxi'].fillna('').astype(str)
+                for taxi_value in taxi_series:
+                    if taxi_value and taxi_value.strip():
+                        # Remove currency symbols and commas, extract numbers
+                        import re
+                        numeric_match = re.search(r'[\d,]+', taxi_value.replace('.', ''))
+                        if numeric_match:
+                            try:
+                                taxi_amount = float(numeric_match.group().replace(',', ''))
+                                taxi_total += taxi_amount
+                            except ValueError:
+                                pass
+            
+            # Total amount = room fees + taxi fees
+            overdue_total_amount = room_total + taxi_total
+            
+            # Add calculated totals to each guest record for display
+            for i, guest in enumerate(overdue_df.to_dict('records')):
+                guest_room_fee = pd.to_numeric(guest.get('Tổng thanh toán', 0), errors='coerce') or 0
+                guest_taxi_fee = 0
+                
+                # Extract taxi fee for this guest
+                taxi_value = guest.get('Taxi', '')
+                if taxi_value and str(taxi_value).strip():
+                    import re
+                    numeric_match = re.search(r'[\d,]+', str(taxi_value).replace('.', ''))
+                    if numeric_match:
+                        try:
+                            guest_taxi_fee = float(numeric_match.group().replace(',', ''))
+                        except ValueError:
+                            pass
+                
+                # Add calculated fields
+                guest['calculated_room_fee'] = guest_room_fee
+                guest['calculated_taxi_fee'] = guest_taxi_fee
+                guest['calculated_total_amount'] = guest_room_fee + guest_taxi_fee
+            
+            overdue_unpaid_guests = overdue_df.to_dict('records')
     
     except Exception as e:
         print(f"Process overdue guests error: {e}")

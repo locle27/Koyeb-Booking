@@ -836,6 +836,36 @@ def delete_booking(booking_id):
         flash('Lỗi khi xóa đặt phòng.', 'danger')
     return redirect(url_for('view_bookings'))
 
+@app.route('/api/delete_booking/<booking_id>', methods=['DELETE'])
+def api_delete_booking(booking_id):
+    """API endpoint for deleting bookings (returns JSON)"""
+    try:
+        success = delete_row_in_gsheet(
+            sheet_id=DEFAULT_SHEET_ID,
+            gcp_creds_file_path=GCP_CREDS_FILE_PATH,
+            worksheet_name=WORKSHEET_NAME,
+            booking_id=booking_id
+        )
+        
+        if success:
+            load_data.cache_clear() # Clear cache after modification
+            return jsonify({
+                'success': True, 
+                'message': f'Successfully deleted booking ID: {booking_id}'
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'message': 'Failed to delete booking'
+            }), 400
+            
+    except Exception as e:
+        print(f"[ERROR] API delete booking failed: {e}")
+        return jsonify({
+            'success': False, 
+            'message': f'Error deleting booking: {str(e)}'
+        }), 500
+
 @app.route('/bookings/delete_multiple', methods=['POST'])
 def delete_multiple_bookings():
     try:
@@ -1540,10 +1570,10 @@ def import_templates():
             json.dump(templates, f, ensure_ascii=False, indent=4)
             
         flash(f'✅ Đã import thành công {len(templates)} mẫu tin nhắn từ Google Sheets và cập nhật backup file.', 'success')
-        return redirect(url_for('get_templates_page'))
+        return redirect(url_for('ai_assistant_hub'))
     except Exception as e:
         flash(f'❌ Lỗi khi import: {str(e)}', 'danger')
-        return redirect(url_for('get_templates_page'))
+        return redirect(url_for('ai_assistant_hub'))
 
 # === QUICK NOTES SYSTEM ===
 
@@ -1740,12 +1770,12 @@ def export_templates_route():
             templates = []
         if not templates:
             flash('Không có mẫu tin nhắn để export.', 'warning')
-            return redirect(url_for('get_templates_page'))
+            return redirect(url_for('ai_assistant_hub'))
         export_message_templates_to_gsheet(templates, DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH)
         flash('Đã export thành công tất cả các mẫu tin nhắn!', 'success')
     except Exception as e:
         flash(f'Lỗi khi export: {e}', 'danger')
-    return redirect(url_for('get_templates_page'))
+    return redirect(url_for('ai_assistant_hub'))
 
 # --- Hàm AI Chat Analysis ---
 def analyze_chat_image_with_ai(image_bytes, templates, selected_template=None, response_mode='auto', custom_instructions=''):
