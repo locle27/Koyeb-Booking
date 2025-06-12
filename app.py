@@ -1683,13 +1683,49 @@ def import_templates():
 
 @app.route('/api/quick_notes', methods=['GET'])
 def get_quick_notes():
-    """API để lấy danh sách quick notes (có thể mở rộng sau để lưu vào database)"""
-    # Hiện tại sử dụng localStorage, sau có thể mở rộng lưu vào database
-    return jsonify({'message': 'Quick notes are stored in localStorage for now'})
+    """API để lấy danh sách quick notes từ Google Sheets"""
+    try:
+        # Sử dụng logic tương tự như templates
+        from logic import _get_gspread_client
+        
+        gc = _get_gspread_client(GCP_CREDS_FILE_PATH)
+        sh = gc.open_by_key(DEFAULT_SHEET_ID)
+        
+        # Tìm hoặc tạo worksheet QuickNotes
+        try:
+            worksheet = sh.worksheet('QuickNotes')
+        except:
+            # Tạo worksheet mới nếu chưa có
+            worksheet = sh.add_worksheet(title='QuickNotes', rows=100, cols=8)
+            # Thêm header
+            headers = ['ID', 'Type', 'Content', 'Date', 'Time', 'GuestName', 'CreatedAt', 'Completed']
+            worksheet.update([headers], 'A1')
+            print("✅ Created new QuickNotes worksheet")
+        
+        # Đọc dữ liệu
+        data = worksheet.get_all_values()
+        if len(data) <= 1:  # Chỉ có header hoặc trống
+            return jsonify({'success': True, 'notes': []})
+        
+        # Chuyển đổi dữ liệu
+        headers = data[0]
+        notes = []
+        for row in data[1:]:
+            if len(row) >= len(headers) and row[0]:  # Có ID
+                note = {}
+                for i, header in enumerate(headers):
+                    note[header.lower()] = row[i] if i < len(row) else ''
+                notes.append(note)
+        
+        return jsonify({'success': True, 'notes': notes})
+        
+    except Exception as e:
+        print(f"❌ Error getting quick notes: {e}")
+        return jsonify({'success': False, 'message': str(e), 'notes': []})
 
 @app.route('/api/quick_notes', methods=['POST'])
 def save_quick_note():
-    """API để lưu quick note (có thể mở rộng sau để lưu vào database)"""
+    """API để lưu quick note vào Google Sheets"""
     try:
         data = request.get_json()
         if not data:
@@ -1701,17 +1737,108 @@ def save_quick_note():
             if field not in data:
                 return jsonify({'success': False, 'message': f'Thiếu field: {field}'}), 400
         
-        # Log the note (có thể mở rộng sau để lưu vào database)
-        print(f"📝 Quick Note saved: {data['type']} - {data['content'][:50]}...")
+        # Lưu vào Google Sheets
+        from logic import _get_gspread_client
+        
+        gc = _get_gspread_client(GCP_CREDS_FILE_PATH)
+        sh = gc.open_by_key(DEFAULT_SHEET_ID)
+        
+        # Tìm hoặc tạo worksheet QuickNotes
+        try:
+            worksheet = sh.worksheet('QuickNotes')
+        except:
+            # Tạo worksheet mới nếu chưa có
+            worksheet = sh.add_worksheet(title='QuickNotes', rows=100, cols=8)
+            headers = ['ID', 'Type', 'Content', 'Date', 'Time', 'GuestName', 'CreatedAt', 'Completed']
+            worksheet.update([headers], 'A1')
+        
+        # Chuẩn bị dữ liệu để lưu
+        note_id = data.get('id', str(int(datetime.now().timestamp() * 1000)))
+        guest_name = data.get('guestName', '')
+        created_at = datetime.now().isoformat()
+        completed = data.get('completed', 'false')
+        
+        new_row = [
+            note_id,
+            data['type'],
+            data['content'],
+            data['date'],
+            data['time'],
+            guest_name,
+            created_at,
+            completed
+        ]
+        
+        # Thêm hàng mới
+        worksheet.append_row(new_row)
+        
+        print(f"✅ Quick Note saved to Sheets: {data['type']} - {data['content'][:50]}...")
         
         return jsonify({
             'success': True, 
-            'message': 'Đã lưu quick note thành công!',
-            'note_id': data.get('id', datetime.now().isoformat())
+            'message': 'Đã lưu quick note vào Google Sheets!',
+            'note_id': note_id
         })
         
     except Exception as e:
         print(f"Error saving quick note: {e}")
+        return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
+
+@app.route('/api/quick_notes/<note_id>/complete', methods=['POST'])
+def complete_quick_note(note_id):
+    """API để đánh dấu hoàn thành quick note"""
+    try:
+        from logic import _get_gspread_client
+        
+        gc = _get_gspread_client(GCP_CREDS_FILE_PATH)
+        sh = gc.open_by_key(DEFAULT_SHEET_ID)
+        worksheet = sh.worksheet('QuickNotes')
+        
+        # Tìm hàng có ID tương ứng
+        data = worksheet.get_all_values()
+        headers = data[0]
+        id_col_index = headers.index('ID') + 1  # gspread uses 1-based indexing
+        completed_col_index = headers.index('Completed') + 1
+        
+        # Tìm cell chứa note_id
+        cell = worksheet.find(note_id, in_column=id_col_index)
+        if cell:
+            # Cập nhật trạng thái completed
+            worksheet.update_cell(cell.row, completed_col_index, 'true')
+            return jsonify({'success': True, 'message': 'Đã đánh dấu hoàn thành!'})
+        else:
+            return jsonify({'success': False, 'message': 'Không tìm thấy note'}), 404
+            
+    except Exception as e:
+        print(f"Error completing quick note: {e}")
+        return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
+
+@app.route('/api/quick_notes/<note_id>', methods=['DELETE'])
+def delete_quick_note(note_id):
+    """API để xóa quick note"""
+    try:
+        from logic import _get_gspread_client
+        
+        gc = _get_gspread_client(GCP_CREDS_FILE_PATH)
+        sh = gc.open_by_key(DEFAULT_SHEET_ID)
+        worksheet = sh.worksheet('QuickNotes')
+        
+        # Tìm hàng có ID tương ứng
+        data = worksheet.get_all_values()
+        headers = data[0]
+        id_col_index = headers.index('ID') + 1
+        
+        # Tìm cell chứa note_id
+        cell = worksheet.find(note_id, in_column=id_col_index)
+        if cell:
+            # Xóa hàng
+            worksheet.delete_rows(cell.row)
+            return jsonify({'success': True, 'message': 'Đã xóa note!'})
+        else:
+            return jsonify({'success': False, 'message': 'Không tìm thấy note'}), 404
+            
+    except Exception as e:
+        print(f"Error deleting quick note: {e}")
         return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
 
 # === EMAIL REMINDER SYSTEM ROUTES (GIỮ LẠI ĐỂ TƯƠNG THÍCH) ===

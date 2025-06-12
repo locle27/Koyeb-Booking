@@ -126,6 +126,9 @@
                             <button class="btn btn-outline-dark btn-sm me-2" onclick="exportQuickNotes()" style="color: #000; border-color: #000;">
                                 <i class="fas fa-download me-1 text-dark"></i>Export
                             </button>
+                            <button class="btn btn-outline-info btn-sm me-2" onclick="syncQuickNotes()" style="color: #0dcaf0; border-color: #0dcaf0;">
+                                <i class="fas fa-cloud-download-alt me-1" style="color: #0dcaf0;"></i>Sync từ Cloud
+                            </button>
                             <button class="btn btn-outline-dark btn-sm" onclick="refreshQuickNotes()" style="color: #000; border-color: #000;">
                                 <i class="fas fa-sync-alt me-1 text-dark"></i>Làm mới
                             </button>
@@ -141,6 +144,8 @@
                             <p class="mb-0 text-white fw-bold">Đang tải Quick Notes...</p>
                         </div>
                     </div>
+                    <!-- Hidden file input for importing Quick Notes -->
+                    <input type="file" id="quickNotesFileInput" accept=".json" style="display: none;" onchange="handleQuickNotesImport(event)">
                 </div>
             </div>
         </div>
@@ -861,8 +866,51 @@ function collectPayment() {
 
 function loadQuickNotesOnDashboard(showAll = false) {
     const container = document.getElementById('quickNotesContainer');
-    const notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
     
+    // Try to load from server first, fallback to localStorage
+    loadQuickNotesFromServer()
+        .then(serverNotes => {
+            displayQuickNotes(serverNotes, showAll, container);
+        })
+        .catch(error => {
+            console.log('Loading from localStorage as fallback...');
+            const localNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+            displayQuickNotes(localNotes, showAll, container);
+        });
+}
+
+async function loadQuickNotesFromServer() {
+    try {
+        const response = await fetch('/api/quick_notes');
+        const data = await response.json();
+        
+        if (data.success && data.notes) {
+            // Convert server format to client format
+            const convertedNotes = data.notes.map(note => ({
+                id: note.id,
+                type: note.type,
+                content: note.content,
+                date: note.date,
+                time: note.time,
+                guestName: note.guestname || '',
+                created_at: note.createdat,
+                completed: note.completed === 'true'
+            }));
+            
+            // Also save to localStorage for offline access
+            localStorage.setItem('quickNotes', JSON.stringify(convertedNotes));
+            
+            return convertedNotes;
+        } else {
+            throw new Error('Failed to load from server');
+        }
+    } catch (error) {
+        console.error('Error loading from server:', error);
+        throw error;
+    }
+}
+
+function displayQuickNotes(notes, showAll, container) {
     // Filter active notes (not completed)
     const activeNotes = notes.filter(note => !note.completed);
     
@@ -983,31 +1031,88 @@ function showAllNotes() {
     loadQuickNotesOnDashboard(true); // true = show all
 }
 
-function markNoteCompleted(noteId) {
-    let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
-    const noteIndex = notes.findIndex(note => note.id === noteId);
-    
-    if (noteIndex !== -1) {
-        notes[noteIndex].completed = true;
-        notes[noteIndex].completedAt = new Date().toISOString();
-        localStorage.setItem('quickNotes', JSON.stringify(notes));
+async function markNoteCompleted(noteId) {
+    try {
+        // Update on server first
+        const response = await fetch(`/api/quick_notes/${noteId}/complete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
         
-        // Show success toast
-        showDashboardToast('✅ Đã đánh dấu note hoàn thành!', 'success');
+        const data = await response.json();
         
-        // Reload notes display
-        loadQuickNotesOnDashboard();
+        if (data.success) {
+            // Update localStorage as backup
+            let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+            const noteIndex = notes.findIndex(note => note.id === noteId);
+            
+            if (noteIndex !== -1) {
+                notes[noteIndex].completed = true;
+                notes[noteIndex].completedAt = new Date().toISOString();
+                localStorage.setItem('quickNotes', JSON.stringify(notes));
+            }
+            
+            // Show success toast
+            showDashboardToast('✅ Đã đánh dấu hoàn thành trên Google Sheets!', 'success');
+            
+            // Reload notes display
+            loadQuickNotesOnDashboard();
+        } else {
+            throw new Error(data.message || 'Server error');
+        }
+    } catch (error) {
+        console.error('Error completing note:', error);
+        showDashboardToast('❌ Lỗi khi cập nhật trên server. Đã lưu local.', 'warning');
+        
+        // Fallback to localStorage only
+        let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+        const noteIndex = notes.findIndex(note => note.id === noteId);
+        
+        if (noteIndex !== -1) {
+            notes[noteIndex].completed = true;
+            notes[noteIndex].completedAt = new Date().toISOString();
+            localStorage.setItem('quickNotes', JSON.stringify(notes));
+            loadQuickNotesOnDashboard();
+        }
     }
 }
 
-function deleteNoteFromDashboard(noteId) {
-    if (confirm('Bạn có chắc muốn xóa note này?')) {
-        let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
-        notes = notes.filter(note => note.id !== noteId);
-        localStorage.setItem('quickNotes', JSON.stringify(notes));
-        
-        showDashboardToast('🗑️ Đã xóa note!', 'info');
-        loadQuickNotesOnDashboard();
+async function deleteNoteFromDashboard(noteId) {
+    if (confirm('Bạn có chắc muốn xóa note này khỏi Google Sheets?')) {
+        try {
+            // Delete from server first
+            const response = await fetch(`/api/quick_notes/${noteId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Also delete from localStorage
+                let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+                notes = notes.filter(note => note.id !== noteId);
+                localStorage.setItem('quickNotes', JSON.stringify(notes));
+                
+                showDashboardToast('🗑️ Đã xóa note khỏi Google Sheets!', 'info');
+                loadQuickNotesOnDashboard();
+            } else {
+                throw new Error(data.message || 'Server error');
+            }
+        } catch (error) {
+            console.error('Error deleting note:', error);
+            showDashboardToast('❌ Lỗi khi xóa trên server. Đã xóa local.', 'warning');
+            
+            // Fallback to localStorage only
+            let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+            notes = notes.filter(note => note.id !== noteId);
+            localStorage.setItem('quickNotes', JSON.stringify(notes));
+            loadQuickNotesOnDashboard();
+        }
     }
 }
 
@@ -1039,6 +1144,82 @@ function exportQuickNotes() {
     document.body.removeChild(link);
     
     showDashboardToast('📥 Đã export Quick Notes thành công!', 'success');
+}
+
+// Import Quick Notes from JSON file
+function importQuickNotes() {
+    document.getElementById('quickNotesFileInput').click();
+}
+
+function handleQuickNotesImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.json')) {
+        showDashboardToast('❌ Vui lòng chọn file JSON!', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            
+            // Validate data structure
+            if (!importedData.quickNotes || !Array.isArray(importedData.quickNotes)) {
+                throw new Error('Invalid file format');
+            }
+            
+            // Get existing notes
+            const existingNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+            
+            // Ask user how to handle import
+            const choice = confirm(
+                `Tìm thấy ${importedData.quickNotes.length} notes trong file.\n\n` +
+                `Bạn có ${existingNotes.length} notes hiện tại.\n\n` +
+                `Nhấn OK để THAY THẾ tất cả notes hiện tại\n` +
+                `Nhấn Cancel để HỦY import`
+            );
+            
+            if (choice) {
+                // Replace all notes
+                localStorage.setItem('quickNotes', JSON.stringify(importedData.quickNotes));
+                loadQuickNotesOnDashboard();
+                showDashboardToast(`✅ Đã import ${importedData.quickNotes.length} notes thành công!`, 'success');
+            } else {
+                showDashboardToast('❌ Đã hủy import', 'info');
+            }
+            
+        } catch (error) {
+            console.error('Import error:', error);
+            showDashboardToast('❌ Lỗi đọc file! Vui lòng kiểm tra định dạng file.', 'error');
+        }
+    };
+    
+    reader.readAsText(file);
+    // Reset file input
+    event.target.value = '';
+}
+
+// Sync Quick Notes from Google Sheets
+async function syncQuickNotes() {
+    const syncBtn = document.querySelector('button[onclick="syncQuickNotes()"]');
+    const originalHtml = syncBtn.innerHTML;
+    
+    syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang sync...';
+    syncBtn.disabled = true;
+    
+    try {
+        const serverNotes = await loadQuickNotesFromServer();
+        showDashboardToast(`☁️ Đã sync ${serverNotes.length} notes từ Google Sheets!`, 'success');
+        loadQuickNotesOnDashboard();
+    } catch (error) {
+        console.error('Sync error:', error);
+        showDashboardToast('❌ Lỗi khi sync từ Google Sheets!', 'error');
+    } finally {
+        syncBtn.innerHTML = originalHtml;
+        syncBtn.disabled = false;
+    }
 }
 
 function refreshQuickNotes() {
@@ -1245,11 +1426,16 @@ function saveQuickNote() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('Note saved to server successfully');
+            console.log('Note saved to Google Sheets successfully');
+            showDashboardToast('✅ Đã lưu quick note vào Google Sheets!', 'success');
+        } else {
+            console.error('Server save failed:', data.message);
+            showDashboardToast('⚠️ Đã lưu local, nhưng lỗi khi sync lên Google Sheets', 'warning');
         }
     })
     .catch(error => {
         console.error('Error saving to server:', error);
+        showDashboardToast('⚠️ Đã lưu local, nhưng lỗi khi sync lên Google Sheets', 'warning');
     });
     
     // Reset form
@@ -1261,9 +1447,7 @@ function saveQuickNote() {
     bootstrap.Modal.getInstance(document.getElementById('quickNotesModal')).hide();
     
     // Refresh notes display
-    refreshQuickNotes();
-    
-    alert('✅ Đã lưu quick note thành công!');
+    loadQuickNotesOnDashboard();
 }
 
 function selectNoteType(type) {
