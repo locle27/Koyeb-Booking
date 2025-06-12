@@ -841,14 +841,14 @@ function collectPayment() {
             // Show success message
             showDashboardToast(`✅ ${data.message}`, 'success');
             
+            // Update dashboard immediately without reload
+            updateOverdueGuestsAfterPayment(currentBookingData.bookingId, collectedAmount, paymentType);
+            
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('collectPaymentModal'));
             modal.hide();
             
-            // Reload page after a short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+            // No need for page reload anymore!
         } else {
             throw new Error(data.message || 'Lỗi không xác định');
         }
@@ -862,6 +862,216 @@ function collectPayment() {
         confirmBtn.innerHTML = originalText;
         confirmBtn.disabled = false;
     });
+}
+
+// Update overdue guests section after successful payment
+function updateOverdueGuestsAfterPayment(bookingId, collectedAmount, paymentType) {
+    // Find and remove the specific guest card
+    const guestCards = document.querySelectorAll('.col-md-4');
+    let removedGuestCard = null;
+    
+    guestCards.forEach(card => {
+        const bookingIdElement = card.querySelector('small.text-muted:last-child');
+        if (bookingIdElement && bookingIdElement.textContent.includes(bookingId)) {
+            // Store the guest info before removing
+            const guestNameElement = card.querySelector('h6.mb-1');
+            const guestName = guestNameElement ? guestNameElement.textContent : 'Unknown';
+            
+            // Add a fade-out animation
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '0.3';
+            card.style.transform = 'scale(0.95)';
+            
+            // Remove after animation
+            setTimeout(() => {
+                card.style.display = 'none';
+                // Show success feedback
+                showDashboardToast(`💰 Đã thu ${collectedAmount.toLocaleString()}đ từ ${guestName}`, 'success');
+            }, 500);
+            
+            removedGuestCard = card;
+        }
+    });
+    
+    // Update the total amount and guest count
+    setTimeout(() => {
+        updateOverdueGuestsSummary(collectedAmount);
+        
+        // Check if no more overdue guests remain
+        const remainingCards = document.querySelectorAll('.col-md-4:not([style*="display: none"])');
+        const actualRemainingCards = Array.from(remainingCards).filter(card => {
+            return card.style.display !== 'none' && !card.querySelector('h6.mb-1')?.textContent?.includes('N/A');
+        });
+        
+        if (actualRemainingCards.length === 0) {
+            // Hide the entire overdue section
+            const overdueSection = document.querySelector('.alert.alert-danger');
+            if (overdueSection) {
+                overdueSection.style.transition = 'all 0.8s ease';
+                overdueSection.style.opacity = '0';
+                overdueSection.style.transform = 'translateY(-20px)';
+                
+                setTimeout(() => {
+                    overdueSection.style.display = 'none';
+                    showDashboardToast('🎉 Không còn khách nào chưa thu tiền!', 'success');
+                }, 800);
+            }
+        }
+    }, 600);
+}
+
+// Update the summary numbers in overdue section
+function updateOverdueGuestsSummary(paidAmount) {
+    // Update guest count
+    const guestCountElement = document.querySelector('.alert-danger p');
+    if (guestCountElement) {
+        const currentText = guestCountElement.textContent;
+        const currentCount = parseInt(currentText.match(/(\d+)/)?.[1] || '0');
+        const newCount = Math.max(0, currentCount - 1);
+        
+        guestCountElement.textContent = `${newCount} khách đã check-in nhưng chưa thu tiền`;
+    }
+    
+    // Update total amount
+    const totalAmountElement = document.querySelector('.alert-danger .h5');
+    if (totalAmountElement) {
+        const currentAmountText = totalAmountElement.textContent.replace(/[^\d]/g, '');
+        const currentAmount = parseInt(currentAmountText) || 0;
+        const newAmount = Math.max(0, currentAmount - paidAmount);
+        
+        totalAmountElement.textContent = `${newAmount.toLocaleString()}đ`;
+    }
+}
+
+// Update guest card amounts after editing
+function updateGuestCardAmounts(bookingId, newRoomAmount, newTaxiAmount) {
+    const guestCards = document.querySelectorAll('.col-md-4');
+    
+    guestCards.forEach(card => {
+        const bookingIdElement = card.querySelector('small.text-muted:last-child');
+        if (bookingIdElement && bookingIdElement.textContent.includes(bookingId)) {
+            // Find the amount display elements
+            const totalAmountElement = card.querySelector('.fw-bold.text-danger');
+            const roomAmountElement = card.querySelector('small.text-muted.d-block');
+            const taxiAmountElement = card.querySelector('small.text-info.d-block');
+            
+            // Calculate new total
+            const newTotal = newRoomAmount + newTaxiAmount;
+            
+            // Update total amount with animation
+            if (totalAmountElement) {
+                totalAmountElement.style.transition = 'all 0.3s ease';
+                totalAmountElement.style.transform = 'scale(1.1)';
+                totalAmountElement.style.color = '#28a745'; // Green for update
+                
+                setTimeout(() => {
+                    totalAmountElement.textContent = `${newTotal.toLocaleString()}đ`;
+                    
+                    setTimeout(() => {
+                        totalAmountElement.style.transform = 'scale(1)';
+                        totalAmountElement.style.color = '#dc3545'; // Back to red
+                    }, 200);
+                }, 150);
+            }
+            
+            // Update room amount
+            if (roomAmountElement) {
+                roomAmountElement.textContent = `Phòng: ${newRoomAmount.toLocaleString()}đ`;
+            }
+            
+            // Update taxi amount (create or remove element as needed)
+            const existingTaxiElement = card.querySelector('small.text-info.d-block');
+            if (newTaxiAmount > 0) {
+                if (existingTaxiElement) {
+                    // Update existing taxi element
+                    existingTaxiElement.textContent = `Taxi: ${newTaxiAmount.toLocaleString()}đ`;
+                } else {
+                    // Create new taxi element
+                    const newTaxiElement = document.createElement('small');
+                    newTaxiElement.className = 'text-info d-block';
+                    newTaxiElement.textContent = `Taxi: ${newTaxiAmount.toLocaleString()}đ`;
+                    
+                    // Insert after room amount
+                    if (roomAmountElement && roomAmountElement.parentNode) {
+                        roomAmountElement.parentNode.insertBefore(newTaxiElement, roomAmountElement.nextSibling);
+                    }
+                }
+            } else {
+                // Remove taxi element if amount is 0
+                if (existingTaxiElement) {
+                    existingTaxiElement.remove();
+                }
+            }
+            
+            // Update the onclick handlers for the buttons to use new amounts
+            const collectButton = card.querySelector('button.btn-success');
+            const editButton = card.querySelector('button.btn-outline-primary');
+            
+            if (collectButton) {
+                const onclickAttr = collectButton.getAttribute('onclick');
+                if (onclickAttr) {
+                    // Update the onclick with new amounts
+                    const updatedOnclick = onclickAttr.replace(
+                        /openCollectModal\([^)]+\)/,
+                        `openCollectModal('${bookingId}', '${currentEditBookingData.guestName}', ${newTotal}, 0, ${newRoomAmount}, ${newTaxiAmount})`
+                    );
+                    collectButton.setAttribute('onclick', updatedOnclick);
+                }
+            }
+            
+            if (editButton) {
+                const onclickAttr = editButton.getAttribute('onclick');
+                if (onclickAttr) {
+                    // Update the onclick with new amounts
+                    const updatedOnclick = onclickAttr.replace(
+                        /openEditAmountModal\([^)]+\)/,
+                        `openEditAmountModal('${bookingId}', '${currentEditBookingData.guestName}', ${newRoomAmount}, ${newTaxiAmount})`
+                    );
+                    editButton.setAttribute('onclick', updatedOnclick);
+                }
+            }
+            
+            // Show success feedback
+            showDashboardToast(`📝 Đã cập nhật số tiền cho ${currentEditBookingData.guestName}`, 'success');
+        }
+    });
+    
+    // Update the overdue total summary as well
+    setTimeout(() => {
+        // Force refresh the overdue total by recalculating from visible cards
+        recalculateOverdueTotal();
+    }, 400);
+}
+
+// Recalculate total overdue amount from visible cards
+function recalculateOverdueTotal() {
+    const visibleCards = document.querySelectorAll('.col-md-4:not([style*="display: none"])');
+    let totalAmount = 0;
+    let totalGuests = 0;
+    
+    visibleCards.forEach(card => {
+        const amountElement = card.querySelector('.fw-bold.text-danger');
+        if (amountElement) {
+            const amountText = amountElement.textContent.replace(/[^\d]/g, '');
+            const amount = parseInt(amountText) || 0;
+            if (amount > 0) {
+                totalAmount += amount;
+                totalGuests++;
+            }
+        }
+    });
+    
+    // Update the header total
+    const totalAmountElement = document.querySelector('.alert-danger .h5');
+    if (totalAmountElement) {
+        totalAmountElement.textContent = `${totalAmount.toLocaleString()}đ`;
+    }
+    
+    // Update guest count
+    const guestCountElement = document.querySelector('.alert-danger p');
+    if (guestCountElement) {
+        guestCountElement.textContent = `${totalGuests} khách đã check-in nhưng chưa thu tiền`;
+    }
 }
 
 function loadQuickNotesOnDashboard(showAll = false) {
@@ -1561,16 +1771,16 @@ function updateBookingAmounts() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Success - close modal and reload page
+            // Success - close modal and update display immediately
             showDashboardToast('✅ Đã cập nhật số tiền thành công!', 'success');
+            
+            // Update the guest card immediately
+            updateGuestCardAmounts(currentEditBookingData.bookingId, roomAmount, taxiAmount);
             
             const modal = bootstrap.Modal.getInstance(document.getElementById('editAmountModal'));
             modal.hide();
             
-            // Reload page after a short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+            // No page reload needed!
         } else {
             throw new Error(data.message || 'Lỗi không xác định');
         }
