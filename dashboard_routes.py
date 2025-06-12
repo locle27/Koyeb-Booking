@@ -181,26 +181,45 @@ def process_overdue_guests(df):
             # Total amount = room fees + taxi fees
             overdue_total_amount = room_total + taxi_total
             
-            # Add calculated totals to each guest record for display
-            for i, guest in enumerate(overdue_df.to_dict('records')):
-                guest_room_fee = pd.to_numeric(guest.get('Tổng thanh toán', 0), errors='coerce') or 0
+            # Add calculated totals to DataFrame BEFORE converting to records
+            calculated_room_fees = []
+            calculated_taxi_fees = []
+            calculated_total_amounts = []
+            
+            for idx, (_, guest_row) in enumerate(overdue_df.iterrows()):
+                # Fix: Better room fee calculation
+                guest_room_payment = guest_row.get('Tổng thanh toán', 0)
+                if guest_room_payment is not None and guest_room_payment != '':
+                    try:
+                        guest_room_fee = float(guest_room_payment)
+                    except (ValueError, TypeError):
+                        guest_room_fee = 0
+                else:
+                    guest_room_fee = 0
+                
                 guest_taxi_fee = 0
                 
-                # Extract taxi fee for this guest
-                taxi_value = guest.get('Taxi', '')
-                if taxi_value and str(taxi_value).strip():
+                # Fix: Better taxi fee extraction for this guest
+                taxi_value = guest_row.get('Taxi', '')
+                if taxi_value and str(taxi_value).strip() and str(taxi_value).strip() not in ['nan', 'None', 'N/A']:
                     import re
-                    numeric_match = re.search(r'[\d,]+', str(taxi_value).replace('.', ''))
+                    # More robust regex to handle various formats
+                    taxi_str = str(taxi_value).replace('.', '').replace(' ', '')
+                    numeric_match = re.search(r'(\d{1,3}(?:,\d{3})*|\d+)', taxi_str)
                     if numeric_match:
                         try:
                             guest_taxi_fee = float(numeric_match.group().replace(',', ''))
                         except ValueError:
-                            pass
+                            guest_taxi_fee = 0
                 
-                # Add calculated fields
-                guest['calculated_room_fee'] = guest_room_fee
-                guest['calculated_taxi_fee'] = guest_taxi_fee
-                guest['calculated_total_amount'] = guest_room_fee + guest_taxi_fee
+                calculated_room_fees.append(guest_room_fee)
+                calculated_taxi_fees.append(guest_taxi_fee)  
+                calculated_total_amounts.append(guest_room_fee + guest_taxi_fee)
+            
+            # Add calculated columns to DataFrame
+            overdue_df['calculated_room_fee'] = calculated_room_fees
+            overdue_df['calculated_taxi_fee'] = calculated_taxi_fees
+            overdue_df['calculated_total_amount'] = calculated_total_amounts
             
             overdue_unpaid_guests = overdue_df.to_dict('records')
     
