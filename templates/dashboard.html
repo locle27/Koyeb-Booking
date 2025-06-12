@@ -745,7 +745,7 @@ function collectPayment() {
     });
 }
 
-function loadQuickNotesOnDashboard() {
+function loadQuickNotesOnDashboard(showAll = false) {
     const container = document.getElementById('quickNotesContainer');
     const notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
     
@@ -757,9 +757,9 @@ function loadQuickNotesOnDashboard() {
             <div class="text-center py-3">
                 <i class="fas fa-sticky-note fa-3x text-white-50 mb-3"></i>
                 <p class="mb-2 text-white fw-bold">Chưa có Quick Notes nào</p>
-                <a href="{{ url_for('quick_notes_page') }}" class="btn btn-light btn-sm">
+                <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#quickNotesModal">
                     <i class="fas fa-plus me-1"></i>Tạo Note đầu tiên
-                </a>
+                </button>
             </div>
         `;
         return;
@@ -790,7 +790,7 @@ function loadQuickNotesOnDashboard() {
         return dateA - dateB;
     });
     
-    const notesHtml = activeNotes.slice(0, 6).map(note => {
+    const notesHtml = (showAll ? activeNotes : activeNotes.slice(0, 6)).map(note => {
         const reminderDate = new Date(`${note.date} ${note.time}`);
         const now = new Date();
         const isOverdue = reminderDate < now;
@@ -847,14 +847,26 @@ function loadQuickNotesOnDashboard() {
         <div class="row">
             ${notesHtml}
         </div>
-        ${activeNotes.length > 6 ? `
+        ${!showAll && activeNotes.length > 6 ? `
             <div class="text-center mt-3">
-                <a href="{{ url_for('quick_notes_page') }}" class="btn btn-outline-light">
+                <button class="btn btn-outline-light btn-sm" onclick="showAllNotes()">
                     <i class="fas fa-eye me-1"></i>Xem tất cả ${activeNotes.length} notes
-                </a>
+                </button>
+            </div>
+        ` : ''}
+        ${showAll && activeNotes.length > 6 ? `
+            <div class="text-center mt-3">
+                <button class="btn btn-outline-light btn-sm" onclick="loadQuickNotesOnDashboard(false)">
+                    <i class="fas fa-eye-slash me-1"></i>Thu gọn
+                </button>
             </div>
         ` : ''}
     `;
+}
+
+function showAllNotes() {
+    // Show all notes without the 6-note limit
+    loadQuickNotesOnDashboard(true); // true = show all
 }
 
 function markNoteCompleted(noteId) {
