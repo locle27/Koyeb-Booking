@@ -2254,6 +2254,17 @@ Translation:
         # Last resort: return original with note
         return f"[Translation Error] {text}"
 
+# --- PWA Routes ---
+@app.route('/static/sw.js')
+def service_worker():
+    """Serve service worker with correct MIME type"""
+    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
+
+@app.route('/static/manifest.json')
+def manifest():
+    """Serve manifest with correct MIME type"""
+    return send_from_directory('static', 'manifest.json', mimetype='application/json')
+
 # --- Chạy ứng dụng ---
 if __name__ == '__main__':
     # Initialize and start reminder system
