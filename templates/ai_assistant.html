@@ -1227,18 +1227,26 @@
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isAndroid = /Android/i.test(navigator.userAgent);
         
+        // Detect PWA mode
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                     window.navigator.standalone === true;
+        
         console.log('Browser detection:', {
             isMobile,
             isIOS, 
             isAndroid,
+            isPWA,
             userAgent: navigator.userAgent,
             hasWebkitSpeech: 'webkitSpeechRecognition' in window,
             hasSpeech: 'SpeechRecognition' in window
         });
         
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            if (isIOS) {
-                supportText.innerHTML = '⚠️ iOS: Chỉ hoạt động trên Safari. Cần nhấn MIC và nói ngay.';
+            if (isIOS && isPWA) {
+                supportText.innerHTML = '⚠️ PWA Mode: Voice có thể không hoạt động. <br><a href="#" onclick="openInSafari()" class="btn btn-sm btn-primary mt-2">Mở trong Safari</a>';
+                recordButton.disabled = false; // Still allow trying
+            } else if (isIOS) {
+                supportText.innerHTML = '✅ iOS Safari: Hỗ trợ voice. Nhấn MIC và nói ngay.';
             } else if (isAndroid) {
                 supportText.innerHTML = '✅ Android: Hỗ trợ đầy đủ. Nhấn MIC để bắt đầu.';
             } else {
@@ -1246,13 +1254,30 @@
             }
             initializeSpeechRecognition();
         } else {
-            if (isIOS) {
+            if (isIOS && isPWA) {
+                supportText.innerHTML = '❌ PWA Mode: Voice không khả dụng. <br><a href="#" onclick="openInSafari()" class="btn btn-sm btn-primary mt-2">Mở trong Safari</a>';
+            } else if (isIOS) {
                 supportText.innerHTML = '❌ iOS: Cần sử dụng Safari browser để dùng tính năng này';
             } else {
                 supportText.innerHTML = '❌ Trình duyệt không hỗ trợ nhận diện giọng nói';
             }
             recordButton.disabled = true;
             recordButton.innerHTML = '<i class="fas fa-times"></i>';
+        }
+    }
+    
+    function openInSafari() {
+        const currentUrl = window.location.href;
+        // Try to open in Safari browser instead of PWA
+        if (confirm('Mở trong Safari để sử dụng voice?\n\nVoice recognition không hoạt động trong PWA mode.')) {
+            // Create a link that opens in Safari
+            const link = document.createElement('a');
+            link.href = currentUrl;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     }
     
@@ -1338,7 +1363,25 @@
                 console.error('Speech recognition error:', event.error, event);
                 let errorMessage = 'Lỗi nhận diện giọng nói';
                 
+                const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                             window.navigator.standalone === true;
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                
                 switch(event.error) {
+                    case 'aborted':
+                        if (isIOS && isPWA) {
+                            errorMessage = '❌ PWA Mode: Voice bị chặn.\n\n🔧 Giải pháp: Mở trong Safari browser';
+                            updateStatus('error', errorMessage);
+                            // Show button to open in Safari
+                            setTimeout(() => {
+                                if (confirm('Voice không hoạt động trong PWA mode.\n\nMở trong Safari browser?')) {
+                                    openInSafari();
+                                }
+                            }, 1000);
+                        } else {
+                            errorMessage = '⚠️ Voice bị ngắt. Thử lại.';
+                        }
+                        break;
                     case 'no-speech':
                         errorMessage = '⚠️ Không nghe thấy giọng nói. Thử lại.';
                         break;
@@ -1352,7 +1395,11 @@
                         errorMessage = '❌ Lỗi mạng. Kiểm tra kết nối internet.';
                         break;
                     default:
-                        errorMessage = `❌ Lỗi: ${event.error}`;
+                        if (isIOS && isPWA) {
+                            errorMessage = `❌ PWA Error: ${event.error}\n\nThử mở trong Safari browser`;
+                        } else {
+                            errorMessage = `❌ Lỗi: ${event.error}`;
+                        }
                 }
                 
                 updateStatus('error', errorMessage);
@@ -1696,14 +1743,25 @@
         // Enhanced mobile detection and support
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                     window.navigator.standalone === true;
         
         if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-            if (isIOS) {
+            if (isIOS && isPWA) {
+                showError('❌ PWA Mode: Voice không khả dụng.\n\nMở trong Safari browser để sử dụng voice.');
+            } else if (isIOS) {
                 showError('❌ iOS: Cần sử dụng Safari browser để dùng voice');
             } else {
                 showError('❌ Trình duyệt không hỗ trợ nhận diện giọng nói');
             }
             return;
+        }
+        
+        // Special handling for PWA mode
+        if (isIOS && isPWA) {
+            if (!confirm('⚠️ PWA Mode phát hiện!\n\nVoice có thể không hoạt động trong app mode.\n\nBạn có muốn thử không? (Khuyến nghị: Dùng Safari browser)')) {
+                return;
+            }
         }
         
         // Request microphone permission first on mobile
@@ -1785,7 +1843,24 @@
                 console.error('Voice instruction error:', event.error, event);
                 let errorMessage = 'Lỗi nhận diện giọng nói';
                 
+                const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                             window.navigator.standalone === true;
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                
                 switch(event.error) {
+                    case 'aborted':
+                        if (isIOS && isPWA) {
+                            errorMessage = '❌ PWA Mode: Voice Instructions bị chặn.\n\n🔧 Giải pháp: Mở trong Safari browser';
+                            showError(errorMessage);
+                            setTimeout(() => {
+                                if (confirm('Voice Instructions không hoạt động trong PWA mode.\n\nMở trong Safari browser?')) {
+                                    openInSafari();
+                                }
+                            }, 1000);
+                        } else {
+                            errorMessage = '⚠️ Voice Instructions bị ngắt. Thử lại.';
+                        }
+                        break;
                     case 'no-speech':
                         errorMessage = '⚠️ Không nghe thấy giọng nói. Thử lại.';
                         break;
@@ -1799,7 +1874,11 @@
                         errorMessage = '❌ Lỗi mạng. Kiểm tra kết nối internet.';
                         break;
                     default:
-                        errorMessage = `❌ Lỗi: ${event.error}`;
+                        if (isIOS && isPWA) {
+                            errorMessage = `❌ PWA Error: ${event.error}\n\nThử mở trong Safari browser`;
+                        } else {
+                            errorMessage = `❌ Lỗi: ${event.error}`;
+                        }
                 }
                 
                 showError(errorMessage);
