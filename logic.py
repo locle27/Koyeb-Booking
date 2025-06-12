@@ -513,7 +513,7 @@ def update_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name
             verification_success = True
             for key, expected_value in new_data.items():
                 if key in header:
-                    col_index = header.index(key) - 1  # 0-based for row_values
+                    col_index = header.index(key)  # Fixed: header.index() already returns 0-based index for row_values
                     if col_index < len(updated_row_data):
                         actual_value = updated_row_data[col_index]
                         if str(actual_value) != str(expected_value):
