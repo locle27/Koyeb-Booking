@@ -1000,6 +1000,84 @@ def collect_payment():
             'message': f'Lỗi server: {str(e)}'
         }), 500
 
+@app.route('/api/update_guest_amounts', methods=['POST'])
+def update_guest_amounts():
+    """API endpoint để cập nhật số tiền phòng và taxi cho khách hàng"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'Không có dữ liệu'}), 400
+        
+        booking_id = data.get('booking_id')
+        room_amount = data.get('room_amount', 0)
+        taxi_amount = data.get('taxi_amount', 0)
+        edit_note = data.get('edit_note', '')
+        
+        # Validate input
+        if not booking_id:
+            return jsonify({'success': False, 'message': 'Thiếu mã đặt phòng'}), 400
+            
+        if room_amount < 0 or taxi_amount < 0:
+            return jsonify({'success': False, 'message': 'Số tiền không thể âm'}), 400
+            
+        if room_amount == 0 and taxi_amount == 0:
+            return jsonify({'success': False, 'message': 'Vui lòng nhập ít nhất một khoản tiền'}), 400
+        
+        # Log the original data for debugging
+        print(f"[UPDATE_AMOUNTS] Updating booking {booking_id}: room={room_amount}, taxi={taxi_amount}")
+        
+        # Prepare update data - ONLY update the amount fields
+        new_data = {
+            'Tổng thanh toán': float(room_amount),
+        }
+        
+        # Handle taxi amount - format properly
+        if taxi_amount > 0:
+            new_data['Taxi'] = f"{taxi_amount:,.0f}đ"
+        else:
+            new_data['Taxi'] = ''  # Clear taxi field if amount is 0
+        
+        # Add edit note with timestamp if provided
+        if edit_note:
+            timestamp = datetime.now().strftime('%d/%m/%Y %H:%M')
+            new_data['Ghi chú thanh toán'] = f"dữ liệu trước khi sửa số tiền : {edit_note} (Cập nhật {timestamp})"
+        
+        print(f"[UPDATE_AMOUNTS] Prepared data: {new_data}")
+        
+        # Update Google Sheets - use the existing update function
+        success = update_row_in_gsheet(
+            sheet_id=DEFAULT_SHEET_ID,
+            gcp_creds_file_path=GCP_CREDS_FILE_PATH,
+            worksheet_name=WORKSHEET_NAME,
+            booking_id=booking_id,
+            new_data=new_data
+        )
+        
+        if success:
+            # Clear cache to get fresh data
+            load_data.cache_clear()
+            print(f"[UPDATE_AMOUNTS] Successfully updated booking {booking_id}")
+            
+            return jsonify({
+                'success': True, 
+                'message': f'Đã cập nhật số tiền thành công cho booking {booking_id}'
+            })
+        else:
+            print(f"[UPDATE_AMOUNTS] Failed to update booking {booking_id}")
+            return jsonify({
+                'success': False, 
+                'message': 'Không thể cập nhật thông tin trên Google Sheets'
+            })
+            
+    except Exception as e:
+        print(f"[UPDATE_AMOUNTS] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False, 
+            'message': f'Lỗi server: {str(e)}'
+        }), 500
+
 @app.route('/voice_translator')
 def voice_translator():
     """Trang Voice Translator - Dịch giọng nói"""

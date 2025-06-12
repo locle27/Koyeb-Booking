@@ -417,55 +417,125 @@ def append_multiple_bookings_to_sheet(bookings: List[Dict[str, Any]], gcp_creds_
 def update_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: str, booking_id: str, new_data: dict) -> bool:
     """
     Tìm một hàng trong Google Sheet dựa trên booking_id và cập nhật nó.
+    Enhanced with better logging and error handling to prevent data corruption.
     """
     try:
-        print(f"Starting update Google Sheet for ID: {booking_id}")
+        print(f"[UPDATE] Starting update Google Sheet for ID: {booking_id}")
+        print(f"[UPDATE] Data to update: {new_data}")
+        
         gc = _get_gspread_client(gcp_creds_file_path)
         sh = gc.open_by_key(sheet_id)
         worksheet = sh.worksheet(worksheet_name)
         
         # Lấy toàn bộ dữ liệu để tìm đúng hàng và cột
+        print(f"[UPDATE] Reading all data from worksheet...")
         data = worksheet.get_all_values()
         if not data:
-            print("Error: Empty sheet.")
+            print("[UPDATE] ERROR: Empty sheet.")
             return False
             
         header = data[0]
+        print(f"[UPDATE] Worksheet header: {header}")
+        print(f"[UPDATE] Total rows in sheet: {len(data)}")
         
         # Tìm cột chứa 'Số đặt phòng'
         try:
             id_col_index = header.index('Số đặt phòng') + 1  # gspread dùng index từ 1
+            print(f"[UPDATE] Found 'Số đặt phòng' column at index: {id_col_index}")
         except ValueError:
-            print("Error: Cannot find 'Số đặt phòng' column in header.")
+            print("[UPDATE] ERROR: Cannot find 'Số đặt phòng' column in header.")
+            print(f"[UPDATE] Available columns: {header}")
             return False
 
         # Tìm hàng có booking_id tương ứng
+        print(f"[UPDATE] Searching for booking ID '{booking_id}' in column {id_col_index}...")
         cell = worksheet.find(booking_id, in_column=id_col_index)
         if not cell:
-            print(f"Error: Cannot find row with ID {booking_id} in column {id_col_index}.")
+            print(f"[UPDATE] ERROR: Cannot find row with ID '{booking_id}' in column {id_col_index}.")
+            
+            # Debug: Search in all data to see if booking exists anywhere
+            print(f"[UPDATE] DEBUG: Searching for '{booking_id}' in all data...")
+            found_in_data = False
+            for row_idx, row in enumerate(data):
+                if booking_id in str(row):
+                    print(f"[UPDATE] DEBUG: Found '{booking_id}' in row {row_idx + 1}: {row}")
+                    found_in_data = True
+                    break
+            
+            if not found_in_data:
+                print(f"[UPDATE] DEBUG: '{booking_id}' not found anywhere in sheet data")
+                # Show some sample booking IDs for comparison
+                booking_ids = [row[id_col_index-1] for row in data[1:] if len(row) > id_col_index-1][:5]
+                print(f"[UPDATE] DEBUG: Sample booking IDs in sheet: {booking_ids}")
+            
             return False
             
         row_index = cell.row
-        print(f"Found ID {booking_id} at row {row_index}.")
-
+        print(f"[UPDATE] Found booking ID '{booking_id}' at row {row_index}")
+        
+        # Read current data in that row for backup
+        current_row_data = worksheet.row_values(row_index)
+        print(f"[UPDATE] Current row data: {current_row_data[:10]}...")  # Show first 10 cells
+        
         # Tạo một danh sách các ô cần cập nhật
         cells_to_update = []
+        columns_to_update = []
+        
         for key, value in new_data.items():
             if key in header:
                 col_index = header.index(key) + 1
+                print(f"[UPDATE] Mapping '{key}' to column {col_index} with value '{value}'")
+                
+                # Store original value for comparison
+                original_value = current_row_data[col_index - 1] if col_index - 1 < len(current_row_data) else ""
+                print(f"[UPDATE] Original value for '{key}': '{original_value}' -> New value: '{value}'")
+                
                 # Thêm ô vào danh sách để cập nhật hàng loạt
                 cells_to_update.append(gspread.Cell(row=row_index, col=col_index, value=str(value)))
+                columns_to_update.append(key)
+            else:
+                print(f"[UPDATE] WARNING: Column '{key}' not found in header. Skipping.")
 
         if cells_to_update:
+            print(f"[UPDATE] Updating {len(cells_to_update)} cells for ID '{booking_id}'...")
+            print(f"[UPDATE] Columns being updated: {columns_to_update}")
+            
+            # Perform the update
             worksheet.update_cells(cells_to_update, value_input_option='USER_ENTERED')
-            print(f"Successfully updated {len(cells_to_update)} cells for ID {booking_id}.")
+            print(f"[UPDATE] Successfully sent update request for {len(cells_to_update)} cells")
+            
+            # Verify the update by reading the row again
+            print(f"[UPDATE] Verifying update...")
+            updated_row_data = worksheet.row_values(row_index)
+            print(f"[UPDATE] Updated row data: {updated_row_data[:10]}...")  # Show first 10 cells
+            
+            # Compare specific updated fields
+            verification_success = True
+            for key, expected_value in new_data.items():
+                if key in header:
+                    col_index = header.index(key) - 1  # 0-based for row_values
+                    if col_index < len(updated_row_data):
+                        actual_value = updated_row_data[col_index]
+                        if str(actual_value) != str(expected_value):
+                            print(f"[UPDATE] WARNING: Verification failed for '{key}'. Expected: '{expected_value}', Got: '{actual_value}'")
+                            verification_success = False
+                        else:
+                            print(f"[UPDATE] Verification passed for '{key}': '{actual_value}'")
+            
+            if verification_success:
+                print(f"[UPDATE] ✅ All updates verified successfully for booking ID '{booking_id}'")
+            else:
+                print(f"[UPDATE] ⚠️  Some updates may not have been applied correctly")
+            
             return True
         else:
-            print("No valid data to update.")
+            print("[UPDATE] ERROR: No valid data to update.")
             return False
 
     except Exception as e:
-        print(f"Critical error when updating Google Sheet: {e}")
+        print(f"[UPDATE] CRITICAL ERROR when updating Google Sheet: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def delete_row_in_gsheet(sheet_id: str, gcp_creds_file_path: str, worksheet_name: str, booking_id: str) -> bool:

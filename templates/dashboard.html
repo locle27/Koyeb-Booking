@@ -1289,27 +1289,27 @@ function updateBookingAmounts() {
     confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang cập nhật...';
     confirmBtn.disabled = true;
     
-    // Prepare update data
+    // Prepare update data for the new API endpoint
     const updateData = {
-        'Tổng thanh toán': roomAmount,
-        'Taxi': taxiAmount > 0 ? `${taxiAmount.toLocaleString()}đ` : ''
+        booking_id: currentEditBookingData.bookingId,
+        room_amount: roomAmount,
+        taxi_amount: taxiAmount,
+        edit_note: editNote
     };
     
-    // Add note if provided
-    if (editNote) {
-        updateData['Ghi chú thanh toán'] = `${editNote} (Cập nhật lúc ${new Date().toLocaleString()})`;
-    }
+    console.log('Sending update data:', updateData);
     
-    // Call update API (using existing edit booking endpoint)
-    fetch(`/booking/${currentEditBookingData.bookingId}/edit`, {
+    // Call the correct API endpoint for updating guest amounts
+    fetch('/api/update_guest_amounts', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/json',
         },
-        body: new URLSearchParams(updateData)
+        body: JSON.stringify(updateData)
     })
-    .then(response => {
-        if (response.ok) {
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
             // Success - close modal and reload page
             showDashboardToast('✅ Đã cập nhật số tiền thành công!', 'success');
             
@@ -1321,7 +1321,7 @@ function updateBookingAmounts() {
                 window.location.reload();
             }, 1500);
         } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(data.message || 'Lỗi không xác định');
         }
     })
     .catch(error => {
