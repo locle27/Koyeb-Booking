@@ -310,6 +310,30 @@ def view_bookings():
         ascending = order == 'asc'
         df = df.sort_values(by=sort_by, ascending=ascending)
     
+    # === AUTO DUPLICATE FILTERING ===
+    auto_filter_duplicates = request.args.get('auto_filter', 'true').lower() == 'true'
+    duplicate_report = {"duplicate_groups": [], "total_groups": 0, "total_duplicates": 0}
+    filtered_booking_ids = set()
+    
+    if auto_filter_duplicates:
+        try:
+            # Get duplicate analysis
+            duplicate_report = analyze_existing_duplicates()
+            
+            # Extract all duplicate booking IDs to filter out
+            for group in duplicate_report.get("duplicate_groups", []):
+                # Keep main booking, filter out similar ones
+                for similar_booking in group.get("similar_bookings", []):
+                    filtered_booking_ids.add(similar_booking["booking_id"])
+            
+            # Filter duplicates from the main booking list
+            if filtered_booking_ids and not df.empty:
+                original_count = len(df)
+                df = df[~df['Số đặt phòng'].isin(filtered_booking_ids)]
+                print(f"DEBUG: Auto-filtered {original_count - len(df)} duplicate bookings")
+        except Exception as e:
+            print(f"ERROR: Failed to auto-filter duplicates: {e}")
+    
     bookings_list = safe_to_dict_records(df)
     
     # Tạo danh sách tháng/năm có sẵn để dropdown
@@ -330,7 +354,10 @@ def view_bookings():
                          start_date=start_date,
                          end_date=end_date,
                          available_months=available_months,
-                         show_all=show_all)
+                         show_all=show_all,
+                         auto_filter_duplicates=auto_filter_duplicates,
+                         duplicate_report=duplicate_report,
+                         filtered_count=len(filtered_booking_ids))
 
 @app.route('/calendar/')
 @app.route('/calendar/<int:year>/<int:month>')
@@ -1519,10 +1546,6 @@ def import_templates():
         return redirect(url_for('get_templates_page'))
 
 # === QUICK NOTES SYSTEM ===
-@app.route('/quick_notes')
-def quick_notes_page():
-    """Trang Quick Notes - Tạo nhắc nhanh với 3 option: Thu tiền lại, Hủy phòng, Taxi"""
-    return render_template('quick_notes.html')
 
 @app.route('/api/quick_notes', methods=['GET'])
 def get_quick_notes():

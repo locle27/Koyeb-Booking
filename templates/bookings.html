@@ -77,8 +77,9 @@
         </div>
         <div class="card-body">
             <form method="GET" action="{{ url_for('view_bookings') }}">
-                <!-- Hidden field để giữ show_all state -->
+                <!-- Hidden fields để giữ states -->
                 <input type="hidden" name="show_all" value="{{ 'true' if show_all else 'false' }}">
+                <input type="hidden" name="auto_filter" value="{{ 'true' if auto_filter_duplicates else 'false' }}">
                 
                 <div class="row g-3">
                     <!-- Tìm kiếm -->
@@ -148,6 +149,94 @@
             </form>
         </div>
     </div>
+
+    <!-- Auto Duplicate Filter Report -->
+    {% if auto_filter_duplicates and duplicate_report.total_groups > 0 %}
+    <div class="card mb-3 border-warning">
+        <div class="card-header bg-warning text-dark">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-robot me-1"></i>
+                    AI Duplicate Filter Report
+                </h6>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-dark me-2">{{ filtered_count }} filtered</span>
+                    <a href="{{ url_for('view_bookings', auto_filter='false', search_term=search_term, filter_month=filter_month, filter_year=filter_year, start_date=start_date, end_date=end_date, show_all=show_all) }}" 
+                       class="btn btn-outline-dark btn-sm">
+                        <i class="fas fa-eye"></i> Show All
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body py-2">
+            <div class="row">
+                <div class="col-md-8">
+                    <p class="mb-1 text-success">
+                        <i class="fas fa-check-circle me-1"></i>
+                        <strong>{{ filtered_count }} duplicate bookings</strong> automatically filtered from {{ duplicate_report.total_groups }} groups.
+                        Click on any group below to review and delete manually.
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <small class="text-muted">
+                        Filtered: Same guest + similar dates (±3 days) + price (±100k VND)
+                    </small>
+                </div>
+            </div>
+            
+            <!-- Duplicate Groups Summary -->
+            <div class="mt-2">
+                <div class="row">
+                    {% for group in duplicate_report.duplicate_groups %}
+                    <div class="col-lg-6 mb-2">
+                        <div class="card border-light bg-light">
+                            <div class="card-body py-2 px-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <strong class="text-primary">{{ group.main_booking.guest_name }}</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            {{ group.main_booking.check_in_date }} | 
+                                            {{ "{:,.0f}".format(group.main_booking.total_payment) }} VND
+                                        </small>
+                                        <br>
+                                        <small class="text-success">
+                                            <i class="fas fa-arrow-right me-1"></i>
+                                            {{ group.group_size - 1 }} similar booking(s) filtered
+                                        </small>
+                                    </div>
+                                    <div class="text-end">
+                                        <button class="btn btn-outline-danger btn-sm" 
+                                                onclick="showDuplicateDetail('{{ group.main_booking.booking_id }}', {{ group.similar_bookings|tojson|e }})">
+                                            <i class="fas fa-eye"></i> Review
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elif auto_filter_duplicates %}
+    <div class="alert alert-success alert-dismissible mb-3" role="alert">
+        <i class="fas fa-check-circle me-1"></i>
+        <strong>No duplicates found!</strong> All bookings are unique.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    {% if not auto_filter_duplicates %}
+    <div class="alert alert-info alert-dismissible mb-3" role="alert">
+        <i class="fas fa-info-circle me-1"></i>
+        Auto duplicate filtering is <strong>disabled</strong>. 
+        <a href="{{ url_for('view_bookings', auto_filter='true', search_term=search_term, filter_month=filter_month, filter_year=filter_year, start_date=start_date, end_date=end_date, show_all=show_all) }}" 
+           class="alert-link">Enable auto-filter</a> to hide duplicates automatically.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
 
     <!-- Table với compact style -->
     <div class="table-responsive">
@@ -820,6 +909,120 @@ function deleteBooking(bookingId) {
             });
         });
     }
+}
+
+// === Auto-filter Duplicate Detail Function ===
+function showDuplicateDetail(mainBookingId, similarBookings) {
+    console.log('Showing duplicate detail for:', mainBookingId, similarBookings);
+    
+    // Create detail modal content
+    let modalContent = `
+        <div class="modal fade" id="duplicateDetailModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Duplicate Group Details
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <strong>Main booking ID:</strong> ${mainBookingId} (kept visible)
+                        </div>
+                        <h6>Filtered similar bookings:</h6>
+                        <div class="row">
+    `;
+    
+    similarBookings.forEach((booking, index) => {
+        modalContent += `
+            <div class="col-md-6 mb-3">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <h6 class="card-title text-danger">${booking.guest_name}</h6>
+                        <p class="card-text">
+                            <strong>ID:</strong> ${booking.booking_id}<br>
+                            <strong>Check-in:</strong> ${booking.check_in_date}<br>
+                            <strong>Check-out:</strong> ${booking.check_out_date}<br>
+                            <strong>Price:</strong> ${booking.total_payment.toLocaleString()} VND<br>
+                            <strong>Status:</strong> ${booking.status}
+                        </p>
+                        <div class="mb-2">
+                            <span class="badge bg-info">±${booking.date_diff} days</span>
+                            <span class="badge bg-warning text-dark">±${booking.price_diff.toLocaleString()} VND</span>
+                        </div>
+                        <button class="btn btn-danger btn-sm w-100" onclick="deleteDuplicateBooking('${booking.booking_id}')">
+                            <i class="fas fa-trash me-1"></i>Delete This Booking
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    modalContent += `
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if it exists
+    const existingModal = document.getElementById('duplicateDetailModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add new modal to body
+    document.body.insertAdjacentHTML('beforeend', modalContent);
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('duplicateDetailModal'));
+    modal.show();
+}
+
+function deleteDuplicateBooking(bookingId) {
+    if (!confirm(`Are you sure you want to delete booking ${bookingId}?`)) {
+        return;
+    }
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+    
+    fetch(`/api/delete_booking/${bookingId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        button.disabled = false;
+        button.innerHTML = originalText;
+        
+        if (data.success) {
+            alert('✅ Booking deleted successfully!');
+            // Close modal and reload page
+            const modal = bootstrap.Modal.getInstance(document.getElementById('duplicateDetailModal'));
+            modal.hide();
+            window.location.reload();
+        } else {
+            alert('❌ Error deleting booking: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        button.disabled = false;
+        button.innerHTML = originalText;
+        console.error('Error deleting booking:', error);
+        alert('❌ Network error deleting booking. Please try again.');
+    });
 }
 </script>
 {% endblock %} 

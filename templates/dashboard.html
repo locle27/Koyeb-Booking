@@ -86,9 +86,9 @@
                             <i class="fas fa-sticky-note me-2 text-white"></i><span class="text-white">📝 Quick Notes</span>
                         </h5>
                         <div>
-                            <a href="{{ url_for('quick_notes_page') }}" class="btn btn-light btn-sm me-2">
+                            <button class="btn btn-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#quickNotesModal">
                                 <i class="fas fa-plus me-1"></i>Tạo mới
-                            </a>
+                            </button>
                             <button class="btn btn-outline-light btn-sm" onclick="refreshQuickNotes()">
                                 <i class="fas fa-sync-alt me-1"></i>Làm mới
                             </button>
@@ -1047,6 +1047,180 @@ function showDayDetails(date, guestCount, guestNames, bookingIds) {
         modal.remove();
     });
 }
+
+// === QUICK NOTES MODAL FUNCTIONS ===
+function openQuickNotesModal() {
+    document.getElementById('quickNotesModal').modal('show');
+}
+
+function saveQuickNote() {
+    const noteType = document.getElementById('noteType').value;
+    const noteContent = document.getElementById('noteContent').value;
+    const noteDate = document.getElementById('noteDate').value;
+    const noteTime = document.getElementById('noteTime').value;
+    
+    if (!noteType || !noteContent || !noteDate || !noteTime) {
+        alert('Vui lòng điền đầy đủ thông tin!');
+        return;
+    }
+    
+    const noteData = {
+        id: Date.now().toString(),
+        type: noteType,
+        content: noteContent,
+        date: noteDate,
+        time: noteTime,
+        created_at: new Date().toISOString()
+    };
+    
+    // Save to localStorage
+    let savedNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+    savedNotes.unshift(noteData);
+    localStorage.setItem('quickNotes', JSON.stringify(savedNotes));
+    
+    // Send to server
+    fetch('/api/quick_notes', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(noteData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Note saved to server successfully');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving to server:', error);
+    });
+    
+    // Reset form
+    document.getElementById('quickNotesForm').reset();
+    document.getElementById('noteDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('noteTime').value = new Date().toTimeString().slice(0, 5);
+    
+    // Close modal
+    bootstrap.Modal.getInstance(document.getElementById('quickNotesModal')).hide();
+    
+    // Refresh notes display
+    refreshQuickNotes();
+    
+    alert('✅ Đã lưu quick note thành công!');
+}
+
+function selectNoteType(type) {
+    document.getElementById('noteType').value = type;
+    
+    // Update button styles
+    document.querySelectorAll('.note-type-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Set default content based on type
+    const contentField = document.getElementById('noteContent');
+    switch(type) {
+        case 'thu-tien':
+            contentField.value = 'Thu tiền từ khách: ';
+            break;
+        case 'huy-phong':
+            contentField.value = 'Hủy phòng cho khách: ';
+            break;
+        case 'taxi':
+            contentField.value = 'Đặt taxi cho khách: ';
+            break;
+        default:
+            contentField.value = '';
+    }
+    contentField.focus();
+}
 </script>
+
+<!-- Quick Notes Modal -->
+<div class="modal fade" id="quickNotesModal" tabindex="-1" aria-labelledby="quickNotesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="quickNotesModalLabel">
+                    <i class="fas fa-sticky-note me-2"></i>Tạo Quick Note Mới
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickNotesForm">
+                    <!-- Note Type Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Chọn loại ghi chú:</label>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-outline-success w-100 note-type-btn" onclick="selectNoteType('thu-tien')">
+                                    <i class="fas fa-money-bill-wave d-block mb-2" style="font-size: 2rem;"></i>
+                                    <div class="fw-bold">Thu tiền</div>
+                                    <small>Nhắc thu tiền khách</small>
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-outline-danger w-100 note-type-btn" onclick="selectNoteType('huy-phong')">
+                                    <i class="fas fa-times-circle d-block mb-2" style="font-size: 2rem;"></i>
+                                    <div class="fw-bold">Hủy phòng</div>
+                                    <small>Xử lý hủy booking</small>
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-outline-warning w-100 note-type-btn" onclick="selectNoteType('taxi')">
+                                    <i class="fas fa-taxi d-block mb-2" style="font-size: 2rem;"></i>
+                                    <div class="fw-bold">Taxi</div>
+                                    <small>Đặt taxi cho khách</small>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hidden field for note type -->
+                    <input type="hidden" id="noteType" name="noteType">
+                    
+                    <!-- Note Content -->
+                    <div class="mb-3">
+                        <label for="noteContent" class="form-label fw-bold">Nội dung ghi chú:</label>
+                        <textarea class="form-control" id="noteContent" name="noteContent" rows="4" 
+                                  placeholder="Nhập chi tiết ghi chú..."></textarea>
+                    </div>
+                    
+                    <!-- Date and Time -->
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="noteDate" class="form-label fw-bold">Ngày:</label>
+                            <input type="date" class="form-control" id="noteDate" name="noteDate" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="noteTime" class="form-label fw-bold">Giờ:</label>
+                            <input type="time" class="form-control" id="noteTime" name="noteTime" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Hủy
+                </button>
+                <button type="button" class="btn btn-primary" onclick="saveQuickNote()">
+                    <i class="fas fa-save me-1"></i>Lưu Quick Note
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize modal date and time when modal opens
+document.getElementById('quickNotesModal').addEventListener('show.bs.modal', function () {
+    const now = new Date();
+    document.getElementById('noteDate').value = now.toISOString().split('T')[0];
+    document.getElementById('noteTime').value = now.toTimeString().slice(0, 5);
+});
+</script>
+
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

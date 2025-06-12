@@ -112,14 +112,15 @@
                         duplicateCheck = apiResponse.duplicate_check;
                         extractedData = apiResponse.bookings || apiResponse;
                         
-                        // Nếu có duplicate, hiển thị cảnh báo và cho phép chọn
-                        if (duplicateCheck.has_duplicates) {
+                        // ✅ FIX: Chỉ hiển thị duplicate warning nếu thực sự có duplicate
+                        if (duplicateCheck.has_duplicates && duplicateCheck.duplicates && duplicateCheck.duplicates.length > 0) {
                             await showDuplicateWarning(duplicateCheck);
                             return;
                         }
                     }
 
                     console.log('🔍 Raw API Response:', extractedData);
+                    console.log('🔍 ExtractedData type:', typeof extractedData, 'Array?', Array.isArray(extractedData));
                     
                     // Xử lý trường hợp API trả về object với error message
                     if (extractedData && extractedData.error) {
@@ -156,6 +157,12 @@
                                     break;
                                 }
                             }
+                        }
+                        
+                        // ✅ FIX: Special case for duplicate check with clean bookings
+                        if (!bookingsArray && duplicateCheck && duplicateCheck.clean_bookings) {
+                            bookingsArray = duplicateCheck.clean_bookings;
+                            console.log('✅ Using clean_bookings from duplicate check:', bookingsArray);
                         }
                         
                         // Nếu vẫn không tìm thấy, thử convert object thành array
