@@ -789,17 +789,32 @@ def edit_booking(booking_id):
     booking = safe_to_dict_records(df[df['Số đặt phòng'] == booking_id])[0] if not df.empty else {}
     
     if request.method == 'POST':
-        new_data = {
-            'Tên người đặt': request.form.get('Tên người đặt'),
-            'Tên chỗ nghỉ': request.form.get('Tên chỗ nghỉ'),
-            'Check-in Date': request.form.get('Check-in Date'),
-            'Check-out Date': request.form.get('Check-out Date'),
-            'Tổng thanh toán': request.form.get('Tổng thanh toán'),
-            'Hoa hồng': request.form.get('Hoa hồng', 0),  # Thêm hoa hồng
-            'Tình trạng': request.form.get('Tình trạng'),
-            'Người thu tiền': request.form.get('Người thu tiền'),
-            'Taxi': request.form.get('Taxi', ''),  # Thêm trường taxi
-        }
+        # 🚨 FIXED: Only update amount fields, NOT customer info
+        new_data = {}
+        
+        # Only update payment amounts, never overwrite customer data
+        total_amount = request.form.get('Tổng thanh toán')
+        if total_amount:
+            new_data['Tổng thanh toán'] = total_amount
+            
+        taxi_amount = request.form.get('Taxi')
+        if taxi_amount:
+            new_data['Taxi'] = taxi_amount
+            
+        commission = request.form.get('Hoa hồng')
+        if commission:
+            new_data['Hoa hồng'] = commission
+            
+        # Only update collector if provided
+        collector = request.form.get('Người thu tiền')
+        if collector:
+            new_data['Người thu tiền'] = collector
+            
+        print(f"[EDIT_BOOKING] FIXED - Only updating: {new_data}")
+        
+        if not new_data:
+            flash('Không có dữ liệu nào để cập nhật.', 'warning')
+            return redirect(url_for('view_bookings'))
         
         success = update_row_in_gsheet(
             sheet_id=DEFAULT_SHEET_ID,
@@ -812,7 +827,7 @@ def edit_booking(booking_id):
         if success:
             # Xóa cache để tải lại dữ liệu mới
             load_data.cache_clear()
-            flash('Đã cập nhật đặt phòng thành công!', 'success')
+            flash('Đã cập nhật số tiền thành công!', 'success')
         else:
             flash('Có lỗi xảy ra khi cập nhật đặt phòng trên Google Sheet.', 'danger')
             
