@@ -1915,41 +1915,105 @@ function createArrivalNotification() {
     }
 }
 
-function editDefaultArrivalTime() {
+async function editDefaultArrivalTime() {
     const currentTime = document.getElementById('defaultArrivalTime').textContent;
     const newTime = prompt('Nhập thời gian check-in mặc định (HH:MM):', currentTime);
     
     if (newTime && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(newTime)) {
-        document.getElementById('defaultArrivalTime').textContent = newTime;
-        
-        // Update all guest times to new default
-        const timeElements = document.querySelectorAll('[id^="time-"]');
-        timeElements.forEach(el => {
-            el.textContent = newTime;
-        });
-        
-        showDashboardToast(`⏰ Đã cập nhật thời gian check-in mặc định: ${newTime}`, 'success');
-        
-        // Save to localStorage for persistence
-        localStorage.setItem('defaultArrivalTime', newTime);
+        try {
+            // Save to server first
+            const response = await fetch('/api/arrival_times', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: 'default',
+                    time: newTime
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Update UI after successful server save
+                document.getElementById('defaultArrivalTime').textContent = newTime;
+                
+                // Update all guest times to new default (only visual, guests keep their custom times)
+                const timeElements = document.querySelectorAll('[id^="time-"]');
+                timeElements.forEach(el => {
+                    // Only update if guest doesn't have custom time
+                    const bookingId = el.id.replace('time-', '');
+                    const guestTimes = JSON.parse(localStorage.getItem('guestArrivalTimes') || '{}');
+                    if (!guestTimes[bookingId]) {
+                        el.textContent = newTime;
+                    }
+                });
+                
+                showDashboardToast(`⏰ Đã lưu thời gian mặc định: ${newTime} (sync tất cả thiết bị)`, 'success');
+                
+                // Also save to localStorage as backup
+                localStorage.setItem('defaultArrivalTime', newTime);
+            } else {
+                throw new Error(result.message || 'Server error');
+            }
+        } catch (error) {
+            console.error('Error saving default time:', error);
+            showDashboardToast('❌ Lỗi lưu server. Chỉ lưu trên thiết bị này.', 'warning');
+            
+            // Fallback to localStorage only
+            document.getElementById('defaultArrivalTime').textContent = newTime;
+            localStorage.setItem('defaultArrivalTime', newTime);
+        }
     } else if (newTime) {
         showDashboardToast('❌ Định dạng thời gian không hợp lệ! Sử dụng HH:MM', 'error');
     }
 }
 
-function editGuestArrivalTime(bookingId, guestName) {
+async function editGuestArrivalTime(bookingId, guestName) {
     const currentTimeElement = document.getElementById(`time-${bookingId}`);
     const currentTime = currentTimeElement.textContent;
     const newTime = prompt(`Nhập thời gian đến cho ${guestName} (HH:MM):`, currentTime);
     
     if (newTime && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(newTime)) {
-        currentTimeElement.textContent = newTime;
-        showDashboardToast(`⏰ Đã cập nhật thời gian đến cho ${guestName}: ${newTime}`, 'success');
-        
-        // Save guest-specific time to localStorage
-        const guestTimes = JSON.parse(localStorage.getItem('guestArrivalTimes') || '{}');
-        guestTimes[bookingId] = newTime;
-        localStorage.setItem('guestArrivalTimes', JSON.stringify(guestTimes));
+        try {
+            // Save to server first
+            const response = await fetch('/api/arrival_times', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: 'guest',
+                    booking_id: bookingId,
+                    time: newTime
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Update UI after successful server save
+                currentTimeElement.textContent = newTime;
+                showDashboardToast(`⏰ Đã lưu thời gian cho ${guestName}: ${newTime} (sync tất cả thiết bị)`, 'success');
+                
+                // Also save to localStorage as backup
+                const guestTimes = JSON.parse(localStorage.getItem('guestArrivalTimes') || '{}');
+                guestTimes[bookingId] = newTime;
+                localStorage.setItem('guestArrivalTimes', JSON.stringify(guestTimes));
+            } else {
+                throw new Error(result.message || 'Server error');
+            }
+        } catch (error) {
+            console.error('Error saving guest time:', error);
+            showDashboardToast('❌ Lỗi lưu server. Chỉ lưu trên thiết bị này.', 'warning');
+            
+            // Fallback to localStorage only
+            currentTimeElement.textContent = newTime;
+            const guestTimes = JSON.parse(localStorage.getItem('guestArrivalTimes') || '{}');
+            guestTimes[bookingId] = newTime;
+            localStorage.setItem('guestArrivalTimes', JSON.stringify(guestTimes));
+        }
     } else if (newTime) {
         showDashboardToast('❌ Định dạng thời gian không hợp lệ! Sử dụng HH:MM', 'error');
     }
@@ -2113,25 +2177,60 @@ document.getElementById('quickNotesModal').addEventListener('show.bs.modal', fun
     document.getElementById('noteTime').value = now.toTimeString().slice(0, 5);
 });
 
-// Initialize arrival times from localStorage
-document.addEventListener('DOMContentLoaded', function() {
-    // Load default arrival time
-    const defaultTime = localStorage.getItem('defaultArrivalTime');
-    if (defaultTime) {
-        const defaultTimeElement = document.getElementById('defaultArrivalTime');
-        if (defaultTimeElement) {
-            defaultTimeElement.textContent = defaultTime;
+// Initialize arrival times from server, fallback to localStorage
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        // Try to load times from server first
+        const response = await fetch('/api/arrival_times');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            const serverData = result.data;
+            
+            // Update default time from server
+            const defaultTimeElement = document.getElementById('defaultArrivalTime');
+            if (defaultTimeElement && serverData.default_time) {
+                defaultTimeElement.textContent = serverData.default_time;
+                // Update localStorage with server data
+                localStorage.setItem('defaultArrivalTime', serverData.default_time);
+            }
+            
+            // Update guest times from server
+            Object.entries(serverData.guest_times || {}).forEach(([bookingId, time]) => {
+                const timeElement = document.getElementById(`time-${bookingId}`);
+                if (timeElement) {
+                    timeElement.textContent = time;
+                }
+            });
+            
+            // Update localStorage with server data
+            localStorage.setItem('guestArrivalTimes', JSON.stringify(serverData.guest_times || {}));
+            
+            console.log('✅ Loaded arrival times from server (synced across devices)');
+        } else {
+            throw new Error('Server data not available');
         }
+    } catch (error) {
+        console.log('⚠️ Server sync failed, using local storage:', error.message);
+        
+        // Fallback to localStorage
+        const defaultTime = localStorage.getItem('defaultArrivalTime');
+        if (defaultTime) {
+            const defaultTimeElement = document.getElementById('defaultArrivalTime');
+            if (defaultTimeElement) {
+                defaultTimeElement.textContent = defaultTime;
+            }
+        }
+        
+        // Load guest-specific arrival times from localStorage
+        const guestTimes = JSON.parse(localStorage.getItem('guestArrivalTimes') || '{}');
+        Object.entries(guestTimes).forEach(([bookingId, time]) => {
+            const timeElement = document.getElementById(`time-${bookingId}`);
+            if (timeElement) {
+                timeElement.textContent = time;
+            }
+        });
     }
-    
-    // Load guest-specific arrival times
-    const guestTimes = JSON.parse(localStorage.getItem('guestArrivalTimes') || '{}');
-    Object.entries(guestTimes).forEach(([bookingId, time]) => {
-        const timeElement = document.getElementById(`time-${bookingId}`);
-        if (timeElement) {
-            timeElement.textContent = time;
-        }
-    });
 });
 </script>
 

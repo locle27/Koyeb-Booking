@@ -1997,6 +1997,84 @@ def trigger_reminders_manually():
             "message": f"❌ Lỗi trigger reminders: {str(e)}"
         }), 500
 
+@app.route('/api/arrival_times', methods=['GET', 'POST'])
+def manage_arrival_times():
+    """API để quản lý thời gian check-in (sync across devices)"""
+    try:
+        from logic import _get_gspread_client
+        
+        gc = _get_gspread_client(GCP_CREDS_FILE_PATH)
+        sh = gc.open_by_key(DEFAULT_SHEET_ID)
+        
+        # Tìm hoặc tạo worksheet ArrivalTimes
+        try:
+            worksheet = sh.worksheet('ArrivalTimes')
+        except:
+            worksheet = sh.add_worksheet(title='ArrivalTimes', rows=100, cols=4)
+            headers = ['Type', 'BookingID', 'Time', 'UpdatedAt']
+            worksheet.update([headers], 'A1')
+        
+        if request.method == 'GET':
+            # Lấy tất cả thời gian đã lưu
+            all_times = worksheet.get_all_records()
+            
+            result = {
+                'default_time': '14:00',  # fallback
+                'guest_times': {}
+            }
+            
+            for record in all_times:
+                if record['Type'] == 'default':
+                    result['default_time'] = record['Time']
+                elif record['Type'] == 'guest' and record['BookingID']:
+                    result['guest_times'][record['BookingID']] = record['Time']
+            
+            return jsonify({
+                'success': True,
+                'data': result
+            })
+        
+        elif request.method == 'POST':
+            # Lưu thời gian mới
+            data = request.get_json()
+            time_type = data.get('type')  # 'default' or 'guest'
+            booking_id = data.get('booking_id', '')
+            new_time = data.get('time')
+            
+            if not new_time or not time_type:
+                return jsonify({'success': False, 'message': 'Missing time or type'}), 400
+            
+            # Tìm và cập nhật hoặc thêm mới
+            all_records = worksheet.get_all_records()
+            updated = False
+            
+            for i, record in enumerate(all_records):
+                if record['Type'] == time_type and record['BookingID'] == booking_id:
+                    # Cập nhật existing record
+                    worksheet.update_cell(i + 2, 3, new_time)  # Column C (Time)
+                    worksheet.update_cell(i + 2, 4, datetime.now().isoformat())  # Column D (UpdatedAt)
+                    updated = True
+                    break
+            
+            if not updated:
+                # Thêm record mới
+                new_row = [
+                    time_type,
+                    booking_id,
+                    new_time,
+                    datetime.now().isoformat()
+                ]
+                worksheet.append_row(new_row)
+            
+            return jsonify({
+                'success': True,
+                'message': f'Đã lưu thời gian {time_type}: {new_time}'
+            })
+            
+    except Exception as e:
+        print(f"Error managing arrival times: {e}")
+        return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
+
 @app.route('/api/reminder_status')
 def get_reminder_system_status():
     """Lấy status của reminder system"""
