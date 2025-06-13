@@ -201,9 +201,10 @@
                         <h6 class="mb-0 text-white fw-bold">
                             <i class="fas fa-plane-arrival me-1"></i>Khách Đến<span class="d-sm-none"> ({{ arrival_notifications|length }})</span>
                         </h6>
-                        <button class="btn btn-sm btn-light" onclick="createArrivalNotification()" title="Tạo thông báo ngay">
-                            <i class="fas fa-bell-plus"></i><span class="d-none d-lg-inline ms-1">Tạo</span>
-                        </button>
+                        <div class="text-white text-end">
+                            <small class="d-block"><i class="fas fa-clock me-1"></i>Thời gian đến</small>
+                            <small class="fw-bold">Check-in: 14:00</small>
+                        </div>
                     </div>
                     <div class="overflow-auto notification-card-mobile" style="max-height: 120px;">
                         {% for notification in arrival_notifications[:3] %}
@@ -213,6 +214,7 @@
                                     <small class="fw-bold text-dark">{{ notification.guest_name }}</small>
                                     <div class="small text-muted">
                                         <i class="fas fa-calendar me-1"></i>{{ notification.checkin_date }}
+                                        <i class="fas fa-clock ms-2 me-1"></i>14:00
                                         {% if notification.priority == 'urgent' %}
                                         <span class="badge bg-danger ms-1 px-1" style="font-size: 9px;">HÔM NAY</span>
                                         {% else %}
@@ -247,8 +249,8 @@
                         <h6 class="mb-0 text-white fw-bold">
                             <i class="fas fa-plane-departure me-1"></i>Khách Đi<span class="d-sm-none"> ({{ departure_notifications|length }})</span>
                         </h6>
-                        <button class="btn btn-sm btn-light" onclick="createDepartureNotification()" title="Tạo thông báo taxi ngay">
-                            <i class="fas fa-taxi"></i><span class="d-none d-lg-inline ms-1">Taxi</span>
+                        <button class="btn btn-sm btn-light" onclick="copyTaxiMessage('{{ notification.guest_name if departure_notifications else 'Khách' }}')" title="Copy tin nhắn taxi">
+                            <i class="fas fa-copy"></i><span class="d-none d-lg-inline ms-1">Copy</span>
                         </button>
                     </div>
                     <div class="overflow-auto notification-card-mobile" style="max-height: 120px;">
@@ -267,8 +269,10 @@
                                     </div>
                                 </div>
                                 <div class="text-end">
-                                    <small class="fw-bold text-warning">{{ "{:,.0f}".format(notification.total_amount|float) }}đ</small>
-                                    <div class="small text-muted">{{ notification.booking_id }}</div>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="copyTaxiMessage('{{ notification.guest_name }}')" title="Copy tin nhắn taxi">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    <div class="small text-muted mt-1">{{ notification.booking_id }}</div>
                                 </div>
                             </div>
                         </div>
@@ -286,171 +290,98 @@
     </div>
     {% endif %}
 
-    <!-- Quick Notes Display (COMPACT MOBILE-OPTIMIZED) -->
-    <div class="row mb-3">
+    <!-- Quick Notes Display (ULTRA COMPACT) -->
+    <div class="row mb-2">
         <div class="col-12">
             <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                <div class="card-header bg-transparent border-0 py-2">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0 text-dark fw-bold" style="text-shadow: 1px 1px 2px rgba(255,255,255,0.8);">
-                            <i class="fas fa-sticky-note me-2 text-dark"></i><span class="text-dark">📝 Quick Notes</span>
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h6 class="mb-0 text-white fw-bold small">
+                            <i class="fas fa-sticky-note me-1"></i>📝 Quick Notes
                         </h6>
-                        <div class="d-flex flex-wrap gap-1">
-                            <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#quickNotesModal">
-                                <i class="fas fa-plus me-1"></i><span class="d-none d-md-inline">Tạo mới</span>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-light btn-sm px-2" data-bs-toggle="modal" data-bs-target="#quickNotesModal" title="Tạo mới">
+                                <i class="fas fa-plus"></i>
                             </button>
-                            <div class="btn-group" role="group">
-                                <button class="btn btn-outline-dark btn-sm" onclick="exportQuickNotes()" style="color: #000; border-color: #000;" title="Export">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                                <button class="btn btn-outline-info btn-sm" onclick="syncQuickNotes()" style="color: #0dcaf0; border-color: #0dcaf0;" title="Sync">
-                                    <i class="fas fa-cloud-download-alt"></i>
-                                </button>
-                                <button class="btn btn-outline-dark btn-sm" onclick="refreshQuickNotes()" style="color: #000; border-color: #000;" title="Refresh">
-                                    <i class="fas fa-sync-alt"></i>
-                                </button>
-                            </div>
+                            <button class="btn btn-outline-light btn-sm px-2" onclick="syncQuickNotes()" title="Sync">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
                         </div>
                     </div>
-                </div>
-                <div class="card-body py-2" style="max-height: 200px; overflow-y: auto;">
-                    <div id="quickNotesContainer">
-                        <div class="text-center py-2">
-                            <div class="spinner-border spinner-border-sm text-light mb-1" role="status">
-                                <span class="visually-hidden">Đang tải...</span>
-                            </div>
-                            <p class="mb-0 text-white small">Đang tải Quick Notes...</p>
+                    <div id="quickNotesContainer" style="max-height: 120px; overflow-y: auto;">
+                        <div class="text-center py-1">
+                            <small class="text-white">Đang tải...</small>
                         </div>
                     </div>
-                    <!-- Hidden file input for importing Quick Notes -->
                     <input type="file" id="quickNotesFileInput" accept=".json" style="display: none;" onchange="handleQuickNotesImport(event)">
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ⚠️ KHÁCH CHƯA THU TIỀN QUÁ HẠN -->
+    <!-- ⚠️ KHÁCH CHƯA THU TIỀN QUÁ HẠN (COMPACT) -->
     {% if overdue_unpaid_guests and overdue_unpaid_guests|length > 0 %}
-    <div class="alert alert-danger border-0 shadow-lg mb-4" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
-        <div class="d-flex align-items-center justify-content-between">
-            <div>
-                <h4 class="alert-heading text-white mb-2">
-                    <i class="fas fa-exclamation-triangle me-2"></i>⚠️ KHÁCH CHƯA THU TIỀN QUÁ HẠN
-                </h4>
-                <p class="text-white mb-0">{{ overdue_unpaid_guests|length }} khách đã check-in nhưng chưa thu tiền</p>
-            </div>
-            <div class="text-end">
-                <div class="text-white">
-                    <div class="h5 mb-0">{{ "{:,.0f}".format(overdue_total_amount if overdue_total_amount else 0) }}đ</div>
-                    <small>Tổng tiền chưa thu</small>
+    <div class="card border-0 shadow-sm mb-3" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
+        <div class="card-body py-2 px-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0 text-white fw-bold">
+                    <i class="fas fa-exclamation-triangle me-1"></i>⚠️ CHƯA THU ({{ overdue_unpaid_guests|length }})
+                </h6>
+                <div class="text-white text-end">
+                    <div class="fw-bold">{{ "{:,.0f}".format(overdue_total_amount if overdue_total_amount else 0) }}đ</div>
+                    <small>Tổng chưa thu</small>
                 </div>
             </div>
-        </div>
         
-        <hr class="text-white-50 my-3">
-        
-        <div class="row">
-            {% for guest in overdue_unpaid_guests[:3] %}
-            <div class="col-md-4 mb-2">
-                <div class="card bg-white bg-opacity-90 border-0">
-                    <div class="card-body py-2 px-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1 text-dark">{{ guest.get('Tên người đặt', 'N/A') }}</h6>
-                                <small class="text-muted">
-                                    <i class="fas fa-calendar me-1"></i>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        {% for guest in overdue_unpaid_guests[:5] %}
+                        <tr class="bg-white bg-opacity-90">
+                            <td class="py-1 px-2">
+                                <div class="fw-bold text-dark small">{{ guest.get('Tên người đặt', 'N/A') }}</div>
+                                <div class="text-muted" style="font-size: 11px;">
                                     {% if guest.get('Check-in Date') %}
                                         {% if guest['Check-in Date'] is string %}
                                             {{ guest['Check-in Date'] }}
                                         {% else %}
-                                            {{ guest['Check-in Date'].strftime('%d/%m/%Y') if guest['Check-in Date'] else 'N/A' }}
+                                            {{ guest['Check-in Date'].strftime('%d/%m') if guest['Check-in Date'] else 'N/A' }}
                                         {% endif %}
                                     {% else %}
                                         N/A
                                     {% endif %}
-                                    <span class="ms-2 badge bg-danger">{{ guest.get('days_overdue', 0) }} ngày</span>
-                                </small>
-                            </div>
-                            <div class="text-end">
-                                <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) if guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) else 0) }}đ</div>
-                                <small class="text-muted d-block">Phòng: {{ "{:,.0f}".format(guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) if guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) else 0) }}đ</small>
-                                {% if guest.get('calculated_taxi_fee', 0) > 0 %}
-                                <small class="text-info d-block">Taxi: {{ "{:,.0f}".format(guest.get('calculated_taxi_fee', 0)) }}đ</small>
-                                {% endif %}
-                                <small class="text-muted d-block">ID: {{ guest.get('Số đặt phòng', 'N/A') }}</small>
-                                <div class="btn-group-vertical w-100 mt-1">
-                                    <button class="btn btn-success btn-sm" 
+                                    <span class="badge bg-danger ms-1 px-1" style="font-size: 9px;">{{ guest.get('days_overdue', 0) }}d</span>
+                                </div>
+                            </td>
+                            <td class="py-1 px-2 text-end">
+                                <div class="fw-bold text-danger small">{{ "{:,.0f}".format(guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) if guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) else 0) }}đ</div>
+                                <div class="text-muted" style="font-size: 10px;">{{ guest.get('Số đặt phòng', 'N/A') }}</div>
+                            </td>
+                            <td class="py-1 px-1">
+                                <div class="btn-group-vertical btn-group-sm">
+                                    <button class="btn btn-success btn-sm py-0 px-1" style="font-size: 10px;"
                                             onclick="openCollectModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) }}, {{ guest.get('Hoa hồng', 0) }}, {{ guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) }}, {{ guest.get('calculated_taxi_fee', 0) }})">
-                                        <i class="fas fa-money-bill-wave me-1"></i>Thu tiền
+                                        <i class="fas fa-money-bill-wave"></i>
                                     </button>
-                                    <button class="btn btn-outline-primary btn-sm" 
+                                    <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 10px;"
                                             onclick="openEditAmountModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) }}, {{ guest.get('calculated_taxi_fee', 0) }})">
-                                        <i class="fas fa-edit me-1"></i>Sửa số tiền
+                                        <i class="fas fa-edit"></i>
                                     </button>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            {% endfor %}
-        </div>
         
-        {% if overdue_unpaid_guests|length > 3 %}
-        <div class="text-center mt-3">
-            <button class="btn btn-outline-light" onclick="toggleMoreOverdue()">
-                <i class="fas fa-chevron-down me-1"></i> Xem thêm {{ overdue_unpaid_guests|length - 3 }} khách
-            </button>
+            {% if overdue_unpaid_guests|length > 5 %}
+            <div class="text-center mt-2">
+                <button class="btn btn-outline-light btn-sm" onclick="toggleMoreOverdue()">
+                    <i class="fas fa-chevron-down me-1"></i>+{{ overdue_unpaid_guests|length - 5 }}
+                </button>
+            {% endif %}
         </div>
-        <div id="moreOverdueGuests" style="display: none;" class="mt-3">
-            <div class="row">
-                {% for guest in overdue_unpaid_guests[3:] %}
-                <div class="col-md-4 mb-2">
-                    <div class="card bg-white bg-opacity-90 border-0">
-                        <div class="card-body py-2 px-3">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="mb-1 text-dark">{{ guest.get('Tên người đặt', 'N/A') }}</h6>
-                                    <small class="text-muted">
-                                        <i class="fas fa-calendar me-1"></i>
-                                        {% if guest.get('Check-in Date') %}
-                                            {% if guest['Check-in Date'] is string %}
-                                                {{ guest['Check-in Date'] }}
-                                            {% else %}
-                                                {{ guest['Check-in Date'].strftime('%d/%m/%Y') if guest['Check-in Date'] else 'N/A' }}
-                                            {% endif %}
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
-                                        <span class="ms-2 badge bg-danger">{{ guest.get('days_overdue', 0) }} ngày</span>
-                                    </small>
-                                </div>
-                                <div class="text-end">
-                                    <div class="fw-bold text-danger">{{ "{:,.0f}".format(guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) if guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) else 0) }}đ</div>
-                                    <small class="text-muted d-block">Phòng: {{ "{:,.0f}".format(guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) if guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) else 0) }}đ</small>
-                                    {% if guest.get('calculated_taxi_fee', 0) > 0 %}
-                                    <small class="text-info d-block">Taxi: {{ "{:,.0f}".format(guest.get('calculated_taxi_fee', 0)) }}đ</small>
-                                    {% endif %}
-                                    <small class="text-muted d-block">ID: {{ guest.get('Số đặt phòng', 'N/A') }}</small>
-                                    <div class="btn-group-vertical w-100 mt-1">
-                                        <button class="btn btn-success btn-sm" 
-                                                onclick="openCollectModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) }}, {{ guest.get('Hoa hồng', 0) }}, {{ guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) }}, {{ guest.get('calculated_taxi_fee', 0) }})">
-                                            <i class="fas fa-money-bill-wave me-1"></i>Thu tiền
-                                        </button>
-                                        <button class="btn btn-outline-primary btn-sm" 
-                                                onclick="openEditAmountModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) }}, {{ guest.get('calculated_taxi_fee', 0) }})">
-                                            <i class="fas fa-edit me-1"></i>Sửa số tiền
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
     </div>
     {% endif %}
 
@@ -1997,6 +1928,45 @@ function createArrivalNotification() {
         // Optional: You could integrate with your messaging templates here
         console.log('Arrival notification created:', message);
     }
+}
+
+function copyTaxiMessage(guestName) {
+    // Sample taxi message template
+    const message = `Hi ${guestName}, If you need a taxi to the airport tomorrow, please don't hesitate to let me know. I can arrange one for you at a special discounted rate that our guests often appreciate.`;
+    
+    // Copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(message).then(() => {
+            showDashboardToast(`📋 Đã copy tin nhắn taxi cho ${guestName}!`, 'success');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            // Fallback method
+            fallbackCopy(message, guestName);
+        });
+    } else {
+        // Fallback for older browsers
+        fallbackCopy(message, guestName);
+    }
+}
+
+function fallbackCopy(text, guestName) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        showDashboardToast(`📋 Đã copy tin nhắn taxi cho ${guestName}!`, 'success');
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        alert(`Tin nhắn taxi cho ${guestName}:\n\n${text}`);
+    }
+    
+    document.body.removeChild(textArea);
 }
 
 function createDepartureNotification() {
