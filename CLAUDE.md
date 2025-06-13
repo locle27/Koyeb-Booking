@@ -6,21 +6,21 @@
 **Owner:** locle27  
 **Repository:** https://github.com/locle27/Koyeb-Booking  
 **Branch:** clean-main  
-**Latest Commit:** 43bacda - AI Assistant Hub JavaScript Functionality Restored  
-**Current Status:** Active Development - Critical JavaScript Issues Resolution Phase
+**Latest Commit:** d243666 - Notification System + Mobile Dashboard Optimization  
+**Current Status:** Production Ready - All Features Working + New Notification System
 
 ## 🏗️ System Architecture
 
 ### **Core Files:**
 - **`app.py`** - Main Flask application with all routes (2040 lines)
 - **`logic.py`** - Business logic, Google Sheets integration, AI processing
-- **`dashboard_routes.py`** - Dashboard data processing functions (enhanced with taxi fee calculations)
+- **`dashboard_routes.py`** - Dashboard data processing functions (enhanced with taxi fee calculations + arrival/departure notifications)
 - **`email_service.py`** - Email functionality
 - **`reminder_system.py`** - Automated reminder system
 
 ### **Key Templates:**
 - **`base.html`** - Main layout template (enhanced navbar text visibility)
-- **`dashboard.html`** - Main dashboard with analytics, quick notes, and overdue guests management
+- **`dashboard.html`** - Main dashboard with analytics, quick notes, overdue guests management + arrival/departure notifications (mobile-optimized)
 - **`bookings.html`** - Booking management with auto-duplicate filtering
 - **`add_booking.html`** - Add new bookings (manual + photo AI, no rounding restrictions)
 - **`edit_booking.html`** - Edit existing bookings (step="any" for exact values)
@@ -29,9 +29,33 @@
 
 ## 🚀 Recent Major Features & Fixes (Latest Update)
 
-### **1. Complete AI Assistant Hub JavaScript Functionality Restoration** ⭐ LATEST ⭐
+### **1. Arrival/Departure Notification System + Mobile Dashboard Optimization** ⭐ LATEST ⭐
+**Location:** `dashboard_routes.py`, `templates/dashboard.html`
+**Commit:** `d243666` - 🔔 NOTIFICATION SYSTEM: Arrival/Departure Alerts + Mobile Dashboard Optimization
+
+### **🔔 Notification Features:**
+- **Arrival Notifications (Green Cards):** Shows guests arriving tomorrow (1 day advance) + today (urgent)
+- **Departure Notifications (Orange Cards):** Shows guests leaving tomorrow for taxi/service preparation
+- **Quick Action Buttons:** Bell icon for welcome messages, Taxi icon for 280k taxi service
+- **Priority System:** "HÔM NAY" (urgent) vs "MAI" (tomorrow) badges
+- **Smart Templates:** Auto-generated welcome and taxi booking messages
+
+### **📱 Mobile Dashboard Optimization:**
+- **Compact Layout:** Reduced card heights, padding, and margins by ~40%
+- **Responsive Design:** Custom CSS for screens <768px and <576px
+- **Button Optimization:** Icon-only buttons on small screens
+- **Scroll Reduction:** Quick Notes limited to 200px, notifications to 120px
+- **Mobile-First UX:** Optimized for hotel staff using phones
+
+### **🎯 Business Impact:**
+- **Proactive Service:** 1-day advance notice for guest arrivals/departures
+- **Revenue Generation:** Integrated 280,000đ taxi service promotion
+- **Staff Efficiency:** Quick message creation with one-click actions
+- **Mobile Productivity:** Reduced scrolling, faster dashboard navigation
+
+### **2. Complete AI Assistant Hub JavaScript Functionality Restoration** ⭐ ESTABLISHED ⭐
 **Location:** `templates/ai_assistant.html`, `static/js/dev-toolbar.js`
-**Commit:** `43bacda` - 🔧 CRITICAL FIX: AI Assistant Hub JavaScript Functionality Restored
+**Commit:** `c065bff` - 🔧 TEMPLATE FIXES: Import Function & Production Path Resolution
 
 ## 🚨 **CRITICAL JAVASCRIPT ERRORS RESOLVED** 🚨
 
@@ -387,6 +411,18 @@ hotel_flask_app/
 - `GET /api/analyze_duplicates` - AI duplicate detection
 - `POST /api/ai_chat_analyze` - AI chat assistant
 - `POST /api/translate` - Voice translation
+
+### **Templates & Messaging:**
+- `GET /api/templates` - Get message templates (enhanced with production path fallback)
+- `GET /api/templates/debug` - Debug templates file location and status
+- `POST /api/templates/add` - Add new message template
+- `GET /templates/import` - Import templates from Google Sheets
+- `GET /templates/export` - Export templates to Google Sheets
+
+### **Notifications (Dashboard):**
+- **Arrival Notifications:** Built into dashboard data processing
+- **Departure Notifications:** Built into dashboard data processing
+- **Quick Actions:** Client-side JavaScript functions for instant messaging
 
 ### **Quick Notes:**
 - `GET /api/quick_notes` - Get quick notes
