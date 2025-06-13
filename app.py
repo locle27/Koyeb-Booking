@@ -1479,16 +1479,46 @@ def debug_templates():
 @app.route('/api/templates')
 def get_templates_api():
     """API endpoint trả về JSON data của templates với enhanced debugging"""
-    templates_path = BASE_DIR / 'message_templates.json'
+    # Try multiple possible paths for production compatibility
+    possible_paths = [
+        BASE_DIR / 'message_templates.json',  # Local development
+        Path('/workspace/message_templates.json'),  # Koyeb production
+        Path('/app/message_templates.json'),  # Docker container
+        Path('./message_templates.json'),  # Current directory fallback
+    ]
+    
+    templates_path = None
+    for path in possible_paths:
+        if path.exists():
+            templates_path = path
+            break
+    
     try:
         print(f"[TEMPLATES_API] Starting API call...")
-        print(f"[TEMPLATES_API] Looking for templates file at: {templates_path}")
+        print(f"[TEMPLATES_API] Checked paths: {[str(p) for p in possible_paths]}")
+        
+        if templates_path is None:
+            print("[TEMPLATES_API] Templates file not found in any location")
+            # Try to create a default templates file
+            default_path = possible_paths[0]  # Use BASE_DIR location
+            try:
+                default_templates = [
+                    {"Category": "WELCOME", "Label": "DEFAULT", "Message": "Welcome! Thank you for your reservation."},
+                    {"Category": "CHECK IN", "Label": "DEFAULT", "Message": "Welcome! Please follow the check-in instructions."},
+                    {"Category": "THANK YOU", "Label": "DEFAULT", "Message": "Thank you for staying with us!"}
+                ]
+                default_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(default_path, 'w', encoding='utf-8') as f:
+                    json.dump(default_templates, f, ensure_ascii=False, indent=2)
+                print(f"[TEMPLATES_API] Created default templates file at: {default_path}")
+                templates_path = default_path
+            except Exception as create_error:
+                print(f"[TEMPLATES_API] Failed to create default templates: {create_error}")
+                return jsonify({"success": False, "templates": [], "error": "Templates file not found"})
+        
+        print(f"[TEMPLATES_API] Using templates file at: {templates_path}")
         print(f"[TEMPLATES_API] File exists: {templates_path.exists()}")
         
-        if not templates_path.exists():
-            print("[TEMPLATES_API] Templates file does not exist, returning empty array")
-            return jsonify({"success": False, "templates": [], "error": "Templates file not found"})
-            
         with open(templates_path, 'r', encoding='utf-8') as f:
             templates = json.load(f)
             

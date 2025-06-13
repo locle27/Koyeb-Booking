@@ -879,40 +879,11 @@
     window.toggleRecording = function() {
         console.log('🚨 GLOBAL: toggleRecording called');
         
-        // Inline the recording logic to avoid recursive calls
-        console.log('Toggle recording clicked, recognition:', !!recognition, 'isRecording:', isRecording);
-        
-        if (!recognition) {
-            alert('Speech recognition không khả dụng!\n\nKiểm tra:\n- Dùng Chrome/Safari\n- Cho phép truy cập microphone\n- Kết nối internet ổn định');
-            return;
-        }
-        
-        if (isRecording) {
-            console.log('Stopping recognition...');
-            recognition.stop();
+        // Call the internal function to avoid naming conflicts
+        if (typeof toggleRecordingInternal === 'function') {
+            toggleRecordingInternal();
         } else {
-            try {
-                // Request microphone permission explicitly on mobile
-                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                    navigator.mediaDevices.getUserMedia({ audio: true })
-                        .then(stream => {
-                            console.log('Microphone access granted');
-                            // Stop the stream since speech recognition will handle it
-                            stream.getTracks().forEach(track => track.stop());
-                            startRecognition();
-                        })
-                        .catch(error => {
-                            console.error('Microphone access denied:', error);
-                            alert('❌ Không thể truy cập microphone!\n\nCách khắc phục:\n1. Cho phép microphone trong browser\n2. Kiểm tra cài đặt thiết bị\n3. Thử làm mới trang');
-                        });
-                } else {
-                    // Fallback for browsers without getUserMedia
-                    startRecognition();
-                }
-            } catch (error) {
-                console.error('Error starting recognition:', error);
-                alert('Lỗi khởi động ghi âm: ' + error.message);
-            }
+            alert('Chức năng ghi âm đang được khởi tạo...');
         }
     };
     
@@ -1525,7 +1496,14 @@
     }
     
     // Setup image upload and paste handling
+    let imageHandlingInitialized = false;
+    
     function setupImageHandling() {
+        if (imageHandlingInitialized) {
+            console.log('⚠️ Image handling already initialized, skipping...');
+            return;
+        }
+        
         const pasteArea = document.getElementById('imagePasteArea');
         const fileInput = document.getElementById('imageFileInput');
         const cameraInput = document.getElementById('cameraInput');
@@ -1538,7 +1516,7 @@
         
         console.log('✅ Image handling: All elements found, setting up events');
         
-        // Handle paste event
+        // Handle paste event (only add once to document)
         document.addEventListener('paste', function(e) {
             const items = e.clipboardData.items;
             for (let item of items) {
@@ -1572,7 +1550,7 @@
             }
         });
         
-        // Handle file inputs
+        // Handle file inputs (only add once per input)
         fileInput.addEventListener('change', function(e) {
             if (e.target.files.length > 0) {
                 handleImageFile(e.target.files[0]);
@@ -1587,11 +1565,16 @@
         
         // Handle front camera input
         const frontCameraInput = document.getElementById('frontCameraInput');
-        frontCameraInput.addEventListener('change', function(e) {
-            if (e.target.files.length > 0) {
-                handleImageFile(e.target.files[0]);
-            }
-        });
+        if (frontCameraInput) {
+            frontCameraInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    handleImageFile(e.target.files[0]);
+                }
+            });
+        }
+        
+        imageHandlingInitialized = true;
+        console.log('✅ Image handling initialization complete - protected from duplicate setup');
     }
     
     // Image handling functions moved to global scope above DOMContentLoaded
@@ -2023,7 +2006,7 @@
         return langMap[langCode] || langCode;
     }
     
-    function toggleRecording() {
+    function toggleRecordingInternal() {
         console.log('Toggle recording clicked, recognition:', !!recognition, 'isRecording:', isRecording);
         
         if (!recognition) {
