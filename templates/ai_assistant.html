@@ -47,7 +47,7 @@
                             </h5>
                         </div>
                         <div class="card-body">
-                            <div id="imagePasteArea" class="image-paste-area" onclick="selectImageFile()">
+                            <div id="imagePasteArea" class="image-paste-area">
                                 <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
                                 <h5>Dán ảnh, chọn file hoặc chụp ảnh</h5>
                                 <p class="text-muted mb-2">
@@ -826,21 +826,93 @@
             alert('Vui lòng tải ảnh trước!');
             return;
         }
-        // This will call the async function defined in DOMContentLoaded scope
-        if (typeof analyzeImageAsync === 'function') {
-            analyzeImageAsync();
-        } else {
-            alert('Chức năng phân tích ảnh đang được khởi tạo...');
+        
+        // Call analysis function directly without Async suffix
+        try {
+            if (!currentImageData) {
+                alert('Vui lòng tải ảnh trước!');
+                return;
+            }
+            
+            showLoading(true);
+            document.getElementById('processingStatus').style.display = 'block';
+            
+            const aiConfig = getCurrentAIConfig();
+            const requestData = {
+                image_b64: currentImageData,
+                ai_config: aiConfig
+            };
+            
+            fetch('/api/ai_chat_analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                displayAIResponse(result, aiConfig);
+            })
+            .catch(error => {
+                console.error('AI Analysis error:', error);
+                showError('Lỗi khi phân tích ảnh: ' + error.message);
+            })
+            .finally(() => {
+                showLoading(false);
+                document.getElementById('processingStatus').style.display = 'none';
+            });
+            
+        } catch (error) {
+            console.error('Error in analyzeImage:', error);
+            showError('Lỗi khi phân tích ảnh: ' + error.message);
         }
     };
     
     // Voice functions
     window.toggleRecording = function() {
         console.log('🚨 GLOBAL: toggleRecording called');
-        if (typeof toggleRecordingAsync === 'function') {
-            toggleRecordingAsync();
+        
+        // Inline the recording logic to avoid recursive calls
+        console.log('Toggle recording clicked, recognition:', !!recognition, 'isRecording:', isRecording);
+        
+        if (!recognition) {
+            alert('Speech recognition không khả dụng!\n\nKiểm tra:\n- Dùng Chrome/Safari\n- Cho phép truy cập microphone\n- Kết nối internet ổn định');
+            return;
+        }
+        
+        if (isRecording) {
+            console.log('Stopping recognition...');
+            recognition.stop();
         } else {
-            alert('Chức năng ghi âm đang được khởi tạo...');
+            try {
+                // Request microphone permission explicitly on mobile
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({ audio: true })
+                        .then(stream => {
+                            console.log('Microphone access granted');
+                            // Stop the stream since speech recognition will handle it
+                            stream.getTracks().forEach(track => track.stop());
+                            startRecognition();
+                        })
+                        .catch(error => {
+                            console.error('Microphone access denied:', error);
+                            alert('❌ Không thể truy cập microphone!\n\nCách khắc phục:\n1. Cho phép microphone trong browser\n2. Kiểm tra cài đặt thiết bị\n3. Thử làm mới trang');
+                        });
+                } else {
+                    // Fallback for browsers without getUserMedia
+                    startRecognition();
+                }
+            } catch (error) {
+                console.error('Error starting recognition:', error);
+                alert('Lỗi khởi động ghi âm: ' + error.message);
+            }
         }
     };
     
@@ -1313,7 +1385,20 @@
             console.log('📡 Template API response status:', response.status);
             
             if (response.ok) {
-                allTemplates = await response.json();
+                const responseData = await response.json();
+                console.log('📋 Raw API response:', responseData);
+                
+                // Validate and ensure allTemplates is always an array
+                if (Array.isArray(responseData)) {
+                    allTemplates = responseData;
+                } else if (responseData && Array.isArray(responseData.templates)) {
+                    allTemplates = responseData.templates;
+                } else {
+                    console.error('Invalid API response format:', responseData);
+                    allTemplates = []; // Fallback to empty array
+                    throw new Error('API returned invalid data format');
+                }
+                
                 console.log('📋 Templates loaded:', allTemplates.length, 'templates');
                 populateTemplateCategoryDropdown();
                 console.log('✅ Template categories populated successfully');
@@ -1322,6 +1407,9 @@
             }
         } catch (error) {
             console.error('❌ Error loading templates:', error);
+            
+            // Ensure allTemplates is always an array to prevent map errors
+            allTemplates = [];
             
             // Show user-friendly error
             const categorySelect = document.getElementById('templateCategory');
@@ -1337,6 +1425,14 @@
     // Populate template category dropdown
     function populateTemplateCategoryDropdown() {
         const categorySelect = document.getElementById('templateCategory');
+        
+        // Validate allTemplates is an array before using map
+        if (!Array.isArray(allTemplates)) {
+            console.error('allTemplates is not an array:', allTemplates);
+            categorySelect.innerHTML = '<option value="">⚠️ Lỗi templates data</option>';
+            return;
+        }
+        
         const categories = [...new Set(allTemplates.map(t => t.Category))].sort();
         
         categorySelect.innerHTML = '<option value="">Tự động chọn</option>';
@@ -1359,7 +1455,7 @@
         specificSelect.disabled = !selectedCategory;
         hideTemplatePreview();
         
-        if (selectedCategory) {
+        if (selectedCategory && Array.isArray(allTemplates)) {
             const categoryTemplates = allTemplates.filter(t => t.Category === selectedCategory);
             
             categoryTemplates.forEach((template, index) => {
