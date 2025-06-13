@@ -36,7 +36,7 @@ class GeminiEnhancedRAG:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel('gemini-pro')
+                self.model = genai.GenerativeModel('gemini-1.5-flash')
                 self.gemini_available = True
                 logger.info("✅ Gemini API initialized successfully")
             except ImportError:
@@ -106,7 +106,7 @@ class GeminiEnhancedRAG:
                 # Add metadata
                 parsed_response.update({
                     'gemini_enhanced': True,
-                    'model_used': 'gemini-pro',
+                    'model_used': 'gemini-1.5-flash',
                     'timestamp': datetime.now().isoformat(),
                     'confidence': min(rag_context.get('confidence', 0.8) + 0.2, 1.0),  # Boost confidence with Gemini
                     'sources': [entry['topic'] for entry in rag_context.get('relevant_info', [])],
