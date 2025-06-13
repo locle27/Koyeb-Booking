@@ -12,10 +12,8 @@ import base64
 import google.generativeai as genai
 from io import BytesIO
 
-# --- Cài đặt Chế độ ---
-# Đặt thành True để bật thanh công cụ dev và chế độ debug.
-# Đặt thành False để chạy ở chế độ production (tắt thanh công cụ).
-DEV_MODE = True  # Bật development mode để tự động reload
+# --- Production Mode Only ---
+# Development toolbar and debug mode completely removed
 # --------------------
 
 # Import các hàm logic
@@ -50,17 +48,10 @@ load_dotenv(BASE_DIR / ".env")
 
 app = Flask(__name__, template_folder=BASE_DIR / "templates", static_folder=BASE_DIR / "static")
 
-# Sử dụng biến DEV_MODE để cấu hình app
-app.config['ENV'] = 'production'  # Luôn sử dụng production mode
-app.config['DEBUG'] = False  # Luôn tắt debug mode
+# Production configuration
+app.config['ENV'] = 'production'
+app.config['DEBUG'] = False
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "a_default_secret_key_for_development")
-
-# Vô hiệu hóa Debug Toolbar - Đã hoàn toàn bị xóa
-# KHÔNG import hoặc sử dụng DebugToolbarExtension
-
-@app.context_processor
-def inject_dev_mode():
-    return dict(dev_mode=DEV_MODE)
 
 @app.context_processor
 def inject_pandas():

@@ -375,11 +375,11 @@
                                     {% set room_fee = guest.get('calculated_room_fee') or guest.get('Tổng thanh toán', 0) or 0 %}
                                     {% set taxi_fee = guest.get('calculated_taxi_fee', 0) or 0 %}
                                     
-                                    <button class="btn btn-success btn-sm py-0 px-1" style="font-size: 10px;"
+                                    <button class="btn btn-success btn-sm py-1 px-2" style="font-size: 12px;"
                                             onclick="openCollectModal('{{ booking_id }}', '{{ guest_name }}', {{ total_amount }}, {{ commission }}, {{ room_fee }}, {{ taxi_fee }})">
-                                        <i class="fas fa-money-bill-wave"></i>
+                                        <i class="fas fa-money-bill-wave me-1"></i>Thu
                                     </button>
-                                    <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 10px;"
+                                    <button class="btn btn-outline-primary btn-sm py-1 px-2" style="font-size: 11px;"
                                             onclick="openEditAmountModal('{{ booking_id }}', '{{ guest_name }}', {{ room_fee }}, {{ taxi_fee }})">
                                         <i class="fas fa-edit"></i>
                                     </button>
@@ -1313,14 +1313,9 @@ function displayQuickNotes(notes, showAll, container) {
                                 <i class="${typeIcons[note.type]} text-${typeColors[note.type]} me-2"></i>
                                 <strong class="text-dark">${typeNames[note.type]}</strong>
                             </div>
-                            <div class="d-flex gap-1">
-                                <button class="btn btn-success btn-sm" onclick="markNoteCompleted('${note.id}')" title="Đánh dấu hoàn thành">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="deleteNoteFromDashboard('${note.id}')" title="Xóa">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
+                            <button class="btn btn-success btn-sm" onclick="markNoteCompleted('${note.id}')" title="Đánh dấu hoàn thành">
+                                <i class="fas fa-check"></i>
+                            </button>
                         </div>
                         <p class="text-dark mb-2 small">${note.content}</p>
                         <div class="d-flex justify-content-between align-items-center">

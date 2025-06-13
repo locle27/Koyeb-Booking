@@ -377,7 +377,7 @@
     </style>
     {% block head_extra %}{% endblock %}
 </head>
-<body {% if dev_mode %}data-dev-mode="true"{% endif %}>
+<body>
     <nav class="navbar navbar-expand-lg">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('dashboard') }}">
@@ -526,9 +526,6 @@
         }
     </script>
     
-    {% if dev_mode %}
-    <script src="{{ url_for('static', filename='js/dev-toolbar.js') }}"></script>
-    {% endif %}
     
     <!-- PWA Service Worker Registration -->
     <script>
