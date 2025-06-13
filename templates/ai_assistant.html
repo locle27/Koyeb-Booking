@@ -744,16 +744,38 @@
         // Detect Safari and show additional help
         detectBrowserAndShowHelp();
         
-        // Initialize AI Chat Assistant
-        setupImageHandling();
-        loadTemplateCategories();
+        // Initialize AI Chat Assistant with error handling
+        try {
+            setupImageHandling();
+            console.log('✅ Image handling initialized');
+        } catch (error) {
+            console.error('❌ Error initializing image handling:', error);
+        }
+        
+        try {
+            loadTemplateCategories();
+            console.log('✅ Template categories loading started');
+        } catch (error) {
+            console.error('❌ Error loading template categories:', error);
+        }
         
         // Initialize Voice Translator
-        checkSpeechRecognitionSupport();
-        checkTranslateButton();
+        try {
+            checkSpeechRecognitionSupport();
+            console.log('✅ Speech recognition support checked');
+        } catch (error) {
+            console.error('❌ Error checking speech recognition:', error);
+        }
+        
+        try {
+            checkTranslateButton();
+            console.log('✅ Translate button checked');
+        } catch (error) {
+            console.error('❌ Error checking translate button:', error);
+        }
         
         // Debug: Add template loading button for debugging
-        console.log('AI Assistant Hub loaded successfully');
+        console.log('🚀 AI Assistant Hub initialization completed');
         
         // Enhanced event listener for templates tab
         const templatesTab = document.getElementById('templates-tab');
@@ -847,13 +869,39 @@
     // Load template categories from API
     async function loadTemplateCategories() {
         try {
-            const response = await fetch('/api/templates');
+            console.log('🔄 Loading template categories...');
+            
+            const response = await fetch('/api/templates', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                // Add timeout
+                signal: AbortSignal.timeout(10000) // 10 second timeout
+            });
+            
+            console.log('📡 Template API response status:', response.status);
+            
             if (response.ok) {
                 allTemplates = await response.json();
+                console.log('📋 Templates loaded:', allTemplates.length, 'templates');
                 populateTemplateCategoryDropdown();
+                console.log('✅ Template categories populated successfully');
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
         } catch (error) {
-            console.error('Error loading templates:', error);
+            console.error('❌ Error loading templates:', error);
+            
+            // Show user-friendly error
+            const categorySelect = document.getElementById('templateCategory');
+            if (categorySelect) {
+                categorySelect.innerHTML = '<option value="">⚠️ Lỗi tải templates</option>';
+            }
+            
+            // Show error notification
+            showError(`Không thể tải message templates: ${error.message}`);
         }
     }
     
@@ -1286,15 +1334,10 @@
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isAndroid = /Android/i.test(navigator.userAgent);
         
-        // Detect PWA mode
-        const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
-                     window.navigator.standalone === true;
-        
         console.log('Browser detection:', {
             isMobile,
             isIOS, 
             isAndroid,
-            isPWA,
             userAgent: navigator.userAgent,
             hasWebkitSpeech: 'webkitSpeechRecognition' in window,
             hasSpeech: 'SpeechRecognition' in window
@@ -1327,8 +1370,8 @@
     
     function openInSafari() {
         const currentUrl = window.location.href;
-        // Try to open in Safari browser instead of PWA
-        if (confirm('Mở trong Safari để sử dụng voice?\n\nVoice recognition không hoạt động trong PWA mode.')) {
+        // Open current page in Safari browser
+        if (confirm('Mở trong Safari để sử dụng voice?\n\nVoice recognition có thể hoạt động tốt hơn trong Safari.')) {
             // Create a link that opens in Safari
             const link = document.createElement('a');
             link.href = currentUrl;
@@ -1422,20 +1465,16 @@
                 console.error('Speech recognition error:', event.error, event);
                 let errorMessage = 'Lỗi nhận diện giọng nói';
                 
-                const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
-                             window.navigator.standalone === true;
                 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
                 
                 switch(event.error) {
                     case 'aborted':
-                        if (isIOS && isPWA) {
-                            errorMessage = '❌ PWA Mode: Voice bị chặn.\n\n🔧 Giải pháp: Mở trong Safari browser';
+                        if (isIOS) {
+                            errorMessage = '❌ iOS: Voice bị chặn.\n\n🔧 Giải pháp: Kiểm tra quyền microphone';
                             updateStatus('error', errorMessage);
-                            // Show button to open in Safari
+                            // Show guidance for iOS
                             setTimeout(() => {
-                                if (confirm('Voice không hoạt động trong PWA mode.\n\nMở trong Safari browser?')) {
-                                    openInSafari();
-                                }
+                                alert('Voice không hoạt động.\n\nKiểm tra:\n1. Quyền microphone trong Settings\n2. Thử reload trang\n3. Dùng Safari browser');
                             }, 1000);
                         } else {
                             errorMessage = '⚠️ Voice bị ngắt. Thử lại.';
