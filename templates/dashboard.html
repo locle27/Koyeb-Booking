@@ -189,32 +189,36 @@
         </div>
     </div>
 
-    <!-- 🔔 ARRIVAL & DEPARTURE NOTIFICATIONS (COMPACT LAYOUT) -->
+    <!-- 🔔 ARRIVAL & DEPARTURE NOTIFICATIONS (QUICKNOTES STYLE) -->
     {% if arrival_notifications or departure_notifications %}
-    <div class="row mb-3">
+    <div class="row mb-2">
         <!-- Arrival Notifications -->
         {% if arrival_notifications and arrival_notifications|length > 0 %}
         <div class="col-md-6 mb-2">
-            <div class="card border-0 shadow-sm h-100 compact-card" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0 text-white fw-bold">
-                            <i class="fas fa-plane-arrival me-1"></i>Khách Đến<span class="d-sm-none"> ({{ arrival_notifications|length }})</span>
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h6 class="mb-0 text-white fw-bold small">
+                            <i class="fas fa-plane-arrival me-1"></i>📜 Khách Đến ({{ arrival_notifications|length }})
                         </h6>
-                        <div class="text-white text-end">
-                            <small class="d-block"><i class="fas fa-clock me-1"></i>Thời gian đến</small>
-                            <small class="fw-bold">Check-in: 14:00</small>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-light btn-sm px-2" onclick="editDefaultArrivalTime()" title="Chỉnh thời gian">
+                                <i class="fas fa-clock"></i>
+                            </button>
+                            <small class="text-white ms-2" id="defaultArrivalTime">14:00</small>
                         </div>
                     </div>
-                    <div class="overflow-auto notification-card-mobile" style="max-height: 120px;">
-                        {% for notification in arrival_notifications[:3] %}
-                        <div class="bg-white bg-opacity-90 notification-item border-start border-4 border-success">
-                            <div class="d-flex justify-content-between align-items-start">
+                    <div style="max-height: 120px; overflow-y: auto;">
+                        {% for notification in arrival_notifications[:5] %}
+                        <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1">
+                            <div class="d-flex justify-content-between align-items-center">
                                 <div class="flex-grow-1">
-                                    <small class="fw-bold text-dark">{{ notification.guest_name }}</small>
-                                    <div class="small text-muted">
+                                    <div class="fw-bold text-dark small">{{ notification.guest_name }}</div>
+                                    <div class="text-muted" style="font-size: 11px;">
                                         <i class="fas fa-calendar me-1"></i>{{ notification.checkin_date }}
-                                        <i class="fas fa-clock ms-2 me-1"></i>14:00
+                                        <button class="btn btn-sm p-0 ms-2 text-primary" onclick="editGuestArrivalTime('{{ notification.booking_id }}', '{{ notification.guest_name }}')" title="Chỉnh giờ">
+                                            <i class="fas fa-clock me-1"></i><span id="time-{{ notification.booking_id }}">14:00</span>
+                                        </button>
                                         {% if notification.priority == 'urgent' %}
                                         <span class="badge bg-danger ms-1 px-1" style="font-size: 9px;">HÔM NAY</span>
                                         {% else %}
@@ -223,15 +227,15 @@
                                     </div>
                                 </div>
                                 <div class="text-end">
-                                    <small class="fw-bold text-success">{{ "{:,.0f}".format(notification.total_amount|float) }}đ</small>
-                                    <div class="small text-muted">{{ notification.booking_id }}</div>
+                                    <div class="small fw-bold text-success">{{ "{:,.0f}".format(notification.total_amount|float) }}đ</div>
+                                    <div class="text-muted" style="font-size: 10px;">{{ notification.booking_id }}</div>
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
-                        {% if arrival_notifications|length > 3 %}
+                        {% if arrival_notifications|length > 5 %}
                         <div class="text-center mt-1">
-                            <small class="text-white">+{{ arrival_notifications|length - 3 }} khác</small>
+                            <small class="text-white">+{{ arrival_notifications|length - 5 }} khác</small>
                         </div>
                         {% endif %}
                     </div>
@@ -243,23 +247,25 @@
         <!-- Departure Notifications -->
         {% if departure_notifications and departure_notifications|length > 0 %}
         <div class="col-md-6 mb-2">
-            <div class="card border-0 shadow-sm h-100 compact-card" style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0 text-white fw-bold">
-                            <i class="fas fa-plane-departure me-1"></i>Khách Đi<span class="d-sm-none"> ({{ departure_notifications|length }})</span>
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h6 class="mb-0 text-white fw-bold small">
+                            <i class="fas fa-plane-departure me-1"></i>🚖 Khách Đi ({{ departure_notifications|length }})
                         </h6>
-                        <button class="btn btn-sm btn-light" onclick="copyTaxiMessage('Khách')" title="Copy tin nhắn taxi">
-                            <i class="fas fa-copy"></i><span class="d-none d-lg-inline ms-1">Copy</span>
-                        </button>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-light btn-sm px-2" onclick="copyTaxiMessage('Khách')" title="Copy taxi">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="overflow-auto notification-card-mobile" style="max-height: 120px;">
-                        {% for notification in departure_notifications[:3] %}
-                        <div class="bg-white bg-opacity-90 notification-item border-start border-4 border-warning">
-                            <div class="d-flex justify-content-between align-items-start">
+                    <div style="max-height: 120px; overflow-y: auto;">
+                        {% for notification in departure_notifications[:5] %}
+                        <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1">
+                            <div class="d-flex justify-content-between align-items-center">
                                 <div class="flex-grow-1">
-                                    <small class="fw-bold text-dark">{{ notification.guest_name }}</small>
-                                    <div class="small text-muted">
+                                    <div class="fw-bold text-dark small">{{ notification.guest_name }}</div>
+                                    <div class="text-muted" style="font-size: 11px;">
                                         <i class="fas fa-calendar me-1"></i>{{ notification.checkout_date }}
                                         {% if notification.priority == 'urgent' %}
                                         <span class="badge bg-danger ms-1 px-1" style="font-size: 9px;">HÔM NAY</span>
@@ -269,17 +275,17 @@
                                     </div>
                                 </div>
                                 <div class="text-end">
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="copyTaxiMessage('{{ notification.guest_name }}')" title="Copy tin nhắn taxi">
+                                    <button class="btn btn-sm btn-outline-primary px-1" onclick="copyTaxiMessage('{{ notification.guest_name }}')" title="Copy taxi">
                                         <i class="fas fa-copy"></i>
                                     </button>
-                                    <div class="small text-muted mt-1">{{ notification.booking_id }}</div>
+                                    <div class="text-muted mt-1" style="font-size: 10px;">{{ notification.booking_id }}</div>
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
-                        {% if departure_notifications|length > 3 %}
+                        {% if departure_notifications|length > 5 %}
                         <div class="text-center mt-1">
-                            <small class="text-white">+{{ departure_notifications|length - 3 }} khác</small>
+                            <small class="text-white">+{{ departure_notifications|length - 5 }} khác</small>
                         </div>
                         {% endif %}
                     </div>
@@ -1940,6 +1946,46 @@ function createArrivalNotification() {
     }
 }
 
+function editDefaultArrivalTime() {
+    const currentTime = document.getElementById('defaultArrivalTime').textContent;
+    const newTime = prompt('Nhập thời gian check-in mặc định (HH:MM):', currentTime);
+    
+    if (newTime && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(newTime)) {
+        document.getElementById('defaultArrivalTime').textContent = newTime;
+        
+        // Update all guest times to new default
+        const timeElements = document.querySelectorAll('[id^="time-"]');
+        timeElements.forEach(el => {
+            el.textContent = newTime;
+        });
+        
+        showDashboardToast(`⏰ Đã cập nhật thời gian check-in mặc định: ${newTime}`, 'success');
+        
+        // Save to localStorage for persistence
+        localStorage.setItem('defaultArrivalTime', newTime);
+    } else if (newTime) {
+        showDashboardToast('❌ Định dạng thời gian không hợp lệ! Sử dụng HH:MM', 'error');
+    }
+}
+
+function editGuestArrivalTime(bookingId, guestName) {
+    const currentTimeElement = document.getElementById(`time-${bookingId}`);
+    const currentTime = currentTimeElement.textContent;
+    const newTime = prompt(`Nhập thời gian đến cho ${guestName} (HH:MM):`, currentTime);
+    
+    if (newTime && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(newTime)) {
+        currentTimeElement.textContent = newTime;
+        showDashboardToast(`⏰ Đã cập nhật thời gian đến cho ${guestName}: ${newTime}`, 'success');
+        
+        // Save guest-specific time to localStorage
+        const guestTimes = JSON.parse(localStorage.getItem('guestArrivalTimes') || '{}');
+        guestTimes[bookingId] = newTime;
+        localStorage.setItem('guestArrivalTimes', JSON.stringify(guestTimes));
+    } else if (newTime) {
+        showDashboardToast('❌ Định dạng thời gian không hợp lệ! Sử dụng HH:MM', 'error');
+    }
+}
+
 function copyTaxiMessage(guestName) {
     // Sample taxi message template
     const message = `Hi ${guestName}, If you need a taxi to the airport tomorrow, please don't hesitate to let me know. I can arrange one for you at a special discounted rate that our guests often appreciate.`;
@@ -2096,6 +2142,27 @@ document.getElementById('quickNotesModal').addEventListener('show.bs.modal', fun
     const now = new Date();
     document.getElementById('noteDate').value = now.toISOString().split('T')[0];
     document.getElementById('noteTime').value = now.toTimeString().slice(0, 5);
+});
+
+// Initialize arrival times from localStorage
+document.addEventListener('DOMContentLoaded', function() {
+    // Load default arrival time
+    const defaultTime = localStorage.getItem('defaultArrivalTime');
+    if (defaultTime) {
+        const defaultTimeElement = document.getElementById('defaultArrivalTime');
+        if (defaultTimeElement) {
+            defaultTimeElement.textContent = defaultTime;
+        }
+    }
+    
+    // Load guest-specific arrival times
+    const guestTimes = JSON.parse(localStorage.getItem('guestArrivalTimes') || '{}');
+    Object.entries(guestTimes).forEach(([bookingId, time]) => {
+        const timeElement = document.getElementById(`time-${bookingId}`);
+        if (timeElement) {
+            timeElement.textContent = time;
+        }
+    });
 });
 </script>
 

@@ -376,8 +376,9 @@ def create_collector_chart(dashboard_data):
             'type': 'pie',
             'labels': [row['Người thu tiền'] for row in collector_revenue_data],
             'values': [row['Tổng thanh toán'] for row in collector_revenue_data],
-            'textinfo': 'label+percent', 'textposition': 'auto',
+            'textinfo': 'label+value', 'textposition': 'auto',
             'hovertemplate': '<b>%{label}</b><br>Doanh thu: %{value:,.0f}đ<br>Tỷ lệ: %{percent}<br><extra></extra>',
+            'texttemplate': '%{label}<br>%{value:,.0f}đ',
             'marker': {
                 'colors': ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'],
                 'line': {'color': '#ffffff', 'width': 3}
