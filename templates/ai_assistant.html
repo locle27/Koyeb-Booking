@@ -747,7 +747,19 @@
         checkSpeechRecognitionSupport();
         checkTranslateButton();
         
+        // Debug: Add template loading button for debugging
         console.log('AI Assistant Hub loaded successfully');
+        
+        // Auto-load templates if templates tab is in URL hash
+        if (window.location.hash === '#templates-panel' || window.location.hash.includes('templates')) {
+            console.log('[TEMPLATES] Templates tab detected in URL hash, loading templates...');
+            setTimeout(() => {
+                const templatesTab = document.getElementById('templates-tab');
+                if (templatesTab) {
+                    templatesTab.click();
+                }
+            }, 500);
+        }
     });
     
     // Browser detection and help for Safari users
@@ -2265,12 +2277,28 @@
     document.addEventListener('DOMContentLoaded', function() {
         const templatesTab = document.getElementById('templates-tab');
         if (templatesTab) {
+            // Handle both click and bootstrap tab events
             templatesTab.addEventListener('click', function() {
                 console.log('[TEMPLATES] Templates tab clicked, loaded:', isTemplatesLoaded);
                 if (!isTemplatesLoaded) {
                     loadTemplatesForTab();
                 }
             });
+            
+            // Also listen for Bootstrap tab shown event
+            templatesTab.addEventListener('shown.bs.tab', function() {
+                console.log('[TEMPLATES] Templates tab shown via Bootstrap, loaded:', isTemplatesLoaded);
+                if (!isTemplatesLoaded) {
+                    loadTemplatesForTab();
+                }
+            });
+        }
+        
+        // Debug: Check if templates should load immediately
+        console.log('[TEMPLATES] DOM loaded, checking if templates tab is active...');
+        if (templatesTab && templatesTab.classList.contains('active')) {
+            console.log('[TEMPLATES] Templates tab is already active, loading templates...');
+            loadTemplatesForTab();
         }
     });
     
@@ -2468,6 +2496,49 @@
         } finally {
             showLoading(false);
         }
+    }
+    
+    // Helper functions for quick actions
+    function viewTemplates() {
+        // Switch to templates tab and force load
+        console.log('[TEMPLATES] viewTemplates() called - switching to templates tab');
+        const templatesTabElement = document.getElementById('templates-tab');
+        const templatesTab = new bootstrap.Tab(templatesTabElement);
+        templatesTab.show();
+        
+        // Force load templates if not loaded
+        if (!isTemplatesLoaded) {
+            console.log('[TEMPLATES] Forcing template load...');
+            loadTemplatesForTab();
+        }
+    }
+    
+    function clearAll() {
+        // Clear all chat data
+        currentImageData = null;
+        const chatAnalysisResult = document.getElementById('chatAnalysisResult');
+        if (chatAnalysisResult) {
+            chatAnalysisResult.innerHTML = '';
+        }
+        
+        const imagePreview = document.getElementById('imagePreview');
+        if (imagePreview) {
+            imagePreview.style.display = 'none';
+        }
+        
+        showSuccess('✅ Đã xóa tất cả dữ liệu!');
+    }
+    
+    function switchToVoice() {
+        const voiceTabElement = document.getElementById('voice-tab');
+        const voiceTab = new bootstrap.Tab(voiceTabElement);
+        voiceTab.show();
+    }
+    
+    function switchToChat() {
+        const chatTabElement = document.getElementById('chat-tab');
+        const chatTab = new bootstrap.Tab(chatTabElement);
+        chatTab.show();
     }
 </script>
 {% endblock %}
