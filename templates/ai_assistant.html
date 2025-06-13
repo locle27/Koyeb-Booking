@@ -727,6 +727,8 @@
     // Combined AI Assistant functionality
     let currentImageData = null;
     let allTemplates = [];
+    let templates = []; // Templates for management tab
+    let isTemplatesLoaded = false; // Template loading state
     let recognition = null;
     let isRecording = false;
     let finalTranscript = '';
@@ -1673,22 +1675,7 @@
         setTimeout(() => toast.remove(), 5000);
     }
     
-    // Quick action functions
-    function viewTemplates() { window.location.href = '/templates'; }
-    function clearAll() { 
-        removeImage(); 
-        document.getElementById('manualText').value = '';
-        document.getElementById('recognizedText').value = '';
-        document.getElementById('translationResult').style.display = 'none';
-    }
-    function switchToVoice() {
-        const voiceTab = new bootstrap.Tab(document.getElementById('voice-tab'));
-        voiceTab.show();
-    }
-    function switchToChat() {
-        const chatTab = new bootstrap.Tab(document.getElementById('chat-tab'));
-        chatTab.show();
-    }
+    // Quick action functions - MOVED TO END OF FILE TO AVOID DUPLICATES
     
     // ==================== CUSTOM INSTRUCTIONS FUNCTIONS ====================
     let voiceInstructionRecognition = null;
@@ -1926,8 +1913,7 @@
     }
 
     // ==================== TEMPLATES MANAGEMENT FUNCTIONS ====================
-    let templates = [];
-    let isTemplatesLoaded = false;
+    // Variables declared at top of file to avoid duplicates
 
     // Enhanced load templates with proper error handling
     async function loadTemplatesForTab() {
