@@ -1623,7 +1623,7 @@ def ai_chat_analyze():
 
 @app.route('/api/ai_chat_rag', methods=['POST'])
 def ai_chat_rag():
-    """🧠 NEW: Enhanced AI Chat with RAG (Retrieval-Augmented Generation)"""
+    """🧠 Enhanced AI Chat with RAG (Simple RAG implementation)"""
     try:
         data = request.get_json()
         if not data:
@@ -1672,6 +1672,7 @@ def ai_chat_rag():
             "guest_personalized": rag_response['guest_personalized'],
             "booking_context": booking_context,
             "rag_enabled": True,
+            "gemini_enhanced": False,
             "timestamp": rag_response['timestamp']
         }
         
@@ -1690,6 +1691,88 @@ def ai_chat_rag():
             "error": f"Server error: {str(e)}",
             "fallback_response": "I apologize, but I'm having technical difficulties. Please contact our reception for immediate assistance."
         }), 500
+
+@app.route('/api/ai_chat_gemini_rag', methods=['POST'])
+def ai_chat_gemini_rag():
+    """🚀 NEW: Gemini-Enhanced RAG with Advanced AI Reasoning"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Get query and conversation information
+        user_query = data.get('message', '').strip()
+        guest_name = data.get('guest_name', '').strip()
+        conversation_id = data.get('conversation_id', '')
+        
+        if not user_query:
+            return jsonify({"error": "No message provided"}), 400
+        
+        print(f"🚀 Gemini RAG Query: '{user_query}' from guest: '{guest_name}'")
+        
+        # Initialize Gemini RAG system
+        try:
+            from gemini_rag import get_gemini_rag, initialize_gemini_rag
+            
+            gemini_rag_system = get_gemini_rag()
+            if not gemini_rag_system:
+                # Initialize with API key from environment
+                gemini_rag_system = initialize_gemini_rag(GOOGLE_API_KEY)
+                
+        except ImportError as e:
+            print(f"Gemini RAG system not available: {e}")
+            # Fallback to simple RAG
+            return ai_chat_rag()
+        
+        # Generate enhanced response
+        enhanced_response = gemini_rag_system.generate_enhanced_response(
+            user_query, guest_name, conversation_id
+        )
+        
+        # Enhanced response with booking context
+        booking_context = {}
+        if guest_name:
+            try:
+                booking_context = get_guest_booking_context(guest_name)
+            except Exception as e:
+                print(f"Error getting booking context: {e}")
+        
+        # Build complete response
+        complete_response = {
+            "success": True,
+            "query": user_query,
+            "answer": enhanced_response['answer'],
+            "confidence": enhanced_response.get('confidence', 0.9),
+            "sources": enhanced_response.get('sources', []),
+            "suggestions": enhanced_response.get('suggestions', []),
+            "guest_personalized": enhanced_response.get('guest_personalized', False),
+            "booking_context": booking_context,
+            "rag_enabled": True,
+            "gemini_enhanced": enhanced_response.get('gemini_enhanced', False),
+            "model_used": enhanced_response.get('model_used', 'simple_rag'),
+            "reasoning_type": enhanced_response.get('reasoning_type', 'keyword_matching'),
+            "conversation_id": enhanced_response.get('conversation_id', conversation_id),
+            "timestamp": enhanced_response.get('timestamp', datetime.now().isoformat())
+        }
+        
+        # Add contextual enhancements
+        if booking_context:
+            complete_response["contextual_info"] = generate_contextual_info(booking_context)
+        
+        # Add conversation management
+        if enhanced_response.get('gemini_enhanced'):
+            print(f"✅ Gemini-Enhanced Response generated (model: {enhanced_response.get('model_used')})")
+        else:
+            print(f"✅ Fallback RAG Response generated")
+            
+        return jsonify(complete_response)
+        
+    except Exception as e:
+        print(f"Gemini RAG error: {e}")
+        import traceback
+        traceback.print_exc()
+        # Fallback to simple RAG on any error
+        return ai_chat_rag()
 
 def get_guest_booking_context(guest_name: str) -> dict:
     """Get guest booking information for RAG context"""

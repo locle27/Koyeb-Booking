@@ -75,6 +75,25 @@
                         </div>
                     </div>
                     
+                    <!-- 🚀 NEW: Gemini Enhancement Toggle -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="geminiModeToggle" checked>
+                                    <label class="form-check-label fw-bold" for="geminiModeToggle">
+                                        🚀 Gemini AI Enhancement
+                                    </label>
+                                    <small class="d-block text-muted">Advanced reasoning, multi-turn conversation, better understanding</small>
+                                </div>
+                                <div class="text-end">
+                                    <span id="ragModeIndicator" class="badge bg-success">Gemini Mode</span>
+                                    <div class="small text-muted" id="ragModeDescription">Natural language AI</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- RAG Response Area -->
                     <div id="ragResponseArea" class="mt-3" style="display: none;">
                         <div class="card bg-light">
@@ -3284,13 +3303,21 @@
         }
     }
 
-    // 🧠 RAG Chat Functions
+    // 🧠 RAG Chat Functions with Gemini Enhancement
     let ragCurrentQuery = '';
     let ragCurrentResponse = null;
+    let ragConversationId = null;
+
+    // Initialize conversation ID
+    function initializeRAGConversation() {
+        ragConversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        console.log(`🔄 Started new conversation: ${ragConversationId}`);
+    }
 
     async function sendRAGQuery() {
         const query = document.getElementById('ragQueryInput').value.trim();
         const guestName = document.getElementById('ragGuestName').value.trim();
+        const geminiMode = document.getElementById('geminiModeToggle').checked;
         
         if (!query) {
             alert('Please enter a question!');
@@ -3298,23 +3325,45 @@
         }
         
         ragCurrentQuery = query;
-        console.log(`🧠 Sending RAG query: "${query}" for guest: "${guestName}"`);
+        
+        // Initialize conversation if needed
+        if (!ragConversationId) {
+            initializeRAGConversation();
+        }
+        
+        console.log(`🧠 Sending ${geminiMode ? 'Gemini' : 'Simple'} RAG query: "${query}" for guest: "${guestName}"`);
         
         try {
             // Show loading state
             document.getElementById('ragResponseArea').style.display = 'block';
-            document.getElementById('ragAnswer').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Thinking...';
+            document.getElementById('ragAnswer').innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-spinner fa-spin me-2"></i> 
+                    ${geminiMode ? 'Gemini AI thinking...' : 'RAG processing...'}
+                </div>
+            `;
             
-            // Send request to RAG endpoint
-            const response = await fetch('/api/ai_chat_rag', {
+            // Choose endpoint based on mode
+            const endpoint = geminiMode ? '/api/ai_chat_gemini_rag' : '/api/ai_chat_rag';
+            
+            // Prepare request data
+            const requestData = {
+                message: query,
+                guest_name: guestName
+            };
+            
+            // Add conversation ID for Gemini mode
+            if (geminiMode) {
+                requestData.conversation_id = ragConversationId;
+            }
+            
+            // Send request
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    message: query,
-                    guest_name: guestName
-                })
+                body: JSON.stringify(requestData)
             });
             
             const result = await response.json();
@@ -3334,17 +3383,54 @@
         }
     }
 
+    // Handle mode toggle
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggle = document.getElementById('geminiModeToggle');
+        const indicator = document.getElementById('ragModeIndicator');
+        const description = document.getElementById('ragModeDescription');
+        
+        function updateModeDisplay() {
+            if (toggle.checked) {
+                indicator.className = 'badge bg-success';
+                indicator.textContent = '🚀 Gemini Mode';
+                description.textContent = 'Natural language AI with advanced reasoning';
+            } else {
+                indicator.className = 'badge bg-info';
+                indicator.textContent = '🧠 Simple RAG';
+                description.textContent = 'Fast keyword-based matching';
+            }
+        }
+        
+        toggle.addEventListener('change', function() {
+            updateModeDisplay();
+            // Reset conversation when switching modes
+            ragConversationId = null;
+            console.log(`🔄 Switched to ${this.checked ? 'Gemini' : 'Simple'} mode`);
+        });
+        
+        // Initial setup
+        updateModeDisplay();
+    });
+
     function displayRAGResponse(result) {
         ragCurrentResponse = result;
         
-        // Display main answer
-        document.getElementById('ragAnswer').innerHTML = 
+        // Display main answer with enhanced formatting for Gemini responses
+        const answerHtml = result.gemini_enhanced ? 
+            `<div class="fw-bold mb-2">${result.answer.replace(/\n/g, '<br>')}</div>` :
             `<div class="fw-bold mb-2">${result.answer}</div>`;
+            
+        document.getElementById('ragAnswer').innerHTML = answerHtml;
         
-        // Update confidence badge
+        // Update confidence badge with model information
         const confidence = result.confidence || 0;
         const confidenceBadge = document.getElementById('ragConfidence');
-        if (confidence > 0.8) {
+        
+        if (result.gemini_enhanced) {
+            confidenceBadge.className = 'badge bg-gradient me-2';
+            confidenceBadge.style.background = 'linear-gradient(45deg, #667eea, #764ba2)';
+            confidenceBadge.textContent = '🚀 Gemini Enhanced';
+        } else if (confidence > 0.8) {
             confidenceBadge.className = 'badge bg-success me-2';
             confidenceBadge.textContent = 'High Confidence';
         } else if (confidence > 0.5) {
@@ -3355,9 +3441,10 @@
             confidenceBadge.textContent = 'Low Confidence';
         }
         
-        // Display timestamp
+        // Display timestamp with model info
+        const modelInfo = result.model_used ? ` (${result.model_used})` : '';
         document.getElementById('ragTimestamp').textContent = 
-            new Date(result.timestamp).toLocaleTimeString();
+            new Date(result.timestamp).toLocaleTimeString() + modelInfo;
         
         // Display guest context if available
         if (result.booking_context && result.booking_context.guest_name) {
