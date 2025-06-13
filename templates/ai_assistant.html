@@ -763,6 +763,17 @@
             console.error('🚨 EMERGENCY DEBUG: Event listeners broken:', error);
         }
         
+        // Test if Bootstrap is loaded
+        try {
+            if (typeof bootstrap !== 'undefined') {
+                console.log('🚨 EMERGENCY DEBUG: Bootstrap is loaded');
+            } else {
+                console.error('🚨 EMERGENCY DEBUG: Bootstrap is NOT loaded - tabs won\'t work');
+            }
+        } catch (error) {
+            console.error('🚨 EMERGENCY DEBUG: Bootstrap check failed:', error);
+        }
+        
         // Detect Safari and show additional help
         try {
             detectBrowserAndShowHelp();
@@ -780,7 +791,10 @@
         }
         
         try {
-            loadTemplateCategories();
+            console.log('🚨 EMERGENCY DEBUG: About to call loadTemplateCategories...');
+            loadTemplateCategories().catch(error => {
+                console.error('🚨 EMERGENCY DEBUG: Template loading failed but continuing:', error);
+            });
             console.log('✅ Template categories loading started');
         } catch (error) {
             console.error('❌ Error loading template categories:', error);
@@ -930,26 +944,18 @@
         try {
             console.log('🔄 Loading template categories...');
             
-            // Create timeout with browser compatibility check
-            let controller, timeoutId;
-            const fetchOptions = {
+            // Simplified fetch without timeout for maximum compatibility
+            console.log('🚨 EMERGENCY DEBUG: Starting template fetch...');
+            
+            const response = await fetch('/api/templates', {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 }
-            };
+            });
             
-            // Add timeout if AbortController is supported
-            if (typeof AbortController !== 'undefined') {
-                controller = new AbortController();
-                timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-                fetchOptions.signal = controller.signal;
-            }
-            
-            const response = await fetch('/api/templates', fetchOptions);
-            
-            if (timeoutId) clearTimeout(timeoutId);
+            console.log('🚨 EMERGENCY DEBUG: Template fetch completed, status:', response.status);
             
             console.log('📡 Template API response status:', response.status);
             
@@ -1813,7 +1819,17 @@
     }
     
     function showLoading(show) {
-        document.querySelector('.loading-overlay').style.display = show ? 'flex' : 'none';
+        try {
+            const overlay = document.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.style.display = show ? 'flex' : 'none';
+                console.log('🚨 EMERGENCY DEBUG: Loading overlay', show ? 'shown' : 'hidden');
+            } else {
+                console.error('🚨 EMERGENCY DEBUG: Loading overlay element not found');
+            }
+        } catch (error) {
+            console.error('🚨 EMERGENCY DEBUG: showLoading error:', error);
+        }
     }
     
     function showSuccess(message) {
