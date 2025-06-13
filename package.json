@@ -1,0 +1,26 @@
+{
+  "name": "hotel_flask_app",
+  "version": "1.0.0",
+  "description": "A Flask web application for managing hotel bookings with Google Sheets integration.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "mcp": "firecrawl-mcp",
+    "mcp-setup": "./setup-mcp.sh",
+    "mcp-help": "firecrawl-mcp --help"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/locle27/Koyeb-Booking.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/locle27/Koyeb-Booking/issues"
+  },
+  "homepage": "https://github.com/locle27/Koyeb-Booking#readme",
+  "dependencies": {
+    "firecrawl-mcp": "^1.11.0"
+  }
+}
