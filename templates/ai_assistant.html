@@ -726,12 +726,16 @@
 <script>
     // Emergency debugging - check if JavaScript loads at all
     console.log('🚨 EMERGENCY DEBUG: JavaScript is loading...');
+    console.log('🚨 EMERGENCY DEBUG: Script execution started');
     
     // Test function that can be called from console
     window.testFunction = function() {
         alert('JavaScript is working!');
         console.log('✅ JavaScript execution confirmed');
     };
+    
+    // Immediately test basic function definition
+    console.log('🚨 EMERGENCY DEBUG: About to define selectImageFile...');
     
     // Combined AI Assistant functionality
     let currentImageData = null;
@@ -756,6 +760,7 @@
         if (input) input.click();
         else console.error('imageFileInput not found');
     };
+    console.log('🚨 EMERGENCY DEBUG: selectImageFile defined successfully');
     
     window.capturePhoto = function() {
         console.log('🚨 GLOBAL: capturePhoto called');
@@ -879,6 +884,228 @@
                 section.style.display = 'none';
                 icon.className = 'fas fa-chevron-down';
             }
+        }
+    };
+    
+    // Additional missing global functions
+    window.exportToSheets = function() {
+        console.log('🚨 GLOBAL: exportToSheets called');
+        if (typeof exportToSheetsAsync === 'function') {
+            exportToSheetsAsync();
+        } else {
+            alert('Chức năng export đang được khởi tạo...');
+        }
+    };
+    
+    window.swapLanguages = function() {
+        console.log('🚨 GLOBAL: swapLanguages called');
+        if (typeof swapLanguagesAsync === 'function') {
+            swapLanguagesAsync();
+        } else {
+            // Simple swap logic for immediate feedback
+            const fromLang = document.getElementById('fromLanguage');
+            const toLang = document.getElementById('toLanguage');
+            if (fromLang && toLang) {
+                const temp = fromLang.value;
+                fromLang.value = toLang.value;
+                toLang.value = temp;
+            }
+        }
+    };
+    
+    window.copyTranslation = function() {
+        console.log('🚨 GLOBAL: copyTranslation called');
+        const outputText = document.getElementById('outputText');
+        if (outputText && outputText.value) {
+            navigator.clipboard.writeText(outputText.value).then(() => {
+                alert('Đã copy!');
+            }).catch(() => {
+                alert('Không thể copy');
+            });
+        }
+    };
+    
+    window.startVoiceInstructions = function() {
+        console.log('🚨 GLOBAL: startVoiceInstructions called');
+        if (typeof startVoiceInstructionsAsync === 'function') {
+            startVoiceInstructionsAsync();
+        } else {
+            alert('Chức năng ghi âm hướng dẫn đang được khởi tạo...');
+        }
+    };
+    
+    window.loadSampleInstructions = function() {
+        console.log('🚨 GLOBAL: loadSampleInstructions called');
+        const textarea = document.getElementById('customInstructionsText');
+        if (textarea) {
+            textarea.value = 'Bạn là trợ lý AI thông minh chuyên về quản lý khách sạn. Hãy phản hồi một cách chuyên nghiệp và hữu ích.';
+        }
+    };
+    
+    window.clearCustomInstructions = function() {
+        console.log('🚨 GLOBAL: clearCustomInstructions called');
+        const textarea = document.getElementById('customInstructionsText');
+        if (textarea) {
+            textarea.value = '';
+        }
+    };
+    
+    window.saveCustomInstructions = function() {
+        console.log('🚨 GLOBAL: saveCustomInstructions called');
+        const textarea = document.getElementById('customInstructionsText');
+        if (textarea) {
+            localStorage.setItem('customInstructions', textarea.value);
+            alert('Đã lưu hướng dẫn tùy chỉnh!');
+        }
+    };
+    
+    window.testSheetsConnection = function() {
+        console.log('🚨 GLOBAL: testSheetsConnection called');
+        if (typeof testSheetsConnectionAsync === 'function') {
+            testSheetsConnectionAsync();
+        } else {
+            alert('Chức năng test kết nối đang được khởi tạo...');
+        }
+    };
+    
+    window.viewTemplates = function() {
+        console.log('🚨 GLOBAL: viewTemplates called');
+        const templatesTab = document.getElementById('templates-tab');
+        if (templatesTab) {
+            templatesTab.click();
+        }
+    };
+    
+    window.clearAll = function() {
+        console.log('🚨 GLOBAL: clearAll called');
+        if (confirm('Xóa tất cả dữ liệu?')) {
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(textarea => textarea.value = '');
+        }
+    };
+    
+    window.switchToVoice = function() {
+        console.log('🚨 GLOBAL: switchToVoice called');
+        const voiceTab = document.getElementById('voice-tab');
+        if (voiceTab) {
+            voiceTab.click();
+        }
+    };
+    
+    window.switchToChat = function() {
+        console.log('🚨 GLOBAL: switchToChat called');
+        const chatTab = document.getElementById('chat-tab');
+        if (chatTab) {
+            chatTab.click();
+        }
+    };
+    
+    window.addNewTemplate = function() {
+        console.log('🚨 GLOBAL: addNewTemplate called');
+        if (typeof addNewTemplateAsync === 'function') {
+            addNewTemplateAsync();
+        } else {
+            alert('Chức năng thêm template đang được khởi tạo...');
+        }
+    };
+    
+    window.copyTemplatePreview = function() {
+        console.log('🚨 GLOBAL: copyTemplatePreview called');
+        const preview = document.getElementById('templatePreview');
+        if (preview && preview.textContent) {
+            navigator.clipboard.writeText(preview.textContent).then(() => {
+                alert('Đã copy template preview!');
+            }).catch(() => {
+                alert('Không thể copy');
+            });
+        }
+    };
+    
+    window.copyToClipboard = function(text) {
+        console.log('🚨 GLOBAL: copyToClipboard called');
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Đã copy!');
+        }).catch(() => {
+            alert('Không thể copy');
+        });
+    };
+    
+    window.openInSafari = function() {
+        console.log('🚨 GLOBAL: openInSafari called');
+        if (window.navigator.standalone) {
+            window.location.href = window.location.href;
+        } else {
+            window.open(window.location.href, '_blank');
+        }
+    };
+    
+    // Template tab specific functions - they'll be properly implemented after templates load
+    window.retryLoadTemplates = function() {
+        console.log('🚨 GLOBAL: retryLoadTemplates called');
+        if (typeof retryLoadTemplatesAsync === 'function') {
+            retryLoadTemplatesAsync();
+        } else {
+            alert('Chức năng reload templates đang được khởi tạo...');
+        }
+    };
+    
+    window.testTemplatesConnection = function() {
+        console.log('🚨 GLOBAL: testTemplatesConnection called');
+        if (typeof testTemplatesConnectionAsync === 'function') {
+            testTemplatesConnectionAsync();
+        } else {
+            alert('Chức năng test templates đang được khởi tạo...');
+        }
+    };
+    
+    window.toggleCategoryForTab = function(categoryId) {
+        console.log('🚨 GLOBAL: toggleCategoryForTab called with:', categoryId);
+        if (typeof toggleCategoryForTabAsync === 'function') {
+            toggleCategoryForTabAsync(categoryId);
+        } else {
+            // Simple toggle logic for immediate feedback
+            const content = document.getElementById(`category-${categoryId}`);
+            const icon = document.getElementById(`icon-${categoryId}`);
+            if (content && icon) {
+                if (content.style.display === 'block') {
+                    content.style.display = 'none';
+                    icon.className = 'fas fa-chevron-down';
+                } else {
+                    content.style.display = 'block';
+                    icon.className = 'fas fa-chevron-up';
+                }
+            }
+        }
+    };
+    
+    window.useTemplateFromTab = function(templateId) {
+        console.log('🚨 GLOBAL: useTemplateFromTab called with:', templateId);
+        if (typeof useTemplateFromTabAsync === 'function') {
+            useTemplateFromTabAsync(templateId);
+        } else {
+            alert('Template function đang được khởi tạo...');
+        }
+    };
+    
+    window.copyTemplateFromTab = function(templateId) {
+        console.log('🚨 GLOBAL: copyTemplateFromTab called with:', templateId);
+        if (typeof copyTemplateFromTabAsync === 'function') {
+            copyTemplateFromTabAsync(templateId);
+        } else {
+            alert('Copy template function đang được khởi tạo...');
+        }
+    };
+    
+    window.expandAllCategories = function() {
+        console.log('🚨 GLOBAL: expandAllCategories called');
+        if (typeof expandAllCategoriesAsync === 'function') {
+            expandAllCategoriesAsync();
+        } else {
+            // Simple expand logic for immediate feedback
+            const allContent = document.querySelectorAll('[id^="category-"]');
+            const allIcons = document.querySelectorAll('[id^="icon-"]');
+            allContent.forEach(content => content.style.display = 'block');
+            allIcons.forEach(icon => icon.className = 'fas fa-chevron-up');
         }
     };
     
@@ -1942,8 +2169,7 @@
     // Quick action functions - MOVED TO END OF FILE TO AVOID DUPLICATES
     
     // ==================== CUSTOM INSTRUCTIONS FUNCTIONS ====================
-    let voiceInstructionRecognition = null;
-    let isVoiceInstructionRecording = false;
+    // Note: voiceInstructionRecognition already declared above, removing duplicate
     
     function toggleCustomInstructions() {
         const section = document.getElementById('customInstructionsSection');

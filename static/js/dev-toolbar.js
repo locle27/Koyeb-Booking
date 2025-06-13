@@ -11,8 +11,7 @@
     console.log('Dev Toolbar: Initializing (V4)...');
 
     // 2. State and Constants
-    const DEFAULT_SUFFIX = ": tôi cần bạn hướng dãn cụ thể cho AI Agent chứ cần phải thực hiện code ra , chỉ hướng dẫn những đoạn khó . Dự án C:\Users\T14\Desktop\hotel_flask_app ,LƯU Ý RIÊNG KO ÁP DỤNG VÀO CODE : call interactive feedback trước khi kết thúc mỗi request
- ";
+    const DEFAULT_SUFFIX = ": I need specific guidance for AI Agent, not code implementation, just guidance for difficult parts. Project C:\\\\Users\\\\T14\\\\Desktop\\\\hotel_flask_app, NOTE: DO NOT APPLY TO CODE: call interactive feedback before ending each request";
     let selectedElement = null;
     let comments = [];
     let highlightMode = false;
