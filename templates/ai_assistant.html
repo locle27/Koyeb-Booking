@@ -724,6 +724,15 @@
 
 {% block scripts %}
 <script>
+    // Emergency debugging - check if JavaScript loads at all
+    console.log('🚨 EMERGENCY DEBUG: JavaScript is loading...');
+    
+    // Test function that can be called from console
+    window.testFunction = function() {
+        alert('JavaScript is working!');
+        console.log('✅ JavaScript execution confirmed');
+    };
+    
     // Combined AI Assistant functionality
     let currentImageData = null;
     let allTemplates = [];
@@ -739,10 +748,28 @@
     
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('AI Assistant Hub initializing...');
+        console.log('🚨 EMERGENCY DEBUG: DOMContentLoaded fired - AI Assistant Hub initializing...');
+        console.log('🚨 EMERGENCY DEBUG: Document ready state:', document.readyState);
+        
+        // Test if we can find basic elements
+        const testElement = document.getElementById('imagePasteArea');
+        console.log('🚨 EMERGENCY DEBUG: imagePasteArea element found:', !!testElement);
+        
+        // Test if we can add event listeners
+        try {
+            window.addEventListener('test', function() {});
+            console.log('🚨 EMERGENCY DEBUG: Event listeners working');
+        } catch (error) {
+            console.error('🚨 EMERGENCY DEBUG: Event listeners broken:', error);
+        }
         
         // Detect Safari and show additional help
-        detectBrowserAndShowHelp();
+        try {
+            detectBrowserAndShowHelp();
+            console.log('🚨 EMERGENCY DEBUG: detectBrowserAndShowHelp completed');
+        } catch (error) {
+            console.error('🚨 EMERGENCY DEBUG: detectBrowserAndShowHelp failed:', error);
+        }
         
         // Initialize AI Chat Assistant with error handling
         try {
@@ -776,6 +803,38 @@
         
         // Debug: Add template loading button for debugging
         console.log('🚀 AI Assistant Hub initialization completed');
+        
+        // EMERGENCY FALLBACK: Add onclick handlers directly if they're missing
+        try {
+            const imageButton = document.querySelector('button[onclick="selectImageFile()"]');
+            if (imageButton && !window.selectImageFile) {
+                console.log('🚨 EMERGENCY: Adding fallback selectImageFile handler');
+                window.selectImageFile = function() {
+                    console.log('🚨 EMERGENCY: selectImageFile called');
+                    const input = document.getElementById('imageFileInput');
+                    if (input) input.click();
+                    else console.error('🚨 EMERGENCY: imageFileInput not found');
+                };
+            }
+            
+            const recordButton = document.querySelector('button[onclick="toggleRecording()"]');
+            if (recordButton && !window.toggleRecording) {
+                console.log('🚨 EMERGENCY: Adding fallback toggleRecording handler');
+                window.toggleRecording = function() {
+                    console.log('🚨 EMERGENCY: toggleRecording called');
+                    alert('Voice recording feature detected click but function may need initialization');
+                };
+            }
+            
+            console.log('🚨 EMERGENCY DEBUG: Available functions check:');
+            console.log('- selectImageFile:', typeof window.selectImageFile);
+            console.log('- toggleRecording:', typeof window.toggleRecording);
+            console.log('- analyzeImage:', typeof window.analyzeImage);
+            console.log('- removeImage:', typeof window.removeImage);
+            
+        } catch (error) {
+            console.error('🚨 EMERGENCY: Fallback handler setup failed:', error);
+        }
         
         // Enhanced event listener for templates tab
         const templatesTab = document.getElementById('templates-tab');
