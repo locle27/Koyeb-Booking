@@ -249,7 +249,7 @@
                         <h6 class="mb-0 text-white fw-bold">
                             <i class="fas fa-plane-departure me-1"></i>Khách Đi<span class="d-sm-none"> ({{ departure_notifications|length }})</span>
                         </h6>
-                        <button class="btn btn-sm btn-light" onclick="copyTaxiMessage('{{ notification.guest_name if departure_notifications else 'Khách' }}')" title="Copy tin nhắn taxi">
+                        <button class="btn btn-sm btn-light" onclick="copyTaxiMessage('Khách')" title="Copy tin nhắn taxi">
                             <i class="fas fa-copy"></i><span class="d-none d-lg-inline ms-1">Copy</span>
                         </button>
                     </div>
@@ -354,17 +354,27 @@
                                 </div>
                             </td>
                             <td class="py-1 px-2 text-end">
-                                <div class="fw-bold text-danger small">{{ "{:,.0f}".format(guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) if guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) else 0) }}đ</div>
+                                <div class="fw-bold text-danger small">
+                                    {% set amount = guest.get('calculated_total_amount') or guest.get('Tổng thanh toán', 0) or 0 %}
+                                    {{ "{:,.0f}".format(amount) }}đ
+                                </div>
                                 <div class="text-muted" style="font-size: 10px;">{{ guest.get('Số đặt phòng', 'N/A') }}</div>
                             </td>
                             <td class="py-1 px-1">
                                 <div class="btn-group-vertical btn-group-sm">
+                                    {% set booking_id = guest.get('Số đặt phòng', '') %}
+                                    {% set guest_name = guest.get('Tên người đặt', '') %}
+                                    {% set total_amount = guest.get('calculated_total_amount') or guest.get('Tổng thanh toán', 0) or 0 %}
+                                    {% set commission = guest.get('Hoa hồng', 0) or 0 %}
+                                    {% set room_fee = guest.get('calculated_room_fee') or guest.get('Tổng thanh toán', 0) or 0 %}
+                                    {% set taxi_fee = guest.get('calculated_taxi_fee', 0) or 0 %}
+                                    
                                     <button class="btn btn-success btn-sm py-0 px-1" style="font-size: 10px;"
-                                            onclick="openCollectModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('calculated_total_amount', guest.get('Tổng thanh toán', 0)) }}, {{ guest.get('Hoa hồng', 0) }}, {{ guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) }}, {{ guest.get('calculated_taxi_fee', 0) }})">
+                                            onclick="openCollectModal('{{ booking_id }}', '{{ guest_name }}', {{ total_amount }}, {{ commission }}, {{ room_fee }}, {{ taxi_fee }})">
                                         <i class="fas fa-money-bill-wave"></i>
                                     </button>
                                     <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 10px;"
-                                            onclick="openEditAmountModal('{{ guest.get('Số đặt phòng', '') }}', '{{ guest.get('Tên người đặt', '') }}', {{ guest.get('calculated_room_fee', guest.get('Tổng thanh toán', 0)) }}, {{ guest.get('calculated_taxi_fee', 0) }})">
+                                            onclick="openEditAmountModal('{{ booking_id }}', '{{ guest_name }}', {{ room_fee }}, {{ taxi_fee }})">
                                         <i class="fas fa-edit"></i>
                                     </button>
                                 </div>
