@@ -1313,7 +1313,7 @@ function displayQuickNotes(notes, showAll, container) {
                                 <i class="${typeIcons[note.type]} text-${typeColors[note.type]} me-2"></i>
                                 <strong class="text-dark">${typeNames[note.type]}</strong>
                             </div>
-                            <button class="btn btn-success btn-sm" onclick="markNoteCompleted('${note.id}')" title="Đánh dấu hoàn thành">
+                            <button class="btn btn-success btn-sm" onclick="markNoteCompleted('${note.id}')" title="Hoàn thành và xóa note">
                                 <i class="fas fa-check"></i>
                             </button>
                         </div>
@@ -1363,9 +1363,9 @@ function showAllNotes() {
 
 async function markNoteCompleted(noteId) {
     try {
-        // Update on server first
-        const response = await fetch(`/api/quick_notes/${noteId}/complete`, {
-            method: 'POST',
+        // Delete from server immediately when marked complete
+        const response = await fetch(`/api/quick_notes/${noteId}`, {
+            method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
             }
@@ -1374,18 +1374,13 @@ async function markNoteCompleted(noteId) {
         const data = await response.json();
         
         if (data.success) {
-            // Update localStorage as backup
+            // Remove from localStorage immediately
             let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
-            const noteIndex = notes.findIndex(note => note.id === noteId);
-            
-            if (noteIndex !== -1) {
-                notes[noteIndex].completed = true;
-                notes[noteIndex].completedAt = new Date().toISOString();
-                localStorage.setItem('quickNotes', JSON.stringify(notes));
-            }
+            notes = notes.filter(note => note.id !== noteId);
+            localStorage.setItem('quickNotes', JSON.stringify(notes));
             
             // Show success toast
-            showDashboardToast('✅ Đã đánh dấu hoàn thành trên Google Sheets!', 'success');
+            showDashboardToast('✅ Đã hoàn thành và xóa note khỏi hệ thống!', 'success');
             
             // Reload notes display
             loadQuickNotesOnDashboard();
@@ -1394,18 +1389,13 @@ async function markNoteCompleted(noteId) {
         }
     } catch (error) {
         console.error('Error completing note:', error);
-        showDashboardToast('❌ Lỗi khi cập nhật trên server. Đã lưu local.', 'warning');
+        showDashboardToast('❌ Lỗi khi xóa trên server. Đã xóa local.', 'warning');
         
-        // Fallback to localStorage only
+        // Fallback to localStorage only - still delete locally
         let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
-        const noteIndex = notes.findIndex(note => note.id === noteId);
-        
-        if (noteIndex !== -1) {
-            notes[noteIndex].completed = true;
-            notes[noteIndex].completedAt = new Date().toISOString();
-            localStorage.setItem('quickNotes', JSON.stringify(notes));
-            loadQuickNotesOnDashboard();
-        }
+        notes = notes.filter(note => note.id !== noteId);
+        localStorage.setItem('quickNotes', JSON.stringify(notes));
+        loadQuickNotesOnDashboard();
     }
 }
 
