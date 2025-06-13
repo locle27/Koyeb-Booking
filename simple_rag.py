@@ -220,6 +220,17 @@ class SimpleHotelRAG:
     def retrieve_context(self, query: str, guest_name: str = None, top_k: int = 3) -> Dict[str, Any]:
         """Retrieve relevant context for query"""
         
+        # Check if query is about guest arrivals and add live booking data
+        arrival_keywords = ['arrive', 'arrival', 'check-in', 'checkin', 'today', 'tomorrow', 'guest', 'who', 'tới', 'đến', 'khách']
+        if any(keyword in query.lower() for keyword in arrival_keywords):
+            try:
+                booking_data = self._get_live_booking_data(query)
+                if booking_data:
+                    # Add live booking data to knowledge base temporarily
+                    self._add_temporary_booking_data(booking_data)
+            except Exception as e:
+                print(f"Could not fetch live booking data: {e}")
+        
         # Get all knowledge base entries
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -428,6 +439,87 @@ class SimpleHotelRAG:
             suggestions.append("Ask reception for current rates and any available discounts")
         
         return suggestions[:3]  # Limit to 3 most relevant suggestions
+    
+    def _get_live_booking_data(self, query: str) -> List[Dict]:
+        """Get live booking data for arrival queries"""
+        
+        try:
+            from datetime import datetime, timedelta
+            import pandas as pd
+            
+            # Import the booking data function
+            from logic import import_from_gsheet
+            
+            # Get current booking data
+            df = import_from_gsheet()
+            if df is None or df.empty:
+                return []
+            
+            # Get today and tomorrow dates
+            today = datetime.now().strftime('%Y-%m-%d')
+            tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            
+            # Filter for arrivals today and tomorrow
+            arrival_data = []
+            
+            # Check for today's arrivals
+            if 'today' in query.lower() or 'hôm nay' in query.lower():
+                today_arrivals = df[df['Check-in Date'] == today]
+                for _, row in today_arrivals.iterrows():
+                    arrival_data.append({
+                        'date': 'today',
+                        'guest_name': row.get('Tên người đặt', 'Unknown'),
+                        'booking_id': str(row.get('Số đặt phòng', '')),
+                        'status': row.get('Tình trạng', 'Unknown')
+                    })
+            
+            # Check for tomorrow's arrivals  
+            if 'tomorrow' in query.lower() or 'ngày mai' in query.lower() or 'mai' in query.lower():
+                tomorrow_arrivals = df[df['Check-in Date'] == tomorrow]
+                for _, row in tomorrow_arrivals.iterrows():
+                    arrival_data.append({
+                        'date': 'tomorrow', 
+                        'guest_name': row.get('Tên người đặt', 'Unknown'),
+                        'booking_id': str(row.get('Số đặt phòng', '')),
+                        'status': row.get('Tình trạng', 'Unknown')
+                    })
+            
+            return arrival_data
+            
+        except Exception as e:
+            print(f"Error getting live booking data: {e}")
+            return []
+    
+    def _add_temporary_booking_data(self, booking_data: List[Dict]):
+        """Add temporary booking data to knowledge base"""
+        
+        if not booking_data:
+            return
+            
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Remove old temporary booking data
+            cursor.execute("DELETE FROM knowledge_base WHERE category = 'LIVE_BOOKINGS'")
+            
+            # Add new booking data
+            for booking in booking_data:
+                content = f"Guest {booking['guest_name']} arriving {booking['date']} (Booking ID: {booking['booking_id']}, Status: {booking['status']})"
+                keywords = f"arrival guest {booking['guest_name']} {booking['date']} checkin booking {booking['booking_id']}"
+                
+                cursor.execute('''
+                INSERT INTO knowledge_base (category, topic, content, keywords) 
+                VALUES (?, ?, ?, ?)
+                ''', ('LIVE_BOOKINGS', f"Guest Arrival - {booking['guest_name']}", content, keywords))
+            
+            conn.commit()
+            conn.close()
+            
+            print(f"✅ Added {len(booking_data)} live booking entries to RAG knowledge base")
+            
+        except Exception as e:
+            print(f"Error adding temporary booking data: {e}")
 
 # Global instance
 simple_rag = SimpleHotelRAG()
