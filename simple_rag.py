@@ -119,7 +119,7 @@ class SimpleHotelRAG:
                 "category": "food",
                 "topic": "Local Food Recommendations", 
                 "content": "Must try: Pho (noodle soup), Bun Cha (grilled pork with noodles), Banh Mi (Vietnamese sandwich). Hang Buom Street (2 minutes walk) has excellent local food. Typical meal costs 30,000-80,000 VND. Ask reception for specific restaurant recommendations.",
-                "keywords": "food pho bun cha banh mi hang buom street local restaurant recommendations meal cost reception"
+                "keywords": "food pho bun cha banh mi hang buom street local restaurant recommendations meal cost reception eat eating dinner lunch breakfast hungry where can good places dining"
             },
             {
                 "category": "rules",
@@ -159,30 +159,61 @@ class SimpleHotelRAG:
         print("✅ Hotel knowledge base loaded")
     
     def calculate_similarity(self, query: str, content: str, keywords: str) -> float:
-        """Calculate similarity using simple keyword matching and TF-IDF-like scoring"""
+        """Calculate similarity using enhanced keyword matching and fuzzy scoring"""
         query_lower = query.lower()
         content_lower = content.lower()
         keywords_lower = keywords.lower()
         
-        # Simple keyword matching score
+        # Extract words
         query_words = set(re.findall(r'\w+', query_lower))
         content_words = set(re.findall(r'\w+', content_lower))
         keyword_words = set(re.findall(r'\w+', keywords_lower))
         
-        # Calculate scores
+        # Remove common words that don't add meaning
+        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'my', 'your', 'his', 'her', 'its', 'our', 'their'}
+        
+        query_words = query_words - stop_words
+        content_words = content_words - stop_words  
+        keyword_words = keyword_words - stop_words
+        
+        if not query_words:  # If no meaningful words after stop word removal
+            return 0.0
+        
+        # Calculate exact matches
         keyword_matches = len(query_words.intersection(keyword_words))
         content_matches = len(query_words.intersection(content_words))
         
+        # Calculate partial matches (substring matching)
+        partial_keyword_matches = 0
+        partial_content_matches = 0
+        
+        for query_word in query_words:
+            # Check for partial matches in keywords
+            if any(query_word in keyword or keyword in query_word for keyword in keyword_words if len(keyword) > 2):
+                partial_keyword_matches += 0.5
+            
+            # Check for partial matches in content
+            if any(query_word in content_word or content_word in query_word for content_word in content_words if len(content_word) > 2):
+                partial_content_matches += 0.5
+        
         # Weighted scoring (keywords have higher weight)
-        keyword_score = keyword_matches * 2.0
-        content_score = content_matches * 1.0
+        keyword_score = (keyword_matches * 2.0) + (partial_keyword_matches * 1.0)
+        content_score = (content_matches * 1.0) + (partial_content_matches * 0.5)
         
         # Normalize by query length
-        total_score = (keyword_score + content_score) / len(query_words) if query_words else 0
+        total_score = (keyword_score + content_score) / len(query_words)
         
         # Bonus for exact phrase matches
-        if any(word in content_lower for word in query_words if len(word) > 3):
-            total_score += 0.3
+        for word in query_words:
+            if len(word) > 3 and word in content_lower:
+                total_score += 0.2
+            if len(word) > 3 and word in keywords_lower:
+                total_score += 0.3
+        
+        # Special bonus for question words that indicate intent
+        intent_words = ['what', 'when', 'where', 'how', 'why', 'who', 'can', 'do', 'does', 'is', 'are']
+        if any(word in query_lower for word in intent_words):
+            total_score += 0.1
         
         return min(total_score, 1.0)  # Cap at 1.0
     
@@ -308,10 +339,29 @@ class SimpleHotelRAG:
         return response
     
     def _generate_contextual_answer(self, query: str, context: Dict[str, Any]) -> str:
-        """Generate contextual answer from retrieved information"""
+        """Generate contextual answer from retrieved information with enhanced fallbacks"""
         
         if not context['relevant_info']:
-            return "I don't have specific information about that. Please contact our reception for assistance. We're available 24/7 to help!"
+            # Enhanced fallback with keyword matching
+            query_lower = query.lower()
+            
+            if any(word in query_lower for word in ['food', 'restaurant', 'eat', 'hungry', 'dining', 'meal', 'where']):
+                return "Try pho, bun cha, banh mi on Hang Buom Street (2 minutes walk). Great local food, prices 30,000-80,000 VND per meal. Ask reception for specific restaurant recommendations."
+            
+            elif any(word in query_lower for word in ['wifi', 'internet', 'password', 'network']):
+                return "Free WiFi available throughout hotel. Network name: 118HangBac_Guest. Password available at reception."
+            
+            elif any(word in query_lower for word in ['attraction', 'visit', 'see', 'tourism', 'sightseeing']):
+                return "Hoan Kiem Lake is 10 minutes walk. Old Quarter nearby for shopping and dining. Temple of Literature 15 minutes by taxi."
+            
+            elif any(word in query_lower for word in ['cancel', 'cancellation', 'refund']):
+                return "Free cancellation up to 24 hours before arrival. Late cancellation or no-show will result in a charge of one night's accommodation."
+            
+            elif any(word in query_lower for word in ['payment', 'pay', 'cash', 'card', 'money']):
+                return "We accept Vietnamese Dong (VND) cash, major credit cards (Visa, Mastercard), and bank transfers."
+            
+            else:
+                return "I don't have specific information about that, but our reception team is available 24/7 to help! You can ask about check-in/out times, local attractions, transportation, dining, or any hotel services."
         
         # Use the highest scoring entry as primary answer
         primary_info = context['relevant_info'][0]
