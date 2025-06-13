@@ -755,6 +755,48 @@
         // Debug: Add template loading button for debugging
         console.log('AI Assistant Hub loaded successfully');
         
+        // Enhanced event listener for templates tab
+        const templatesTab = document.getElementById('templates-tab');
+        if (templatesTab) {
+            // Handle both click and bootstrap tab events
+            templatesTab.addEventListener('click', function() {
+                console.log('[TEMPLATES] Templates tab clicked, loaded:', isTemplatesLoaded);
+                if (!isTemplatesLoaded) {
+                    loadTemplatesForTab();
+                }
+            });
+            
+            // Also listen for Bootstrap tab shown event
+            templatesTab.addEventListener('shown.bs.tab', function() {
+                console.log('[TEMPLATES] Templates tab shown via Bootstrap, loaded:', isTemplatesLoaded);
+                if (!isTemplatesLoaded) {
+                    loadTemplatesForTab();
+                }
+            });
+        }
+        
+        // Handle category change for add template modal
+        const categorySelect = document.getElementById('addTemplateCategory');
+        if (categorySelect) {
+            categorySelect.addEventListener('change', function() {
+                const customDiv = document.getElementById('customCategoryDiv');
+                if (this.value === 'OTHER') {
+                    customDiv.style.display = 'block';
+                    document.getElementById('customCategory').required = true;
+                } else {
+                    customDiv.style.display = 'none';
+                    document.getElementById('customCategory').required = false;
+                }
+            });
+        }
+        
+        // Debug: Check if templates should load immediately
+        console.log('[TEMPLATES] DOM loaded, checking if templates tab is active...');
+        if (templatesTab && templatesTab.classList.contains('active')) {
+            console.log('[TEMPLATES] Templates tab is already active, loading templates...');
+            loadTemplatesForTab();
+        }
+        
         // Auto-load templates if templates tab is in URL hash
         if (window.location.hash === '#templates-panel' || window.location.hash.includes('templates')) {
             console.log('[TEMPLATES] Templates tab detected in URL hash, loading templates...');
@@ -2262,34 +2304,7 @@
         }
     }
 
-    // Enhanced event listener for templates tab
-    document.addEventListener('DOMContentLoaded', function() {
-        const templatesTab = document.getElementById('templates-tab');
-        if (templatesTab) {
-            // Handle both click and bootstrap tab events
-            templatesTab.addEventListener('click', function() {
-                console.log('[TEMPLATES] Templates tab clicked, loaded:', isTemplatesLoaded);
-                if (!isTemplatesLoaded) {
-                    loadTemplatesForTab();
-                }
-            });
-            
-            // Also listen for Bootstrap tab shown event
-            templatesTab.addEventListener('shown.bs.tab', function() {
-                console.log('[TEMPLATES] Templates tab shown via Bootstrap, loaded:', isTemplatesLoaded);
-                if (!isTemplatesLoaded) {
-                    loadTemplatesForTab();
-                }
-            });
-        }
-        
-        // Debug: Check if templates should load immediately
-        console.log('[TEMPLATES] DOM loaded, checking if templates tab is active...');
-        if (templatesTab && templatesTab.classList.contains('active')) {
-            console.log('[TEMPLATES] Templates tab is already active, loading templates...');
-            loadTemplatesForTab();
-        }
-    });
+    // Templates tab event listeners now handled in main DOMContentLoaded
     
     // Import from Google Sheets
     async function importFromSheets() {
@@ -2397,22 +2412,7 @@
         modal.show();
     }
     
-    // Handle category change for add template modal
-    document.addEventListener('DOMContentLoaded', function() {
-        const categorySelect = document.getElementById('addTemplateCategory');
-        if (categorySelect) {
-            categorySelect.addEventListener('change', function() {
-                const customDiv = document.getElementById('customCategoryDiv');
-                if (this.value === 'OTHER') {
-                    customDiv.style.display = 'block';
-                    document.getElementById('customCategory').required = true;
-                } else {
-                    customDiv.style.display = 'none';
-                    document.getElementById('customCategory').required = false;
-                }
-            });
-        }
-    });
+    // Template modal category handling now in main DOMContentLoaded
     
     // Add new template
     async function addNewTemplate() {
