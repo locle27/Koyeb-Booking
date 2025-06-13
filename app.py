@@ -1478,45 +1478,48 @@ def debug_templates():
 
 @app.route('/api/templates')
 def get_templates_api():
-    """API endpoint trả về JSON data của templates"""
+    """API endpoint trả về JSON data của templates với enhanced debugging"""
     templates_path = BASE_DIR / 'message_templates.json'
     try:
-        print(f"DEBUG: Looking for templates file at: {templates_path}")
+        print(f"[TEMPLATES_API] Starting API call...")
+        print(f"[TEMPLATES_API] Looking for templates file at: {templates_path}")
+        print(f"[TEMPLATES_API] File exists: {templates_path.exists()}")
         
         if not templates_path.exists():
-            print("DEBUG: Templates file does not exist")
-            return jsonify([])
+            print("[TEMPLATES_API] Templates file does not exist, returning empty array")
+            return jsonify({"success": False, "templates": [], "error": "Templates file not found"})
             
         with open(templates_path, 'r', encoding='utf-8') as f:
             templates = json.load(f)
             
-        print(f"DEBUG: Successfully loaded {len(templates)} templates from file")
+        print(f"[TEMPLATES_API] Successfully loaded {len(templates)} templates from file")
+        print(f"[TEMPLATES_API] Raw template data type: {type(templates)}")
         
         # Validate templates data
         if not isinstance(templates, list):
-            print("DEBUG: Templates data is not a list")
-            return jsonify([])
+            print(f"[TEMPLATES_API] Templates data is not a list: {type(templates)}")
+            return jsonify({"success": False, "templates": [], "error": "Invalid templates format"})
             
         # Ensure each template has required fields
         valid_templates = []
         for i, template in enumerate(templates):
             if isinstance(template, dict) and 'Category' in template:
                 valid_templates.append(template)
-                print(f"DEBUG: Template {i}: Category='{template.get('Category')}', Label='{template.get('Label')}'")
+                print(f"[TEMPLATES_API] Template {i}: Category='{template.get('Category')}', Label='{template.get('Label')}'")
             else:
-                print(f"DEBUG: Skipping invalid template at index {i}: {template}")
+                print(f"[TEMPLATES_API] Skipping invalid template at index {i}: {template}")
         
-        print(f"DEBUG: Returning {len(valid_templates)} valid templates")
+        print(f"[TEMPLATES_API] Returning {len(valid_templates)} valid templates")
         return jsonify(valid_templates)
         
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"DEBUG: Error loading templates: {e}")
-        return jsonify([])
+        print(f"[TEMPLATES_API] Error loading templates: {e}")
+        return jsonify({"success": False, "templates": [], "error": str(e)})
     except Exception as e:
-        print(f"DEBUG: Unexpected error: {e}")
+        print(f"[TEMPLATES_API] Unexpected error: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify([])
+        return jsonify({"success": False, "templates": [], "error": f"Server error: {str(e)}"})
 
 @app.route('/api/ai_chat_analyze', methods=['POST'])
 def ai_chat_analyze():
