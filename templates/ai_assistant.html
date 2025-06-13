@@ -371,6 +371,9 @@
                             <button class="btn btn-danger btn-sm fw-bold" onclick="exportToSheets()">
                                 <i class="fas fa-upload text-white"></i> Export
                             </button>
+                            <button class="btn btn-info btn-sm fw-bold" onclick="testSheetsConnection()" title="Test Google Sheets connection">
+                                <i class="fas fa-link text-white"></i> Test
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2306,20 +2309,47 @@
     async function importFromSheets() {
         showLoading(true);
         try {
-            const response = await fetch('/templates/import');
-            if (response.redirected || response.ok) {
+            console.log('[IMPORT] Starting import from Google Sheets...');
+            
+            const response = await fetch('/templates/import', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json, text/html'
+                }
+            });
+            
+            console.log('[IMPORT] Response status:', response.status);
+            console.log('[IMPORT] Response redirected:', response.redirected);
+            console.log('[IMPORT] Response URL:', response.url);
+            
+            if (response.status === 200 || response.redirected) {
                 showSuccess('✅ Import thành công từ Google Sheets!');
-                // Reload templates
+                
+                // Force reload templates
+                console.log('[IMPORT] Reloading templates after import...');
                 templates = []; // Clear cache
+                isTemplatesLoaded = false; // Reset flag
+                
                 await loadTemplatesForTab();
                 // Also reload for AI chat
                 await loadTemplateCategories();
+                
+                console.log('[IMPORT] Templates reloaded successfully');
             } else {
-                throw new Error(`Import thất bại: ${response.status}`);
+                // Try to get error message from response
+                let errorMessage = `HTTP ${response.status}`;
+                try {
+                    const errorText = await response.text();
+                    console.log('[IMPORT] Error response:', errorText);
+                    errorMessage = errorText || errorMessage;
+                } catch (e) {
+                    console.log('[IMPORT] Could not read error response:', e);
+                }
+                throw new Error(errorMessage);
             }
         } catch (error) {
-            console.error('Import error:', error);
-            showError('❌ Lỗi khi import từ Sheets: ' + error.message);
+            console.error('[IMPORT] Import error:', error);
+            showError('❌ Lỗi khi import từ Sheets: ' + error.message + '. Vui lòng kiểm tra Google Sheets có worksheet "MessageTemplate" không?');
         } finally {
             showLoading(false);
         }
@@ -2329,14 +2359,41 @@
     async function exportToSheets() {
         showLoading(true);
         try {
-            const response = await fetch('/templates/export');
-            if (response.redirected || response.ok) {
+            console.log('[EXPORT] Starting export to Google Sheets...');
+            
+            // Check if we have templates to export
+            if (!templates || templates.length === 0) {
+                showError('❌ Không có mẫu tin nhắn để export. Vui lòng thêm ít nhất 1 template trước.');
+                return;
+            }
+            
+            const response = await fetch('/templates/export', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json, text/html'
+                }
+            });
+            
+            console.log('[EXPORT] Response status:', response.status);
+            console.log('[EXPORT] Response redirected:', response.redirected);
+            
+            if (response.status === 200 || response.redirected) {
                 showSuccess('✅ Export thành công ra Google Sheets!');
+                console.log('[EXPORT] Export completed successfully');
             } else {
-                throw new Error(`Export thất bại: ${response.status}`);
+                // Try to get error message from response
+                let errorMessage = `HTTP ${response.status}`;
+                try {
+                    const errorText = await response.text();
+                    console.log('[EXPORT] Error response:', errorText);
+                    errorMessage = errorText || errorMessage;
+                } catch (e) {
+                    console.log('[EXPORT] Could not read error response:', e);
+                }
+                throw new Error(errorMessage);
             }
         } catch (error) {
-            console.error('Export error:', error);
+            console.error('[EXPORT] Export error:', error);
             showError('❌ Lỗi khi export ra Sheets: ' + error.message);
         } finally {
             showLoading(false);
@@ -2539,6 +2596,54 @@
         const chatTabElement = document.getElementById('chat-tab');
         const chatTab = new bootstrap.Tab(chatTabElement);
         chatTab.show();
+    }
+    
+    // Test Google Sheets connection
+    async function testSheetsConnection() {
+        showLoading(true);
+        try {
+            console.log('[TEST] Testing Google Sheets connection...');
+            
+            const response = await fetch('/api/templates/debug', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('[TEST] Debug response:', data);
+                
+                let message = '📊 **Kết quả test kết nối:**\n\n';
+                message += `🗂️ **File local:** ${data.file_exists ? '✅ Tồn tại' : '❌ Không tồn tại'}\n`;
+                message += `📁 **Đường dẫn:** ${data.file_path}\n`;
+                message += `📝 **Số templates:** ${data.templates_count}\n`;
+                
+                if (data.sample_template) {
+                    message += `📋 **Template mẫu:** ${data.sample_template.Category} - ${data.sample_template.Label}\n`;
+                }
+                
+                if (data.error) {
+                    message += `⚠️ **Lỗi:** ${data.error}\n`;
+                }
+                
+                // Additional advice
+                message += '\n💡 **Để import từ Google Sheets:**\n';
+                message += '1. Đảm bảo có worksheet tên "MessageTemplate"\n';
+                message += '2. Worksheet phải có cột: Category, Label, Message\n';
+                message += '3. Kiểm tra quyền truy cập Google Sheets\n';
+                
+                showSuccess(message);
+            } else {
+                throw new Error(`Test failed: HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.error('[TEST] Connection test error:', error);
+            showError('❌ Lỗi test kết nối: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
     }
 </script>
 {% endblock %}
