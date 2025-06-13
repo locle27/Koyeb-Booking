@@ -212,7 +212,7 @@ Provide deep, strategic insights that a hotel owner can immediately act upon.
 """
         
         try:
-            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
             response = model.generate_content(prompt)
             return response.text.strip()
         except Exception as e:
@@ -476,7 +476,7 @@ Focus on actionable insights specific to this exact price range that a hotel own
 """
         
         try:
-            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
             response = model.generate_content(prompt)
             return response.text.strip()
         except Exception as e:

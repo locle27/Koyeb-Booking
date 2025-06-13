@@ -2469,7 +2469,7 @@ Return JSON:
 }}"""
         
         # Gọi Gemini API
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
         
         # Chuyển đổi image bytes thành format phù hợp
         image_data = {
@@ -2624,7 +2624,7 @@ Text to translate: "{text}"
 Translation:
 """
         
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
         response = model.generate_content(prompt)
         translated = response.text.strip()
         

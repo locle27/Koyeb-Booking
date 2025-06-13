@@ -1266,13 +1266,13 @@ def extract_booking_info_from_image_content(image_bytes: bytes) -> List[Dict[str
 
         # 3. Khởi tạo model với model chính xác
         try:
-            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
             print("✅ Successfully initialized Gemini model")
         except Exception as e:
             print(f"⚠️ Error with gemini-2.0-flash-exp, trying other model...")
             try:
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                print("✅ Successfully initialized Gemini 1.5 Flash")
+                model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
+                print("✅ Successfully initialized Gemini 2.5 Flash Preview")
             except Exception as e2:
                 error_msg = f"❌ Cannot initialize Gemini model: {str(e2)}"
                 print(error_msg)
