@@ -908,10 +908,44 @@
     
     window.importFromSheets = function() {
         console.log('🚨 GLOBAL: importFromSheets called');
-        if (typeof importFromSheetsAsync === 'function') {
-            importFromSheetsAsync();
-        } else {
-            alert('Chức năng import đang được khởi tạo...');
+        
+        // Implement the actual import functionality
+        try {
+            if (confirm('Import templates từ Google Sheets?\n\nThao tác này sẽ thay thế toàn bộ templates hiện tại.')) {
+                showLoading(true);
+                
+                fetch('/templates/import', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        showSuccess('✅ Đã import templates thành công từ Google Sheets!');
+                        // Reload templates to show updated data
+                        isTemplatesLoaded = false;
+                        templates = [];
+                        allTemplates = [];
+                        setTimeout(() => {
+                            loadTemplatesForTab();
+                            loadTemplateCategories();
+                        }, 1000);
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Import error:', error);
+                    showError('❌ Lỗi import templates: ' + error.message);
+                })
+                .finally(() => {
+                    showLoading(false);
+                });
+            }
+        } catch (error) {
+            console.error('Error in importFromSheets:', error);
+            showError('Lỗi khi import: ' + error.message);
         }
     };
     
