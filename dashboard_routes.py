@@ -56,6 +56,10 @@ def process_dashboard_data(df, start_date, end_date, sort_by, sort_order, dashbo
     # Tạo biểu đồ pie chart cho người thu tiền
     collector_chart_data = create_collector_chart(dashboard_data)
     
+    # Xử lý thông báo khách đến và khách đi
+    arrival_notifications = process_arrival_notifications(df)
+    departure_notifications = process_departure_notifications(df)
+    
     return {
         'monthly_revenue_list': monthly_revenue_list,
         'genius_stats_list': genius_stats_list,
@@ -67,7 +71,9 @@ def process_dashboard_data(df, start_date, end_date, sort_by, sort_order, dashbo
         'overdue_unpaid_guests': overdue_unpaid_guests,
         'overdue_total_amount': overdue_total_amount,
         'overcrowded_days': overcrowded_days,
-        'collector_chart_json': collector_chart_data
+        'collector_chart_json': collector_chart_data,
+        'arrival_notifications': arrival_notifications,
+        'departure_notifications': departure_notifications
     }
 
 
@@ -397,3 +403,161 @@ def create_collector_chart(dashboard_data):
             }]
         }
     }
+
+
+def process_arrival_notifications(df):
+    """
+    Xử lý thông báo khách đến - hiển thị 1 ngày trước và trong ngày
+    """
+    try:
+        if df.empty:
+            return []
+        
+        # Ngày hôm nay và ngày mai
+        today = datetime.now().date()
+        tomorrow = today + timedelta(days=1)
+        
+        notifications = []
+        
+        # Lọc khách check-in ngày mai (hiển thị từ hôm nay)
+        for index, row in df.iterrows():
+            try:
+                checkin_date = row.get('Check-in Date')
+                if checkin_date:
+                    # Xử lý nhiều định dạng ngày
+                    if isinstance(checkin_date, str):
+                        try:
+                            checkin_date = datetime.strptime(checkin_date, '%Y-%m-%d').date()
+                        except ValueError:
+                            try:
+                                checkin_date = datetime.strptime(checkin_date, '%d/%m/%Y').date()
+                            except ValueError:
+                                continue
+                    elif hasattr(checkin_date, 'date'):
+                        checkin_date = checkin_date.date()
+                    
+                    # Khách đến ngày mai
+                    if checkin_date == tomorrow:
+                        guest_name = row.get('Tên người đặt', 'Không có tên')
+                        booking_id = row.get('Số đặt phòng', 'N/A')
+                        total_amount = row.get('Tổng thanh toán', 0)
+                        
+                        notifications.append({
+                            'type': 'arrival',
+                            'priority': 'high',
+                            'guest_name': guest_name,
+                            'booking_id': booking_id,
+                            'checkin_date': checkin_date.strftime('%d/%m/%Y'),
+                            'total_amount': total_amount,
+                            'days_until': 1,
+                            'message': f'Khách {guest_name} sẽ đến vào ngày mai ({checkin_date.strftime("%d/%m/%Y")})'
+                        })
+                    
+                    # Khách đến hôm nay
+                    elif checkin_date == today:
+                        guest_name = row.get('Tên người đặt', 'Không có tên')
+                        booking_id = row.get('Số đặt phòng', 'N/A')
+                        total_amount = row.get('Tổng thanh toán', 0)
+                        
+                        notifications.append({
+                            'type': 'arrival',
+                            'priority': 'urgent',
+                            'guest_name': guest_name,
+                            'booking_id': booking_id,
+                            'checkin_date': checkin_date.strftime('%d/%m/%Y'),
+                            'total_amount': total_amount,
+                            'days_until': 0,
+                            'message': f'Khách {guest_name} đến HÔM NAY ({checkin_date.strftime("%d/%m/%Y")})'
+                        })
+                        
+            except Exception as e:
+                print(f"Error processing arrival for row {index}: {e}")
+                continue
+        
+        # Sắp xếp theo độ ưu tiên
+        notifications.sort(key=lambda x: (x['days_until'], x['guest_name']))
+        
+        return notifications
+        
+    except Exception as e:
+        print(f"Error in process_arrival_notifications: {e}")
+        return []
+
+
+def process_departure_notifications(df):
+    """
+    Xử lý thông báo khách đi - hiển thị 1 ngày trước để chuẩn bị taxi/dịch vụ
+    """
+    try:
+        if df.empty:
+            return []
+        
+        # Ngày hôm nay và ngày mai
+        today = datetime.now().date()
+        tomorrow = today + timedelta(days=1)
+        
+        notifications = []
+        
+        # Lọc khách check-out ngày mai (để chuẩn bị dịch vụ)
+        for index, row in df.iterrows():
+            try:
+                checkout_date = row.get('Check-out Date')
+                if checkout_date:
+                    # Xử lý nhiều định dạng ngày
+                    if isinstance(checkout_date, str):
+                        try:
+                            checkout_date = datetime.strptime(checkout_date, '%Y-%m-%d').date()
+                        except ValueError:
+                            try:
+                                checkout_date = datetime.strptime(checkout_date, '%d/%m/%Y').date()
+                            except ValueError:
+                                continue
+                    elif hasattr(checkout_date, 'date'):
+                        checkout_date = checkout_date.date()
+                    
+                    # Khách đi ngày mai
+                    if checkout_date == tomorrow:
+                        guest_name = row.get('Tên người đặt', 'Không có tên')
+                        booking_id = row.get('Số đặt phòng', 'N/A')
+                        total_amount = row.get('Tổng thanh toán', 0)
+                        
+                        notifications.append({
+                            'type': 'departure',
+                            'priority': 'high',
+                            'guest_name': guest_name,
+                            'booking_id': booking_id,
+                            'checkout_date': checkout_date.strftime('%d/%m/%Y'),
+                            'total_amount': total_amount,
+                            'days_until': 1,
+                            'message': f'Khách {guest_name} sẽ đi vào ngày mai ({checkout_date.strftime("%d/%m/%Y")}) - Chuẩn bị taxi/dịch vụ'
+                        })
+                    
+                    # Khách đi hôm nay
+                    elif checkout_date == today:
+                        guest_name = row.get('Tên người đặt', 'Không có tên')
+                        booking_id = row.get('Số đặt phòng', 'N/A')
+                        total_amount = row.get('Tổng thanh toán', 0)
+                        
+                        notifications.append({
+                            'type': 'departure',
+                            'priority': 'urgent',
+                            'guest_name': guest_name,
+                            'booking_id': booking_id,
+                            'checkout_date': checkout_date.strftime('%d/%m/%Y'),
+                            'total_amount': total_amount,
+                            'days_until': 0,
+                            'message': f'Khách {guest_name} đi HÔM NAY ({checkout_date.strftime("%d/%m/%Y")}) - Hỗ trợ taxi ngay'
+                        })
+                        
+            except Exception as e:
+                print(f"Error processing departure for row {index}: {e}")
+                continue
+        
+        # Sắp xếp theo độ ưu tiên
+        notifications.sort(key=lambda x: (x['days_until'], x['guest_name']))
+        
+        return notifications
+        
+    except Exception as e:
+        print(f"Error in process_departure_notifications: {e}")
+        return []

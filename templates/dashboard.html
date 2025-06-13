@@ -2,6 +2,85 @@
 
 {% block title %}Dashboard - Hotel Management{% endblock %}
 
+{% block extra_css %}
+<style>
+/* Mobile Dashboard Optimizations */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+    
+    .card {
+        margin-bottom: 8px !important;
+    }
+    
+    .card-body {
+        padding: 8px !important;
+    }
+    
+    .card-header {
+        padding: 6px 8px !important;
+    }
+    
+    .btn-group .btn {
+        padding: 2px 6px !important;
+        font-size: 12px !important;
+    }
+    
+    .alert {
+        margin-bottom: 8px !important;
+        padding: 8px !important;
+    }
+    
+    .row {
+        margin-bottom: 8px !important;
+    }
+    
+    /* Compact notification cards on mobile */
+    .notification-card-mobile {
+        max-height: 100px;
+        overflow-y: auto;
+    }
+    
+    /* Hide some text on very small screens */
+    @media (max-width: 576px) {
+        .d-sm-none {
+            display: none !important;
+        }
+        
+        .btn-sm {
+            padding: 1px 4px !important;
+            font-size: 10px !important;
+        }
+        
+        .card-header h6, .card-header h5 {
+            font-size: 12px !important;
+        }
+        
+        small, .small {
+            font-size: 10px !important;
+        }
+    }
+}
+
+/* Compact layout improvements */
+.compact-card {
+    border-radius: 8px !important;
+}
+
+.compact-card .card-body {
+    padding: 12px !important;
+}
+
+.notification-item {
+    padding: 6px 8px !important;
+    margin-bottom: 4px !important;
+    border-radius: 6px !important;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid px-4">
     <!-- ⚠️ PIN NOTIFICATION CHO NGÀY QUÁ TẢI (FIXED TOP) -->
@@ -110,38 +189,137 @@
         </div>
     </div>
 
-    <!-- Quick Notes Display -->
-    <div class="row mb-4">
+    <!-- 🔔 ARRIVAL & DEPARTURE NOTIFICATIONS (COMPACT LAYOUT) -->
+    {% if arrival_notifications or departure_notifications %}
+    <div class="row mb-3">
+        <!-- Arrival Notifications -->
+        {% if arrival_notifications and arrival_notifications|length > 0 %}
+        <div class="col-md-6 mb-2">
+            <div class="card border-0 shadow-sm h-100 compact-card" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0 text-white fw-bold">
+                            <i class="fas fa-plane-arrival me-1"></i>Khách Đến<span class="d-sm-none"> ({{ arrival_notifications|length }})</span>
+                        </h6>
+                        <button class="btn btn-sm btn-light" onclick="createArrivalNotification()" title="Tạo thông báo ngay">
+                            <i class="fas fa-bell-plus"></i><span class="d-none d-lg-inline ms-1">Tạo</span>
+                        </button>
+                    </div>
+                    <div class="overflow-auto notification-card-mobile" style="max-height: 120px;">
+                        {% for notification in arrival_notifications[:3] %}
+                        <div class="bg-white bg-opacity-90 notification-item border-start border-4 border-success">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <small class="fw-bold text-dark">{{ notification.guest_name }}</small>
+                                    <div class="small text-muted">
+                                        <i class="fas fa-calendar me-1"></i>{{ notification.checkin_date }}
+                                        {% if notification.priority == 'urgent' %}
+                                        <span class="badge bg-danger ms-1 px-1" style="font-size: 9px;">HÔM NAY</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark ms-1 px-1" style="font-size: 9px;">MAI</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <small class="fw-bold text-success">{{ "{:,.0f}".format(notification.total_amount|float) }}đ</small>
+                                    <div class="small text-muted">{{ notification.booking_id }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if arrival_notifications|length > 3 %}
+                        <div class="text-center mt-1">
+                            <small class="text-white">+{{ arrival_notifications|length - 3 }} khác</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Departure Notifications -->
+        {% if departure_notifications and departure_notifications|length > 0 %}
+        <div class="col-md-6 mb-2">
+            <div class="card border-0 shadow-sm h-100 compact-card" style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0 text-white fw-bold">
+                            <i class="fas fa-plane-departure me-1"></i>Khách Đi<span class="d-sm-none"> ({{ departure_notifications|length }})</span>
+                        </h6>
+                        <button class="btn btn-sm btn-light" onclick="createDepartureNotification()" title="Tạo thông báo taxi ngay">
+                            <i class="fas fa-taxi"></i><span class="d-none d-lg-inline ms-1">Taxi</span>
+                        </button>
+                    </div>
+                    <div class="overflow-auto notification-card-mobile" style="max-height: 120px;">
+                        {% for notification in departure_notifications[:3] %}
+                        <div class="bg-white bg-opacity-90 notification-item border-start border-4 border-warning">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <small class="fw-bold text-dark">{{ notification.guest_name }}</small>
+                                    <div class="small text-muted">
+                                        <i class="fas fa-calendar me-1"></i>{{ notification.checkout_date }}
+                                        {% if notification.priority == 'urgent' %}
+                                        <span class="badge bg-danger ms-1 px-1" style="font-size: 9px;">HÔM NAY</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark ms-1 px-1" style="font-size: 9px;">MAI</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <small class="fw-bold text-warning">{{ "{:,.0f}".format(notification.total_amount|float) }}đ</small>
+                                    <div class="small text-muted">{{ notification.booking_id }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if departure_notifications|length > 3 %}
+                        <div class="text-center mt-1">
+                            <small class="text-white">+{{ departure_notifications|length - 3 }} khác</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Quick Notes Display (COMPACT MOBILE-OPTIMIZED) -->
+    <div class="row mb-3">
         <div class="col-12">
-            <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                <div class="card-header bg-transparent border-0">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-header bg-transparent border-0 py-2">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 text-dark fw-bold" style="text-shadow: 1px 1px 2px rgba(255,255,255,0.8);">
+                        <h6 class="mb-0 text-dark fw-bold" style="text-shadow: 1px 1px 2px rgba(255,255,255,0.8);">
                             <i class="fas fa-sticky-note me-2 text-dark"></i><span class="text-dark">📝 Quick Notes</span>
-                        </h5>
-                        <div>
-                            <button class="btn btn-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#quickNotesModal">
-                                <i class="fas fa-plus me-1"></i>Tạo mới
+                        </h6>
+                        <div class="d-flex flex-wrap gap-1">
+                            <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#quickNotesModal">
+                                <i class="fas fa-plus me-1"></i><span class="d-none d-md-inline">Tạo mới</span>
                             </button>
-                            <button class="btn btn-outline-dark btn-sm me-2" onclick="exportQuickNotes()" style="color: #000; border-color: #000;">
-                                <i class="fas fa-download me-1 text-dark"></i>Export
-                            </button>
-                            <button class="btn btn-outline-info btn-sm me-2" onclick="syncQuickNotes()" style="color: #0dcaf0; border-color: #0dcaf0;">
-                                <i class="fas fa-cloud-download-alt me-1" style="color: #0dcaf0;"></i>Sync từ Cloud
-                            </button>
-                            <button class="btn btn-outline-dark btn-sm" onclick="refreshQuickNotes()" style="color: #000; border-color: #000;">
-                                <i class="fas fa-sync-alt me-1 text-dark"></i>Làm mới
-                            </button>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-dark btn-sm" onclick="exportQuickNotes()" style="color: #000; border-color: #000;" title="Export">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" onclick="syncQuickNotes()" style="color: #0dcaf0; border-color: #0dcaf0;" title="Sync">
+                                    <i class="fas fa-cloud-download-alt"></i>
+                                </button>
+                                <button class="btn btn-outline-dark btn-sm" onclick="refreshQuickNotes()" style="color: #000; border-color: #000;" title="Refresh">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body py-2" style="max-height: 200px; overflow-y: auto;">
                     <div id="quickNotesContainer">
-                        <div class="text-center py-3">
-                            <div class="spinner-border text-light mb-2" role="status">
+                        <div class="text-center py-2">
+                            <div class="spinner-border spinner-border-sm text-light mb-1" role="status">
                                 <span class="visually-hidden">Đang tải...</span>
                             </div>
-                            <p class="mb-0 text-white fw-bold">Đang tải Quick Notes...</p>
+                            <p class="mb-0 text-white small">Đang tải Quick Notes...</p>
                         </div>
                     </div>
                     <!-- Hidden file input for importing Quick Notes -->
@@ -1803,6 +1981,57 @@ function updateBookingAmounts() {
         confirmBtn.innerHTML = originalText;
         confirmBtn.disabled = false;
     });
+}
+
+// ===== ARRIVAL & DEPARTURE NOTIFICATION FUNCTIONS =====
+
+function createArrivalNotification() {
+    // Quick action for arrival notifications
+    const message = prompt("Nhập tin nhắn chào mừng cho khách đến:", 
+                          "Chào mừng bạn đến với khách sạn! Phòng đã sẵn sàng. Vui lòng liên hệ reception để check-in.");
+    
+    if (message) {
+        // Here you could send to messaging system or create a reminder
+        showDashboardToast(`✅ Đã tạo thông báo chào mừng khách đến!`, 'success');
+        
+        // Optional: You could integrate with your messaging templates here
+        console.log('Arrival notification created:', message);
+    }
+}
+
+function createDepartureNotification() {
+    // Quick action for departure notifications
+    const taxiNeeded = confirm("Khách có cần hỗ trợ đặt taxi không?");
+    
+    if (taxiNeeded) {
+        const message = "Cảm ơn bạn đã lưu trú tại khách sạn! Chúng tôi có thể hỗ trợ đặt taxi đến sân bay với giá ưu đãi 280,000đ. Vui lòng cho biết thời gian khởi hành.";
+        
+        // Create notification with taxi service
+        showDashboardToast(`🚕 Đã tạo thông báo hỗ trợ taxi cho khách đi!`, 'success');
+        console.log('Departure notification with taxi:', message);
+    } else {
+        const message = "Cảm ơn bạn đã lưu trú tại khách sạn! Chúc bạn có chuyến đi an toàn. Nếu cần hỗ trợ gì, vui lòng liên hệ chúng tôi.";
+        
+        // Create standard departure notification
+        showDashboardToast(`✅ Đã tạo thông báo cảm ơn khách đi!`, 'success');
+        console.log('Departure notification:', message);
+    }
+}
+
+// Quick notification function for mobile
+function quickNotify(type, guestName) {
+    const templates = {
+        arrival: `Chào mừng ${guestName}! Phòng đã sẵn sàng, vui lòng liên hệ reception.`,
+        departure: `Cảm ơn ${guestName}! Nếu cần taxi sân bay (280k), vui lòng cho biết giờ khởi hành.`
+    };
+    
+    const message = templates[type];
+    if (message) {
+        // Copy to clipboard for quick use
+        navigator.clipboard.writeText(message).then(() => {
+            showDashboardToast(`📋 Đã copy tin nhắn cho ${guestName}!`, 'success');
+        });
+    }
 }
 </script>
 
