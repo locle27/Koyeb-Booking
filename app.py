@@ -1621,6 +1621,177 @@ def ai_chat_analyze():
         traceback.print_exc()
         return jsonify({"error": f"Lỗi xử lý phía server: {str(e)}"}), 500
 
+@app.route('/api/ai_chat_rag', methods=['POST'])
+def ai_chat_rag():
+    """🧠 NEW: Enhanced AI Chat with RAG (Retrieval-Augmented Generation)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Get query and guest information
+        user_query = data.get('message', '').strip()
+        guest_name = data.get('guest_name', '').strip()
+        
+        if not user_query:
+            return jsonify({"error": "No message provided"}), 400
+        
+        print(f"🧠 RAG Query: '{user_query}' from guest: '{guest_name}'")
+        
+        # Initialize RAG system
+        try:
+            from simple_rag import get_simple_rag
+            rag_system = get_simple_rag()
+        except ImportError as e:
+            print(f"RAG system not available: {e}")
+            return jsonify({
+                "error": "RAG system not available",
+                "fallback_response": "Please contact reception for assistance."
+            }), 500
+        
+        # Generate RAG response
+        rag_response = rag_system.generate_rag_response(user_query, guest_name)
+        
+        # Enhanced response with booking context
+        booking_context = {}
+        if guest_name:
+            try:
+                # Get guest booking information from Google Sheets
+                booking_context = get_guest_booking_context(guest_name)
+            except Exception as e:
+                print(f"Error getting booking context: {e}")
+        
+        # Build enhanced response
+        enhanced_response = {
+            "success": True,
+            "query": user_query,
+            "answer": rag_response['answer'],
+            "confidence": rag_response['confidence'],
+            "sources": rag_response['sources'],
+            "suggestions": rag_response['suggestions'],
+            "guest_personalized": rag_response['guest_personalized'],
+            "booking_context": booking_context,
+            "rag_enabled": True,
+            "timestamp": rag_response['timestamp']
+        }
+        
+        # Add contextual enhancements
+        if booking_context:
+            enhanced_response["contextual_info"] = generate_contextual_info(booking_context)
+        
+        print(f"✅ RAG Response generated with confidence: {rag_response['confidence']:.2f}")
+        return jsonify(enhanced_response)
+        
+    except Exception as e:
+        print(f"AI Chat RAG error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Server error: {str(e)}",
+            "fallback_response": "I apologize, but I'm having technical difficulties. Please contact our reception for immediate assistance."
+        }), 500
+
+def get_guest_booking_context(guest_name: str) -> dict:
+    """Get guest booking information for RAG context"""
+    try:
+        from logic import import_from_gsheet
+        
+        # Import current bookings
+        df = import_from_gsheet(
+            sheet_id=DEFAULT_SHEET_ID,
+            worksheet_name=WORKSHEET_NAME,
+            gcp_creds_file_path=GCP_CREDS_FILE_PATH
+        )
+        
+        if df is None or df.empty:
+            return {}
+        
+        # Find guest bookings (case insensitive)
+        guest_bookings = df[df['Tên người đặt'].str.contains(guest_name, case=False, na=False)]
+        
+        if guest_bookings.empty:
+            return {}
+        
+        # Get latest booking
+        latest_booking = guest_bookings.iloc[-1]
+        
+        booking_context = {
+            'guest_name': guest_name,
+            'booking_id': latest_booking.get('Số đặt phòng', ''),
+            'checkin_date': str(latest_booking.get('Check-in Date', '')),
+            'checkout_date': str(latest_booking.get('Check-out Date', '')),
+            'total_amount': latest_booking.get('Tổng thanh toán', 0),
+            'payment_status': latest_booking.get('Đã thanh toán', ''),
+            'room_type': latest_booking.get('Loại phòng', ''),
+            'special_requests': latest_booking.get('Ghi chú', ''),
+            'booking_count': len(guest_bookings)
+        }
+        
+        return booking_context
+        
+    except Exception as e:
+        print(f"Error getting guest booking context: {e}")
+        return {}
+
+def generate_contextual_info(booking_context: dict) -> dict:
+    """Generate contextual information based on booking"""
+    
+    from datetime import datetime, timedelta
+    
+    contextual_info = {}
+    
+    try:
+        # Parse dates
+        checkin_str = booking_context.get('checkin_date', '')
+        checkout_str = booking_context.get('checkout_date', '')
+        
+        if checkin_str and checkout_str:
+            checkin_date = datetime.strptime(checkin_str, '%Y-%m-%d')
+            checkout_date = datetime.strptime(checkout_str, '%Y-%m-%d')
+            today = datetime.now()
+            
+            # Determine guest status
+            if today < checkin_date:
+                days_until_checkin = (checkin_date - today).days
+                contextual_info['guest_status'] = 'upcoming'
+                contextual_info['status_message'] = f"Arriving in {days_until_checkin} days"
+            elif checkin_date <= today <= checkout_date:
+                days_remaining = (checkout_date - today).days
+                contextual_info['guest_status'] = 'current'
+                contextual_info['status_message'] = f"{days_remaining} days remaining"
+            else:
+                contextual_info['guest_status'] = 'past'
+                contextual_info['status_message'] = "Previous guest"
+            
+            # Add relevant suggestions based on status
+            if contextual_info['guest_status'] == 'upcoming':
+                contextual_info['suggestions'] = [
+                    "Check-in starts at 14:00",
+                    "Airport taxi available for 280,000 VND",
+                    "Let us know your arrival time"
+                ]
+            elif contextual_info['guest_status'] == 'current':
+                contextual_info['suggestions'] = [
+                    "Need restaurant recommendations?",
+                    "Ask about tourist attractions nearby",
+                    "Late checkout available until 15:00"
+                ]
+        
+        # Payment status context
+        payment_status = booking_context.get('payment_status', '').lower()
+        if 'chưa' in payment_status or 'no' in payment_status:
+            contextual_info['payment_reminder'] = "Payment pending - please settle at reception"
+        
+        # VIP status for repeat guests
+        if booking_context.get('booking_count', 0) > 1:
+            contextual_info['vip_status'] = True
+            contextual_info['vip_message'] = f"Welcome back! This is your {booking_context['booking_count']} booking with us."
+        
+    except Exception as e:
+        print(f"Error generating contextual info: {e}")
+    
+    return contextual_info
+
 @app.route('/api/templates/add', methods=['POST'])
 def add_template_api():
     """API endpoint để thêm mẫu tin nhắn mới và tự động sync với Google Sheets"""

@@ -37,6 +37,97 @@
     <div class="tab-content" id="aiTabsContent">
         <!-- AI Chat Assistant Panel -->
         <div class="tab-pane fade show active" id="chat-panel" role="tabpanel">
+            
+            <!-- 🧠 NEW: RAG Chat Interface -->
+            <div class="card mb-4" style="border: 2px solid #667eea;">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <h5 class="mb-0 text-white fw-bold">
+                        <i class="fas fa-brain me-2"></i>🧠 RAG Chat Assistant - Smart Hotel Q&A
+                    </h5>
+                    <small class="text-white-50">Ask questions about hotel policies, Hanoi attractions, or guest services</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="input-group mb-3">
+                                <input type="text" id="ragQueryInput" class="form-control" 
+                                       placeholder="Ask me anything: check-in time, nearby restaurants, taxi prices..."
+                                       onkeypress="if(event.key==='Enter') sendRAGQuery()">
+                                <input type="text" id="ragGuestName" class="form-control" 
+                                       placeholder="Guest name (optional)" style="max-width: 150px;">
+                                <button class="btn btn-primary" onclick="sendRAGQuery()">
+                                    <i class="fas fa-search"></i> Ask RAG
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="btn-group w-100" role="group">
+                                <button class="btn btn-outline-info btn-sm" onclick="ragQuickQuestion('check-in time')">
+                                    <i class="fas fa-clock"></i> Check-in
+                                </button>
+                                <button class="btn btn-outline-warning btn-sm" onclick="ragQuickQuestion('taxi airport')">
+                                    <i class="fas fa-taxi"></i> Taxi
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="ragQuickQuestion('food recommendations')">
+                                    <i class="fas fa-utensils"></i> Food
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- RAG Response Area -->
+                    <div id="ragResponseArea" class="mt-3" style="display: none;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="text-primary mb-0">
+                                        <i class="fas fa-robot"></i> RAG Response
+                                    </h6>
+                                    <div class="d-flex align-items-center">
+                                        <span id="ragConfidence" class="badge bg-success me-2">High Confidence</span>
+                                        <span id="ragTimestamp" class="text-muted small"></span>
+                                    </div>
+                                </div>
+                                <div id="ragAnswer" class="mb-3"></div>
+                                
+                                <!-- Guest Context (if available) -->
+                                <div id="ragGuestContext" style="display: none;">
+                                    <div class="alert alert-info py-2">
+                                        <i class="fas fa-user"></i> <strong>Guest Context:</strong>
+                                        <span id="ragGuestInfo"></span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Sources -->
+                                <div id="ragSources" class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-book"></i> <strong>Sources:</strong>
+                                        <span id="ragSourcesList"></span>
+                                    </small>
+                                </div>
+                                
+                                <!-- Suggestions -->
+                                <div id="ragSuggestions" class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-lightbulb"></i> <strong>Suggestions:</strong>
+                                        <div id="ragSuggestionsList"></div>
+                                    </small>
+                                </div>
+                                
+                                <div class="d-flex justify-content-end">
+                                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="copyRAGResponse()">
+                                        <i class="fas fa-copy"></i> Copy
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="clearRAGResponse()">
+                                        <i class="fas fa-refresh"></i> Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="row">
                 <!-- Phần tải ảnh -->
                 <div class="col-md-6">
@@ -3192,5 +3283,189 @@
             showLoading(false);
         }
     }
+
+    // 🧠 RAG Chat Functions
+    let ragCurrentQuery = '';
+    let ragCurrentResponse = null;
+
+    async function sendRAGQuery() {
+        const query = document.getElementById('ragQueryInput').value.trim();
+        const guestName = document.getElementById('ragGuestName').value.trim();
+        
+        if (!query) {
+            alert('Please enter a question!');
+            return;
+        }
+        
+        ragCurrentQuery = query;
+        console.log(`🧠 Sending RAG query: "${query}" for guest: "${guestName}"`);
+        
+        try {
+            // Show loading state
+            document.getElementById('ragResponseArea').style.display = 'block';
+            document.getElementById('ragAnswer').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Thinking...';
+            
+            // Send request to RAG endpoint
+            const response = await fetch('/api/ai_chat_rag', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: query,
+                    guest_name: guestName
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                displayRAGResponse(result);
+                // Clear input after successful query
+                document.getElementById('ragQueryInput').value = '';
+            } else {
+                throw new Error(result.error || 'Unknown error');
+            }
+            
+        } catch (error) {
+            console.error('RAG query error:', error);
+            document.getElementById('ragAnswer').innerHTML = 
+                `<div class="text-danger"><i class="fas fa-exclamation-triangle"></i> Error: ${error.message}</div>`;
+        }
+    }
+
+    function displayRAGResponse(result) {
+        ragCurrentResponse = result;
+        
+        // Display main answer
+        document.getElementById('ragAnswer').innerHTML = 
+            `<div class="fw-bold mb-2">${result.answer}</div>`;
+        
+        // Update confidence badge
+        const confidence = result.confidence || 0;
+        const confidenceBadge = document.getElementById('ragConfidence');
+        if (confidence > 0.8) {
+            confidenceBadge.className = 'badge bg-success me-2';
+            confidenceBadge.textContent = 'High Confidence';
+        } else if (confidence > 0.5) {
+            confidenceBadge.className = 'badge bg-warning me-2';
+            confidenceBadge.textContent = 'Medium Confidence';
+        } else {
+            confidenceBadge.className = 'badge bg-secondary me-2';
+            confidenceBadge.textContent = 'Low Confidence';
+        }
+        
+        // Display timestamp
+        document.getElementById('ragTimestamp').textContent = 
+            new Date(result.timestamp).toLocaleTimeString();
+        
+        // Display guest context if available
+        if (result.booking_context && result.booking_context.guest_name) {
+            const guestContext = document.getElementById('ragGuestContext');
+            const guestInfo = document.getElementById('ragGuestInfo');
+            
+            const context = result.booking_context;
+            const contextInfo = result.contextual_info || {};
+            
+            let guestInfoHtml = `${context.guest_name}`;
+            if (contextInfo.vip_status) {
+                guestInfoHtml += ` <span class="badge bg-gold">VIP</span>`;
+            }
+            if (contextInfo.status_message) {
+                guestInfoHtml += ` - ${contextInfo.status_message}`;
+            }
+            if (context.booking_id) {
+                guestInfoHtml += ` (${context.booking_id})`;
+            }
+            
+            guestInfo.innerHTML = guestInfoHtml;
+            guestContext.style.display = 'block';
+        } else {
+            document.getElementById('ragGuestContext').style.display = 'none';
+        }
+        
+        // Display sources
+        if (result.sources && result.sources.length > 0) {
+            document.getElementById('ragSourcesList').textContent = result.sources.join(', ');
+        } else {
+            document.getElementById('ragSourcesList').textContent = 'Hotel Knowledge Base';
+        }
+        
+        // Display suggestions
+        if (result.suggestions && result.suggestions.length > 0) {
+            const suggestionsList = document.getElementById('ragSuggestionsList');
+            suggestionsList.innerHTML = result.suggestions.map(suggestion => 
+                `<div class="mt-1">• ${suggestion}</div>`
+            ).join('');
+        } else {
+            document.getElementById('ragSuggestionsList').innerHTML = '<div class="mt-1">Ask about check-in/out times, local attractions, or services</div>';
+        }
+        
+        console.log('✅ RAG response displayed successfully');
+    }
+
+    function ragQuickQuestion(question) {
+        document.getElementById('ragQueryInput').value = question;
+        sendRAGQuery();
+    }
+
+    function copyRAGResponse() {
+        if (!ragCurrentResponse) {
+            alert('No response to copy!');
+            return;
+        }
+        
+        let copyText = `Question: ${ragCurrentQuery}\n\nAnswer: ${ragCurrentResponse.answer}`;
+        
+        if (ragCurrentResponse.suggestions && ragCurrentResponse.suggestions.length > 0) {
+            copyText += `\n\nSuggestions:\n${ragCurrentResponse.suggestions.map(s => `• ${s}`).join('\n')}`;
+        }
+        
+        // Copy to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(copyText).then(() => {
+                showSuccess('📋 RAG response copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                fallbackCopyRAG(copyText);
+            });
+        } else {
+            fallbackCopyRAG(copyText);
+        }
+    }
+
+    function fallbackCopyRAG(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            showSuccess('📋 RAG response copied to clipboard!');
+        } catch (err) {
+            console.error('Fallback copy failed:', err);
+            alert(`RAG Response:\n\n${text}`);
+        }
+        
+        document.body.removeChild(textArea);
+    }
+
+    function clearRAGResponse() {
+        document.getElementById('ragResponseArea').style.display = 'none';
+        ragCurrentQuery = '';
+        ragCurrentResponse = null;
+    }
+
+    // Global functions for RAG (making them available in global scope)
+    window.sendRAGQuery = sendRAGQuery;
+    window.ragQuickQuestion = ragQuickQuestion;
+    window.copyRAGResponse = copyRAGResponse;
+    window.clearRAGResponse = clearRAGResponse;
+
+    console.log('✅ RAG Chat functions initialized');
 </script>
 {% endblock %}
