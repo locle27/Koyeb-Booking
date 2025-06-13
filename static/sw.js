@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hotel-booking-v1';
+const CACHE_NAME = 'hotel-booking-v2';
 const urlsToCache = [
   '/',
   '/static/css/style.css',
@@ -30,6 +30,15 @@ self.addEventListener('fetch', event => {
       !event.request.url.startsWith('https://cdnjs.cloudflare.com') &&
       !event.request.url.startsWith('https://fonts.googleapis.com')) {
     return;
+  }
+
+  // Skip AI API endpoints and dynamic content - don't cache these
+  if (event.request.url.includes('/api/ai_chat_analyze') ||
+      event.request.url.includes('/api/translate') ||
+      event.request.url.includes('/api/process_pasted_image') ||
+      event.request.url.includes('/api/quick_notes') ||
+      event.request.method !== 'GET') {
+    return fetch(event.request);
   }
 
   event.respondWith(

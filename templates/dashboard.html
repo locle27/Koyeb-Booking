@@ -1617,6 +1617,8 @@ function saveQuickNote() {
         content: noteContent,
         date: noteDate,
         time: noteTime,
+        guestName: '', // Add missing guestName field
+        completed: false, // Explicitly set as not completed
         created_at: new Date().toISOString()
     };
     
@@ -1654,7 +1656,14 @@ function saveQuickNote() {
     document.getElementById('noteTime').value = new Date().toTimeString().slice(0, 5);
     
     // Close modal
-    bootstrap.Modal.getInstance(document.getElementById('quickNotesModal')).hide();
+    const modal = bootstrap.Modal.getInstance(document.getElementById('quickNotesModal'));
+    if (modal) {
+        modal.hide();
+    } else {
+        // Fallback: create new modal instance and hide
+        const newModal = new bootstrap.Modal(document.getElementById('quickNotesModal'));
+        newModal.hide();
+    }
     
     // Refresh notes display
     loadQuickNotesOnDashboard();
