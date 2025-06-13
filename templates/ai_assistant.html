@@ -746,6 +746,142 @@
     let voiceInstructionRecognition = null;
     let isVoiceInstructionRecording = false;
     
+    // ===== GLOBAL FUNCTIONS FOR ONCLICK HANDLERS =====
+    // These functions need to be in global scope to work with onclick attributes
+    
+    // Image handling functions
+    window.selectImageFile = function() {
+        console.log('🚨 GLOBAL: selectImageFile called');
+        const input = document.getElementById('imageFileInput');
+        if (input) input.click();
+        else console.error('imageFileInput not found');
+    };
+    
+    window.capturePhoto = function() {
+        console.log('🚨 GLOBAL: capturePhoto called');
+        const input = document.getElementById('cameraInput');
+        if (input) input.click();
+        else console.error('cameraInput not found');
+    };
+    
+    window.captureFrontPhoto = function() {
+        console.log('🚨 GLOBAL: captureFrontPhoto called');
+        const input = document.getElementById('frontCameraInput');
+        if (input) input.click();
+        else console.error('frontCameraInput not found');
+    };
+    
+    window.triggerSafariPicker = function() {
+        console.log('🚨 GLOBAL: triggerSafariPicker called');
+        // Create a temporary input with different attributes for Safari
+        const tempInput = document.createElement('input');
+        tempInput.type = 'file';
+        tempInput.accept = 'image/png,image/jpeg,image/jpg,image/gif,image/webp,image/*';
+        tempInput.multiple = false;
+        tempInput.style.display = 'none';
+        
+        // Add event listener
+        tempInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleImageFile(e.target.files[0]);
+            }
+            document.body.removeChild(tempInput);
+        });
+        
+        document.body.appendChild(tempInput);
+        setTimeout(() => tempInput.click(), 100);
+    };
+    
+    window.removeImage = function() {
+        console.log('🚨 GLOBAL: removeImage called');
+        currentImageData = null;
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        const pasteArea = document.getElementById('imagePasteArea');
+        const fileInput = document.getElementById('imageFileInput');
+        
+        if (previewContainer) previewContainer.style.display = 'none';
+        if (pasteArea) pasteArea.style.display = 'block';
+        if (fileInput) fileInput.value = '';
+        
+        const responseArea = document.getElementById('responseArea');
+        if (responseArea) {
+            responseArea.innerHTML = `
+                <div class="text-center text-muted">
+                    <i class="fas fa-robot fa-2x mb-3 text-primary"></i>
+                    <h6 class="text-primary">🧠 AI Chat Assistant - Context-Aware Intelligence</h6>
+                    <p class="mb-3">Tải ảnh đoạn chat lên, AI sẽ đọc và hiểu <strong>toàn bộ bối cảnh</strong> để đưa ra phản hồi thông minh!</p>
+                </div>
+            `;
+        }
+    };
+    
+    window.analyzeImage = function() {
+        console.log('🚨 GLOBAL: analyzeImage called');
+        if (!currentImageData) {
+            alert('Vui lòng tải ảnh trước!');
+            return;
+        }
+        // This will call the async function defined in DOMContentLoaded scope
+        if (typeof analyzeImageAsync === 'function') {
+            analyzeImageAsync();
+        } else {
+            alert('Chức năng phân tích ảnh đang được khởi tạo...');
+        }
+    };
+    
+    // Voice functions
+    window.toggleRecording = function() {
+        console.log('🚨 GLOBAL: toggleRecording called');
+        if (typeof toggleRecordingAsync === 'function') {
+            toggleRecordingAsync();
+        } else {
+            alert('Chức năng ghi âm đang được khởi tạo...');
+        }
+    };
+    
+    window.translateText = function() {
+        console.log('🚨 GLOBAL: translateText called');
+        if (typeof translateTextAsync === 'function') {
+            translateTextAsync();
+        } else {
+            alert('Chức năng dịch đang được khởi tạo...');
+        }
+    };
+    
+    // Template functions
+    window.showAddTemplateModal = function() {
+        console.log('🚨 GLOBAL: showAddTemplateModal called');
+        if (typeof showAddTemplateModalAsync === 'function') {
+            showAddTemplateModalAsync();
+        } else {
+            alert('Chức năng thêm template đang được khởi tạo...');
+        }
+    };
+    
+    window.importFromSheets = function() {
+        console.log('🚨 GLOBAL: importFromSheets called');
+        if (typeof importFromSheetsAsync === 'function') {
+            importFromSheetsAsync();
+        } else {
+            alert('Chức năng import đang được khởi tạo...');
+        }
+    };
+    
+    window.toggleCustomInstructions = function() {
+        console.log('🚨 GLOBAL: toggleCustomInstructions called');
+        const section = document.getElementById('customInstructionsSection');
+        const icon = document.getElementById('customToggleIcon');
+        if (section && icon) {
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                icon.className = 'fas fa-chevron-up';
+            } else {
+                section.style.display = 'none';
+                icon.className = 'fas fa-chevron-down';
+            }
+        }
+    };
+    
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🚨 EMERGENCY DEBUG: DOMContentLoaded fired - AI Assistant Hub initializing...');
@@ -818,36 +954,26 @@
         // Debug: Add template loading button for debugging
         console.log('🚀 AI Assistant Hub initialization completed');
         
-        // EMERGENCY FALLBACK: Add onclick handlers directly if they're missing
+        // LINK GLOBAL FUNCTIONS TO LOCAL ASYNC IMPLEMENTATIONS
         try {
-            const imageButton = document.querySelector('button[onclick="selectImageFile()"]');
-            if (imageButton && !window.selectImageFile) {
-                console.log('🚨 EMERGENCY: Adding fallback selectImageFile handler');
-                window.selectImageFile = function() {
-                    console.log('🚨 EMERGENCY: selectImageFile called');
-                    const input = document.getElementById('imageFileInput');
-                    if (input) input.click();
-                    else console.error('🚨 EMERGENCY: imageFileInput not found');
-                };
-            }
-            
-            const recordButton = document.querySelector('button[onclick="toggleRecording()"]');
-            if (recordButton && !window.toggleRecording) {
-                console.log('🚨 EMERGENCY: Adding fallback toggleRecording handler');
-                window.toggleRecording = function() {
-                    console.log('🚨 EMERGENCY: toggleRecording called');
-                    alert('Voice recording feature detected click but function may need initialization');
-                };
-            }
+            // Link the async functions to global scope
+            window.analyzeImageAsync = analyzeImage;
+            window.toggleRecordingAsync = toggleRecording;
+            window.translateTextAsync = translateText;
+            window.showAddTemplateModalAsync = showAddTemplateModal;
+            window.importFromSheetsAsync = importFromSheets;
             
             console.log('🚨 EMERGENCY DEBUG: Available functions check:');
             console.log('- selectImageFile:', typeof window.selectImageFile);
             console.log('- toggleRecording:', typeof window.toggleRecording);
             console.log('- analyzeImage:', typeof window.analyzeImage);
             console.log('- removeImage:', typeof window.removeImage);
+            console.log('- toggleCustomInstructions:', typeof window.toggleCustomInstructions);
+            console.log('- showAddTemplateModal:', typeof window.showAddTemplateModal);
+            console.log('- importFromSheets:', typeof window.importFromSheets);
             
         } catch (error) {
-            console.error('🚨 EMERGENCY: Fallback handler setup failed:', error);
+            console.error('🚨 EMERGENCY: Function linking failed:', error);
         }
         
         // Enhanced event listener for templates tab
@@ -1145,44 +1271,7 @@
         });
     }
     
-    function selectImageFile() {
-        document.getElementById('imageFileInput').click();
-    }
-    
-    function capturePhoto() {
-        document.getElementById('cameraInput').click();
-    }
-    
-    function captureFrontPhoto() {
-        document.getElementById('frontCameraInput').click();
-    }
-    
-    // Safari-specific image picker with enhanced compatibility
-    function triggerSafariPicker() {
-        // Create a temporary input with different attributes for Safari
-        const tempInput = document.createElement('input');
-        tempInput.type = 'file';
-        tempInput.accept = 'image/png,image/jpeg,image/jpg,image/gif,image/webp,image/*';
-        tempInput.multiple = false;
-        tempInput.style.display = 'none';
-        
-        // Add event listener
-        tempInput.addEventListener('change', function(e) {
-            if (e.target.files.length > 0) {
-                handleImageFile(e.target.files[0]);
-            }
-            // Remove temp input
-            document.body.removeChild(tempInput);
-        });
-        
-        // Add to DOM and trigger click
-        document.body.appendChild(tempInput);
-        
-        // Safari sometimes needs a small delay
-        setTimeout(() => {
-            tempInput.click();
-        }, 100);
-    }
+    // Image handling functions moved to global scope above DOMContentLoaded
     
     function handleImageFile(file) {
         console.log('Processing file:', file.name, 'Type:', file.type, 'Size:', file.size);
