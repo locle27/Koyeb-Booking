@@ -226,7 +226,7 @@
                                     </div>
                                 </div>
                                 <div class="text-end">
-                                    <button class="btn btn-sm btn-outline-success px-1 mb-1" onclick="copyPaymentMessage('{{ notification.guest_name }}', {{ notification.total_amount|float }}, {{ notification.commission|float|default(0) }})" title="Copy payment message">
+                                    <button class="btn btn-sm btn-outline-success px-1 mb-1" onclick="copyPaymentMessage('{{ notification.guest_name }}', {{ notification.total_amount|float }}, {{ notification['Hoa hồng']|default(0)|float }})" title="Copy payment message">
                                         <i class="fas fa-dollar-sign"></i>
                                     </button>
                                     <div class="small fw-bold text-success">{{ "{:,.0f}".format(notification.total_amount|float) }}đ</div>
