@@ -28,7 +28,8 @@ from logic import (
     prepare_dashboard_data, delete_row_in_gsheet,
     delete_multiple_rows_in_gsheet,
     import_message_templates_from_gsheet,
-    export_message_templates_to_gsheet
+    export_message_templates_to_gsheet,
+    scrape_booking_apartments, format_apartments_display
 )
 
 # Import dashboard logic module
@@ -2373,6 +2374,83 @@ def control_reminder_system():
         return jsonify({
             "success": False,
             "message": f"❌ Lỗi control system: {str(e)}"
+        }), 500
+
+# ==============================================================================
+# APARTMENT MARKET ANALYSIS API - BOOKING.COM SCRAPER
+# ==============================================================================
+
+@app.route('/api/scrape_apartments', methods=['GET', 'POST'])
+def scrape_apartments_api():
+    """
+    API endpoint to scrape apartment listings from Booking.com
+    Supports both GET (with URL parameter) and POST (with JSON data)
+    """
+    try:
+        # Import the scraper functions from logic
+        from logic import scrape_booking_apartments, format_apartments_display
+        
+        # Get URL from request
+        if request.method == 'POST':
+            data = request.get_json() or {}
+            url = data.get('url')
+        else:
+            url = request.args.get('url')
+        
+        # Run the scraper
+        print("🔍 Starting apartment data extraction...")
+        apartments_data = scrape_booking_apartments(url)
+        
+        # Check for errors
+        if "error" in apartments_data:
+            return jsonify({
+                "success": False,
+                "error": apartments_data["error"]
+            }), 500
+        
+        # Format for display
+        formatted_display = format_apartments_display(apartments_data)
+        
+        # Calculate market summary
+        apartments = apartments_data.get('apartments', [])
+        market_summary = {}
+        
+        if apartments:
+            # Extract price information for analysis
+            prices = []
+            for apt in apartments:
+                price_str = apt.get('price', '').replace(',', '').replace('VND', '').replace('₫', '')
+                # Extract numbers from price string
+                import re
+                numbers = re.findall(r'\d+', price_str)
+                if numbers:
+                    prices.append(int(numbers[0]))
+            
+            if prices:
+                market_summary = {
+                    "total_properties": len(apartments),
+                    "price_range": {
+                        "min": min(prices),
+                        "max": max(prices),
+                        "average": sum(prices) // len(prices)
+                    },
+                    "price_range_formatted": f"{min(prices):,} - {max(prices):,} VND",
+                    "average_price_formatted": f"{sum(prices)//len(prices):,} VND"
+                }
+        
+        return jsonify({
+            "success": True,
+            "data": apartments_data,
+            "formatted_display": formatted_display,
+            "market_summary": market_summary,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"❌ Apartment scraper API error: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Unexpected error: {str(e)}"
         }), 500
 
 # Thêm route sau các route hiện có

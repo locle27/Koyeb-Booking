@@ -3,6 +3,7 @@ import numpy as np
 import datetime
 import re
 import csv
+import os
 from typing import Dict, List, Optional, Tuple, Any
 import json
 import calendar
@@ -1605,3 +1606,153 @@ def update_booking_by_id(df: pd.DataFrame, booking_id: str, new_data: dict) -> p
         print(f"Cannot find booking with ID: {booking_id} to update.")
 
     return df
+
+# ==============================================================================
+# BOOKING.COM SCRAPER WITH GEMINI AI
+# ==============================================================================
+
+def scrape_booking_apartments(url: str = None) -> Dict[str, Any]:
+    """
+    Scrape apartment listings from Booking.com using Gemini AI
+    
+    Args:
+        url: Booking.com search URL (optional, defaults to Hanoi <500k VND search)
+    
+    Returns:
+        Dict with apartments list and metadata
+    """
+    try:
+        import requests
+    except ImportError:
+        return {"error": "requests library not available. Please install: pip install requests"}
+    
+    if genai is None:
+        return {"error": "Google Generative AI library not available"}
+    
+    # Default URL for Hanoi apartments under 500,000 VND
+    if not url:
+        url = "https://www.booking.com/searchresults.vi.html?ss=Hanoi&checkin=2024-06-15&checkout=2024-06-16&group_adults=2&no_rooms=1&group_children=0&nflt=price%3DVND-min-500000-1"
+    
+    # Configure headers to mimic a real browser
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'vi-VN,vi;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    }
+    
+    try:
+        # Fetch the page content
+        print("🔍 Fetching Booking.com data...")
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        html_content = response.text
+        
+        # Get API key from environment
+        api_key = os.getenv('GOOGLE_API_KEY')
+        if not api_key:
+            return {"error": "GOOGLE_API_KEY not found in environment variables"}
+        
+        # Configure Gemini
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
+        
+        prompt = """
+        Please analyze this Booking.com search results HTML and extract apartment/hotel listings data.
+        
+        For each property listing found, extract these details:
+        1. Property Name (apartment/hotel name)
+        2. Price per night (in VND - Vietnamese Dong)
+        3. Address/Location (district, area in Hanoi)
+        4. Star Rating (if available, otherwise "N/A")
+        5. Property Type (apartment, hotel, guesthouse, etc.)
+        
+        Focus on properties under 500,000 VND per night as specified in the search.
+        Extract up to 20-30 listings if available.
+        
+        Return the data in this exact JSON format:
+        {
+            "success": true,
+            "total_found": number_of_listings,
+            "apartments": [
+                {
+                    "name": "Property Name",
+                    "price": "Price in VND (e.g., '450,000 VND' or '₫450,000')",
+                    "address": "Address/Location in Hanoi",
+                    "star_rating": "Rating (e.g., '4.2' or 'N/A')",
+                    "property_type": "apartment/hotel/guesthouse"
+                }
+            ]
+        }
+        
+        If you cannot find specific data for a field, use "N/A".
+        Make sure the JSON is valid and properly formatted.
+        """
+        
+        # Truncate HTML if too long to avoid token limits
+        if len(html_content) > 50000:
+            html_content = html_content[:50000] + "..."
+        
+        print("🧠 Processing with Gemini AI...")
+        response = model.generate_content([prompt, html_content])
+        
+        # Parse the response
+        response_text = response.text.strip()
+        
+        # Clean up the response if it contains markdown code blocks
+        if response_text.startswith('```json'):
+            response_text = response_text[7:-3]
+        elif response_text.startswith('```'):
+            response_text = response_text[3:-3]
+        
+        try:
+            data = json.loads(response_text)
+            print(f"✅ Successfully extracted {len(data.get('apartments', []))} apartments")
+            return data
+        except json.JSONDecodeError as e:
+            print(f"⚠️ JSON parsing error: {e}")
+            return {
+                "success": False,
+                "error": "Could not parse Gemini response as JSON",
+                "raw_response": response_text
+            }
+            
+    except requests.RequestException as e:
+        return {"error": f"Failed to fetch data from Booking.com: {str(e)}"}
+    except Exception as e:
+        return {"error": f"Unexpected error: {str(e)}"}
+
+def format_apartments_display(apartments_data: Dict[str, Any]) -> str:
+    """
+    Format apartment listings for display
+    
+    Args:
+        apartments_data: Data returned from scrape_booking_apartments()
+    
+    Returns:
+        Formatted string for display
+    """
+    if "error" in apartments_data:
+        return f"❌ Error: {apartments_data['error']}"
+    
+    apartments = apartments_data.get('apartments', [])
+    if not apartments:
+        return "❌ No apartments found"
+    
+    total = apartments_data.get('total_found', len(apartments))
+    
+    output = f"\n🏠 HANOI APARTMENT LISTINGS (Under 500,000 VND/night)\n"
+    output += "=" * 70 + "\n"
+    output += f"📊 Total found: {total} properties\n\n"
+    
+    for i, apt in enumerate(apartments, 1):
+        output += f"{i:2d}. {apt.get('name', 'N/A')}\n"
+        output += f"    💰 Price: {apt.get('price', 'N/A')}\n"
+        output += f"    📍 Address: {apt.get('address', 'N/A')}\n"
+        output += f"    ⭐ Rating: {apt.get('star_rating', 'N/A')}\n"
+        output += f"    🏢 Type: {apt.get('property_type', 'N/A')}\n"
+        output += "-" * 50 + "\n"
+    
+    return output
