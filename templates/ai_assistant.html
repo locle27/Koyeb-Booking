@@ -1206,11 +1206,19 @@
         }
     };
     
-    // Add debounce flag to prevent multiple simultaneous calls
+    // Add stronger debounce protection
     let isAddingTemplate = false;
+    let lastClickTime = 0;
     
     window.addNewTemplate = async function() {
-        console.log('🚨 GLOBAL: addNewTemplate called');
+        const currentTime = Date.now();
+        console.log('🚨 GLOBAL: addNewTemplate called at', currentTime);
+        
+        // Prevent rapid clicks (less than 1 second apart)
+        if (currentTime - lastClickTime < 1000) {
+            console.log('⚠️ Rapid click detected, ignoring (too fast)');
+            return;
+        }
         
         // Prevent multiple simultaneous calls
         if (isAddingTemplate) {
@@ -1218,6 +1226,7 @@
             return;
         }
         
+        lastClickTime = currentTime;
         isAddingTemplate = true;
         
         try {
@@ -1234,6 +1243,13 @@
             const contentTextarea = document.getElementById('templateMessage');
             const customCategoryInput = document.getElementById('customCategory');
             
+            console.log('🔍 Debug - Form elements:', {
+                categorySelect: categorySelect ? 'Found' : 'NOT FOUND',
+                labelInput: labelInput ? 'Found' : 'NOT FOUND', 
+                contentTextarea: contentTextarea ? 'Found' : 'NOT FOUND',
+                customCategoryInput: customCategoryInput ? 'Found' : 'NOT FOUND'
+            });
+            
             if (!categorySelect || !labelInput || !contentTextarea) {
                 console.error('❌ Required form elements not found');
                 isAddingTemplate = false;
@@ -1243,6 +1259,15 @@
             let category = categorySelect.value;
             const label = labelInput.value.trim();
             const content = contentTextarea.value.trim();
+            
+            console.log('🔍 Debug - Raw form values:', {
+                category: category,
+                label: label,
+                content: content,
+                categoryLength: category.length,
+                labelLength: label.length,
+                contentLength: content.length
+            });
             
             // Handle custom category
             if (category === 'OTHER' && customCategoryInput) {
@@ -1258,9 +1283,18 @@
             
             if (!category || !label || !content) {
                 console.error('❌ All fields are required');
+                console.log('Debug - Field values:', { category, label, content });
                 isAddingTemplate = false;
                 return;
             }
+            
+            // Debug: Log the payload being sent
+            const payload = {
+                Category: category,
+                Label: label,
+                Message: content
+            };
+            console.log('🔍 Debug - Sending payload:', payload);
             
             // Show loading state - find the specific button
             const submitBtn = document.querySelector('#addTemplateModal .btn-primary');
@@ -1275,11 +1309,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        Category: category,
-                        Label: label,
-                        Message: content
-                    })
+                    body: JSON.stringify(payload)
                 });
                 
                 if (response.ok) {
