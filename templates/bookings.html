@@ -724,6 +724,9 @@ document.addEventListener('DOMContentLoaded', function () {
         duplicate_groups.forEach((group, index) => {
             const { main_booking, similar_bookings, group_size } = group;
             
+            // Build the status badge safely
+            const statusClass = main_booking.status === 'OK' ? 'bg-success' : 'bg-danger';
+            
             html += `
                 <div class="card mb-3 border-warning">
                     <div class="card-header bg-warning-subtle">
@@ -746,7 +749,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         <p class="mb-1 text-dark"><strong>Check-out:</strong> ${main_booking.check_out_date}</p>
                                         <p class="mb-1 text-dark"><strong>Giá:</strong> ${main_booking.total_payment.toLocaleString()}đ</p>
                                         <p class="mb-2 text-dark"><strong>Trạng thái:</strong> 
-                                            <span class="badge ${main_booking.status === 'OK' ? 'bg-success' : 'bg-danger'}">${main_booking.status}</span>
+                                            <span class="badge ${statusClass}">${main_booking.status}</span>
                                         </p>
                                         <button class="btn btn-danger btn-sm w-100" onclick="deleteBooking('${main_booking.booking_id}')">
                                             <i class="fas fa-trash me-1"></i>Xóa Booking này
@@ -761,23 +764,25 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <div class="card-header bg-danger text-white">
                                         <small><i class="fas fa-exclamation-triangle me-1"></i>${similar_bookings.length} booking tương tự</small>
                                     </div>
-                                    <div class="card-body bg-light">`;
+                                    <div class="card-body bg-light">
+            `;
             
             similar_bookings.forEach((similar, idx) => {
                 html += `
-                    <div class="border-bottom pb-2 mb-2">
-                        <p class="mb-1 text-dark"><small><strong>ID:</strong> ${similar.booking_id}</small></p>
-                        <p class="mb-1 text-dark"><small><strong>Tên:</strong> ${similar.guest_name}</small></p>
-                        <p class="mb-1 text-dark"><small><strong>Check-in:</strong> ${similar.check_in_date}</small></p>
-                        <p class="mb-1 text-dark"><small><strong>Giá:</strong> ${similar.total_payment.toLocaleString()}đ</small></p>
-                        <p class="mb-1"><small>
-                            <span class="badge bg-info">±${similar.date_diff} ngày</span>
-                            <span class="badge bg-warning text-dark">±${similar.price_diff.toLocaleString()}đ</span>
-                        </small></p>
-                        <button class="btn btn-outline-danger btn-sm" onclick="deleteBooking('${similar.booking_id}')">
-                            <i class="fas fa-trash me-1"></i>Xóa
-                        </button>
-                    </div>`;
+                                        <div class="border-bottom pb-2 mb-2">
+                                            <p class="mb-1 text-dark"><small><strong>ID:</strong> ${similar.booking_id}</small></p>
+                                            <p class="mb-1 text-dark"><small><strong>Tên:</strong> ${similar.guest_name}</small></p>
+                                            <p class="mb-1 text-dark"><small><strong>Check-in:</strong> ${similar.check_in_date}</small></p>
+                                            <p class="mb-1 text-dark"><small><strong>Giá:</strong> ${similar.total_payment.toLocaleString()}đ</small></p>
+                                            <p class="mb-1"><small>
+                                                <span class="badge bg-info">±${similar.date_diff} ngày</span>
+                                                <span class="badge bg-warning text-dark">±${similar.price_diff.toLocaleString()}đ</span>
+                                            </small></p>
+                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteBooking('${similar.booking_id}')">
+                                                <i class="fas fa-trash me-1"></i>Xóa
+                                            </button>
+                                        </div>
+                `;
             });
             
             html += `
@@ -794,7 +799,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             </small>
                         </div>
                     </div>
-                </div>`;
+                </div>
+            `;
         });
         
         duplicateResults.innerHTML = html;
