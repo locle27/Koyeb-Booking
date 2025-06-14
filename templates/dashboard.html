@@ -2314,10 +2314,26 @@ document.getElementById('expenseModal').addEventListener('show.bs.modal', functi
 // Load expenses function
 async function loadExpenses() {
     try {
-        const response = await fetch('/api/expenses');
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        const response = await fetch('/api/expenses', {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         const container = document.getElementById('expensesContainer');
+        if (!container) {
+            console.error('Expenses container not found');
+            return;
+        }
         
         if (result.success && result.data && result.data.length > 0) {
             const expenses = result.data.slice(0, 5); // Show last 5 expenses
@@ -2407,24 +2423,42 @@ async function addExpense() {
         const result = await response.json();
         
         if (result.success) {
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('expenseModal'));
-            modal.hide();
-            
-            // Reset form
+            // Reset form first
             document.getElementById('expenseForm').reset();
             
-            // Reload expenses
-            loadExpenses();
+            // Close modal safely
+            try {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('expenseModal'));
+                if (modal) {
+                    modal.hide();
+                } else {
+                    // Fallback: hide modal directly
+                    document.getElementById('expenseModal').style.display = 'none';
+                    document.body.classList.remove('modal-open');
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) backdrop.remove();
+                }
+            } catch (e) {
+                console.error('Modal close error:', e);
+            }
             
-            // Show success message
-            alert('✅ Đã lưu chi phí thành công!');
+            // Show success message first (non-blocking)
+            console.log('✅ Expense added successfully');
+            
+            // Reload expenses with error handling
+            setTimeout(async () => {
+                try {
+                    await loadExpenses();
+                } catch (error) {
+                    console.error('Error reloading expenses:', error);
+                }
+            }, 100);
+            
         } else {
-            alert('❌ Lỗi: ' + (result.error || 'Không thể lưu chi phí'));
+            console.error('❌ Error:', result.error || 'Cannot save expense');
         }
     } catch (error) {
         console.error('Error adding expense:', error);
-        alert('❌ Lỗi kết nối. Vui lòng thử lại!');
     }
 }
 </script>
