@@ -1276,10 +1276,32 @@
     
     window.copyTemplateFromTab = function(templateId) {
         console.log('🚨 GLOBAL: copyTemplateFromTab called with:', templateId);
-        if (typeof copyTemplateFromTabAsync === 'function') {
-            copyTemplateFromTabAsync(templateId);
-        } else {
-            alert('Copy template function đang được khởi tạo...');
+        try {
+            // Find template from global templates array
+            if (typeof window.globalTemplates !== 'undefined' && window.globalTemplates.length > 0) {
+                const template = window.globalTemplates.find(t => t.id === templateId);
+                if (template && template.content) {
+                    copyToClipboard(template.content);
+                    console.log(`✅ Copied template: ${template.label}`);
+                    return;
+                }
+            }
+            
+            // Fallback: try to get from UI elements
+            const templateElement = document.querySelector(`[data-template-id="${templateId}"]`);
+            if (templateElement) {
+                const content = templateElement.getAttribute('data-template-content') || 
+                              templateElement.textContent.trim();
+                if (content) {
+                    copyToClipboard(content);
+                    console.log('✅ Copied template content from UI');
+                    return;
+                }
+            }
+            
+            console.error('❌ Template not found or no content');
+        } catch (error) {
+            console.error('❌ Copy template error:', error);
         }
     };
     
@@ -2698,6 +2720,10 @@
                     label: item.Label || 'DEFAULT'
                 };
             });
+            
+            // Store templates globally for copy function access
+            window.globalTemplates = templates;
+            console.log('[TEMPLATES] Templates stored globally:', templates);
             
             console.log('[TEMPLATES] Transformed templates:', templates);
             
