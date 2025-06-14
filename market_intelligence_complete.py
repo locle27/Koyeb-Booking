@@ -50,7 +50,7 @@ class HotelMarketIntelligence:
             print(f"⚠️ Failed to initialize Gemini API: {e}")
             self.gemini_model = None
     
-    def _firecrawl_vision_source(self, location: str, max_price: int) -> Dict[str, Any]:
+    def _firecrawl_vision_source(self, location: str, max_price: int, custom_url: str = None) -> Dict[str, Any]:
         """
         Use Firecrawl to take screenshots of Booking.com and analyze with Gemini Vision
         """
@@ -61,17 +61,26 @@ class HotelMarketIntelligence:
             return {"apartments": []}
         
         try:
-            # Construct Booking.com search URL
-            checkin = datetime.now().strftime("%Y-%m-%d")
-            checkout = (datetime.now().replace(day=datetime.now().day + 1)).strftime("%Y-%m-%d")
+            if custom_url:
+                search_url = custom_url
+                print(f"📝 Using custom URL: {search_url}")
+            else:
+                # Construct Booking.com search URL
+                checkin = datetime.now().strftime("%Y-%m-%d")
+                checkout = (datetime.now().replace(day=datetime.now().day + 1)).strftime("%Y-%m-%d")
+                
+                # Create search URL for the location with price filter
+                search_url = f"https://www.booking.com/searchresults.html?ss={location}&checkin={checkin}&checkout={checkout}&group_adults=2&no_rooms=1&nflt=price%3DVND-max-{max_price}-1"
+                print(f"🔗 Generated URL: {search_url}")
             
-            # Create search URL for the location with price filter
-            search_url = f"https://www.booking.com/searchresults.html?ss={location}&checkin={checkin}&checkout={checkout}&group_adults=2&no_rooms=1&nflt=price%3DVND-max-{max_price}-1"
-            
-            # Take screenshot using Firecrawl
+            # Try multiple screenshot methods
             screenshot_data = self._take_firecrawl_screenshot(search_url)
             if not screenshot_data:
-                print("⚠️ Failed to take screenshot with Firecrawl")
+                print("⚠️ Failed to take screenshot with Firecrawl, trying alternative method...")
+                screenshot_data = self._take_alternative_screenshot(search_url)
+            
+            if not screenshot_data:
+                print("⚠️ All screenshot methods failed")
                 return {"apartments": []}
             
             # Analyze screenshot with Gemini Vision
@@ -100,9 +109,14 @@ class HotelMarketIntelligence:
             
             data = {
                 "url": url,
+                "formats": ["screenshot", "html"],
                 "screenshot": True,
                 "fullPageScreenshot": True,
-                "waitFor": 3000  # Wait 3 seconds for page to load
+                "waitFor": 5000,  # Wait 5 seconds for page to load
+                "actions": [
+                    {"type": "wait", "milliseconds": 2000},
+                    {"type": "screenshot", "fullPage": True}
+                ]
             }
             
             print(f"📸 Taking screenshot of: {url}")
@@ -128,6 +142,47 @@ class HotelMarketIntelligence:
                 
         except Exception as e:
             print(f"⚠️ Error taking screenshot: {e}")
+            return None
+    
+    def _take_alternative_screenshot(self, url: str) -> Optional[str]:
+        """Alternative screenshot method using different Firecrawl parameters"""
+        try:
+            firecrawl_api_key = "fc-d59dc4eba8ae49cf8ea57c690e48b273"
+            
+            headers = {
+                "Authorization": f"Bearer {firecrawl_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Try simpler approach
+            data = {
+                "url": url,
+                "pageOptions": {
+                    "screenshot": True,
+                    "fullPageScreenshot": True,
+                    "waitFor": 3000
+                }
+            }
+            
+            print(f"📸 Alternative screenshot method for: {url}")
+            response = requests.post("https://api.firecrawl.dev/v1/scrape", headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"🔍 Alternative response success: {result.get('success')}")
+                if result.get("data", {}).get("screenshot"):
+                    screenshot_size = len(result["data"]["screenshot"])
+                    print(f"✅ Alternative screenshot captured ({screenshot_size} bytes)")
+                    return result["data"]["screenshot"]
+                else:
+                    print(f"⚠️ Alternative screenshot failed. Data keys: {list(result.get('data', {}).keys())}")
+                    return None
+            else:
+                print(f"⚠️ Alternative API error: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"⚠️ Alternative screenshot error: {e}")
             return None
     
     def _analyze_screenshot_with_gemini(self, screenshot_data: str, location: str, max_price: int) -> List[Dict[str, Any]]:
@@ -205,17 +260,26 @@ class HotelMarketIntelligence:
             print(f"⚠️ Error analyzing screenshot with Gemini: {e}")
             return []
         
-    def get_market_data(self, location: str = "Hanoi", max_price: int = 500000) -> Dict[str, Any]:
+    def get_market_data(self, location: str = "Hanoi", max_price: int = 500000, custom_url: str = None) -> Dict[str, Any]:
         """
         Get comprehensive market data from available sources
         """
-        print(f"🔍 Gathering market intelligence for {location} (under {int(max_price):,} VND)")
+        if custom_url:
+            print(f"🔍 Gathering market intelligence from custom URL")
+        else:
+            print(f"🔍 Gathering market intelligence for {location} (under {int(max_price):,} VND)")
         
         # Try multiple data sources in order of preference
         for source_name, source_func in self.data_sources.items():
             try:
                 print(f"📡 Trying {source_name}...")
-                data = source_func(location, max_price)
+                
+                # Pass custom_url to firecrawl_vision source
+                if source_name == "firecrawl_vision" and custom_url:
+                    data = source_func(location, max_price, custom_url)
+                else:
+                    data = source_func(location, max_price)
+                    
                 if data and data.get("apartments"):
                     print(f"✅ Successfully got {len(data['apartments'])} properties from {source_name}")
                     data["data_source"] = source_name

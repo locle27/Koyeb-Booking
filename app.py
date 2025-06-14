@@ -2249,18 +2249,23 @@ def market_intelligence_api():
             data = request.get_json() or {}
             location = data.get('location', 'Hanoi')
             max_price = data.get('max_price', 500000)
+            custom_url = data.get('custom_url')
         else:
             location = request.args.get('location', 'Hanoi')
             max_price = int(request.args.get('max_price', 500000))
+            custom_url = request.args.get('custom_url')
         
-        print(f"🔍 Starting market intelligence for {location} (under {int(max_price):,} VND)")
+        if custom_url:
+            print(f"🔍 Starting market intelligence for custom URL: {custom_url[:100]}...")
+        else:
+            print(f"🔍 Starting market intelligence for {location} (under {int(max_price):,} VND)")
         
         # Initialize systems
         intel = HotelMarketIntelligence()
         analyzer = MarketAnalyzer()
         
-        # Get market data
-        market_data = intel.get_market_data(location, max_price)
+        # Get market data with custom URL support
+        market_data = intel.get_market_data(location, max_price, custom_url)
         
         if "error" in market_data:
             return jsonify({
