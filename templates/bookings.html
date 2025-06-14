@@ -651,9 +651,25 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // === AI Duplicate Analysis ===
     const aiDuplicateBtn = document.getElementById('ai-duplicate-filter-btn');
-    const duplicateModal = new bootstrap.Modal(document.getElementById('aiDuplicateModal'));
+    const duplicateModalElement = document.getElementById('aiDuplicateModal');
     const duplicateResults = document.getElementById('duplicateResults');
     const refreshAnalysisBtn = document.getElementById('refreshDuplicateAnalysis');
+    
+    // Debug: Check if elements exist
+    console.log('AI Duplicate elements found:', {
+        aiDuplicateBtn: !!aiDuplicateBtn,
+        duplicateModalElement: !!duplicateModalElement,
+        duplicateResults: !!duplicateResults,
+        refreshAnalysisBtn: !!refreshAnalysisBtn
+    });
+    
+    // Only proceed if all elements exist
+    if (!aiDuplicateBtn || !duplicateModalElement || !duplicateResults || !refreshAnalysisBtn) {
+        console.error('AI Duplicate Analysis: Required elements not found');
+        return;
+    }
+    
+    const duplicateModal = new bootstrap.Modal(duplicateModalElement);
     
     // Function to perform duplicate analysis
     function performDuplicateAnalysis() {
@@ -839,16 +855,30 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     
     // Event listeners for AI duplicate functionality
-    aiDuplicateBtn.addEventListener('click', function() {
-        console.log('AI Duplicate Filter button clicked');
-        duplicateModal.show();
-        performDuplicateAnalysis();
-    });
-    
-    refreshAnalysisBtn.addEventListener('click', function() {
-        console.log('Refresh Analysis button clicked');
-        performDuplicateAnalysis();
-    });
+    try {
+        aiDuplicateBtn.addEventListener('click', function() {
+            console.log('AI Duplicate Filter button clicked');
+            try {
+                duplicateModal.show();
+                performDuplicateAnalysis();
+            } catch (error) {
+                console.error('Error in AI duplicate click handler:', error);
+            }
+        });
+        
+        refreshAnalysisBtn.addEventListener('click', function() {
+            console.log('Refresh Analysis button clicked');
+            try {
+                performDuplicateAnalysis();
+            } catch (error) {
+                console.error('Error in refresh analysis handler:', error);
+            }
+        });
+        
+        console.log('AI Duplicate Analysis: Event listeners attached successfully');
+    } catch (error) {
+        console.error('Error attaching AI duplicate event listeners:', error);
+    }
 });
 
 // Delete booking function for duplicate analysis with improved error handling
@@ -862,20 +892,23 @@ function deleteBooking(bookingId) {
         button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xóa...';
         button.disabled = true;
         
-        // Create timeout controller
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        // Simple timeout approach for better browser compatibility
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('Request timeout')), 15000);
+        });
         
-        // Try multiple delete endpoint first with timeout
-        fetch('/bookings/delete_multiple', {
+        // Try multiple delete endpoint first
+        const fetchPromise = fetch('/bookings/delete_multiple', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ ids: [bookingId] }),
-            signal: controller.signal
-        })
+            body: JSON.stringify({ ids: [bookingId] })
+        });
+        
+        Promise.race([fetchPromise, timeoutPromise])
         .then(response => {
             clearTimeout(timeoutId);
             console.log('Delete response status:', response.status);
@@ -902,21 +935,24 @@ function deleteBooking(bookingId) {
             console.error('Primary delete failed, trying fallback:', error);
             
             // Check if it's a timeout error
-            if (error.name === 'AbortError') {
+            if (error.message === 'Request timeout') {
                 console.log('Request timed out, trying fallback with shorter timeout');
             }
             
             // Fallback: try individual delete endpoint with shorter timeout
-            const fallbackController = new AbortController();
-            const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 10000); // 10 second timeout
+            let fallbackTimeoutId;
+            const fallbackTimeoutPromise = new Promise((_, reject) => {
+                fallbackTimeoutId = setTimeout(() => reject(new Error('Fallback timeout')), 10000);
+            });
             
-            fetch(`/booking/${bookingId}/delete`, {
+            const fallbackFetchPromise = fetch(`/booking/${bookingId}/delete`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                signal: fallbackController.signal
-            })
+                }
+            });
+            
+            Promise.race([fallbackFetchPromise, fallbackTimeoutPromise])
             .then(response => {
                 clearTimeout(fallbackTimeoutId);
                 button.disabled = false;
@@ -936,7 +972,7 @@ function deleteBooking(bookingId) {
                 
                 console.error('Both delete methods failed:', fallbackError);
                 
-                if (fallbackError.name === 'AbortError') {
+                if (fallbackError.message === 'Fallback timeout') {
                     alert('⏱️ Timeout: Kết nối quá chậm. Vui lòng kiểm tra lại sau vài phút hoặc xóa từ trang quản lý booking.');
                 } else {
                     alert('❌ Lỗi kết nối khi xóa booking. Vui lòng thử lại hoặc xóa từ trang quản lý booking.');
