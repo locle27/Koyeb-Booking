@@ -9,6 +9,9 @@ import os
 import json
 import time
 import subprocess
+import requests
+import base64
+import google.generativeai as genai
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import re
@@ -21,11 +24,180 @@ class HotelMarketIntelligence:
     
     def __init__(self):
         self.data_sources = {
+            "firecrawl_vision": self._firecrawl_vision_source,
             "booking_api": self._booking_api_source,
             "agoda_scraper": self._agoda_scraper_source,
             "web_scraper": self._web_scraper_source,
             "sample_data": self._sample_data_source
         }
+        
+        # Initialize Gemini API
+        self.gemini_model = None
+        self._init_gemini()
+        
+    def _init_gemini(self):
+        """Initialize Gemini AI API for vision processing"""
+        try:
+            api_key = os.getenv('GOOGLE_API_KEY')
+            if not api_key:
+                print("⚠️ GOOGLE_API_KEY not found in environment variables")
+                return
+            
+            genai.configure(api_key=api_key)
+            self.gemini_model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
+            print("✅ Successfully initialized Gemini Vision API")
+        except Exception as e:
+            print(f"⚠️ Failed to initialize Gemini API: {e}")
+            self.gemini_model = None
+    
+    def _firecrawl_vision_source(self, location: str, max_price: int) -> Dict[str, Any]:
+        """
+        Use Firecrawl to take screenshots of Booking.com and analyze with Gemini Vision
+        """
+        print("📸 Using Firecrawl + Gemini Vision for market intelligence...")
+        
+        if not self.gemini_model:
+            print("⚠️ Gemini Vision API not available")
+            return {"apartments": []}
+        
+        try:
+            # Construct Booking.com search URL
+            checkin = datetime.now().strftime("%Y-%m-%d")
+            checkout = (datetime.now().replace(day=datetime.now().day + 1)).strftime("%Y-%m-%d")
+            
+            # Create search URL for the location with price filter
+            search_url = f"https://www.booking.com/searchresults.html?ss={location}&checkin={checkin}&checkout={checkout}&group_adults=2&no_rooms=1&nflt=price%3DVND-max-{max_price}-1"
+            
+            # Take screenshot using Firecrawl
+            screenshot_data = self._take_firecrawl_screenshot(search_url)
+            if not screenshot_data:
+                print("⚠️ Failed to take screenshot with Firecrawl")
+                return {"apartments": []}
+            
+            # Analyze screenshot with Gemini Vision
+            properties = self._analyze_screenshot_with_gemini(screenshot_data, location, max_price)
+            
+            return {
+                "apartments": properties,
+                "total_found": len(properties),
+                "search_url": search_url,
+                "method": "firecrawl_vision"
+            }
+            
+        except Exception as e:
+            print(f"⚠️ Firecrawl + Vision analysis failed: {e}")
+            return {"apartments": []}
+    
+    def _take_firecrawl_screenshot(self, url: str) -> Optional[str]:
+        """Take screenshot using Firecrawl API"""
+        try:
+            firecrawl_api_key = "fc-d59dc4eba8ae49cf8ea57c690e48b273"
+            
+            headers = {
+                "Authorization": f"Bearer {firecrawl_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            data = {
+                "url": url,
+                "screenshot": True,
+                "fullPageScreenshot": True,
+                "waitFor": 3000  # Wait 3 seconds for page to load
+            }
+            
+            print(f"📸 Taking screenshot of: {url}")
+            response = requests.post("https://api.firecrawl.dev/v0/scrape", headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("success") and result.get("data", {}).get("screenshot"):
+                    print("✅ Screenshot captured successfully")
+                    return result["data"]["screenshot"]
+                else:
+                    print(f"⚠️ Firecrawl screenshot failed: {result}")
+                    return None
+            else:
+                print(f"⚠️ Firecrawl API error: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            print(f"⚠️ Error taking screenshot: {e}")
+            return None
+    
+    def _analyze_screenshot_with_gemini(self, screenshot_data: str, location: str, max_price: int) -> List[Dict[str, Any]]:
+        """Analyze screenshot using Gemini Vision to extract property data"""
+        try:
+            # Convert base64 screenshot to image
+            if screenshot_data.startswith('data:image'):
+                # Remove data:image/png;base64, prefix
+                screenshot_data = screenshot_data.split(',')[1]
+            
+            # Decode base64 image
+            image_bytes = base64.b64decode(screenshot_data)
+            
+            # Create prompt for Gemini Vision
+            prompt = f"""
+            Please analyze this screenshot of Booking.com search results for {location} hotels/accommodations under {max_price:,} VND per night.
+
+            Extract information for each property listing visible in the image and return as JSON array:
+
+            For each property, extract:
+            - name: Property name
+            - price: Price per night (as displayed)
+            - price_num: Numeric price value in VND
+            - address: Location/address if visible
+            - star_rating: Star rating if shown
+            - property_type: Type (Hotel, Apartment, etc.)
+            - amenities: List of amenities if visible
+            - booking_rating: Review score if shown
+
+            Only extract properties that are clearly visible and have price information.
+            Return ONLY a JSON array of properties, no other text.
+
+            Example format:
+            [
+              {{
+                "name": "Hotel Name",
+                "price": "350,000 VND",
+                "price_num": 350000,
+                "address": "Address here",
+                "star_rating": "4.2",
+                "property_type": "Hotel",
+                "amenities": ["WiFi", "Breakfast"],
+                "booking_rating": 8.5
+              }}
+            ]
+            """
+            
+            # Use Gemini Vision to analyze the image
+            print("🔍 Analyzing screenshot with Gemini Vision...")
+            response = self.gemini_model.generate_content([prompt, {"mime_type": "image/png", "data": image_bytes}])
+            
+            if response and response.text:
+                # Try to parse JSON response
+                try:
+                    # Clean the response text
+                    response_text = response.text.strip()
+                    if response_text.startswith('```json'):
+                        response_text = response_text[7:-3]
+                    elif response_text.startswith('```'):
+                        response_text = response_text[3:-3]
+                    
+                    properties = json.loads(response_text)
+                    print(f"✅ Extracted {len(properties)} properties from screenshot")
+                    return properties
+                    
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ Failed to parse JSON response: {e}")
+                    print(f"Raw response: {response.text[:500]}...")
+                    return []
+            else:
+                print("⚠️ No response from Gemini Vision")
+                return []
+                
+        except Exception as e:
+            print(f"⚠️ Error analyzing screenshot with Gemini: {e}")
+            return []
         
     def get_market_data(self, location: str = "Hanoi", max_price: int = 500000) -> Dict[str, Any]:
         """
