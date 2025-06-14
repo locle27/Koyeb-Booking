@@ -1765,7 +1765,6 @@ def add_expense_to_sheet(expense_data: dict) -> bool:
             - date: YYYY-MM-DD format
             - description: Expense description
             - amount: Float amount
-            - category: Expense category
             - created_at: Timestamp when created
     
     Returns:
@@ -1801,23 +1800,31 @@ def add_expense_to_sheet(expense_data: dict) -> bool:
         # Try to get the Expenses worksheet, create if it doesn't exist
         try:
             worksheet = spreadsheet.worksheet('Expenses')
+            print("✅ Found existing 'Expenses' tab")
         except gspread.exceptions.WorksheetNotFound:
             # Create new Expenses worksheet
-            worksheet = spreadsheet.add_worksheet(title='Expenses', rows=1000, cols=10)
+            print("📋 Creating new 'Expenses' tab...")
+            worksheet = spreadsheet.add_worksheet(title='Expenses', rows=1000, cols=6)
             
             # Add headers
             headers = [
-                'Date', 'Description', 'Amount', 'Category', 'Created At'
+                'Date', 'Description', 'Amount', 'Created At'
             ]
             worksheet.append_row(headers)
-            print("✅ Created new 'Expenses' tab with headers")
+            
+            # Format the header row
+            worksheet.format('A1:D1', {
+                'backgroundColor': {'red': 0.8, 'green': 0.8, 'blue': 0.8},
+                'textFormat': {'bold': True}
+            })
+            
+            print("✅ Created new 'Expenses' tab with headers and formatting")
         
         # Prepare row data
         row_data = [
             expense_data['date'],
             expense_data['description'],
             float(expense_data['amount']),
-            expense_data['category'],
             expense_data['created_at']
         ]
         
@@ -1890,7 +1897,6 @@ def get_expenses_from_sheet() -> List[dict]:
                 'date': record.get('Date', ''),
                 'description': record.get('Description', ''),
                 'amount': record.get('Amount', 0),
-                'category': record.get('Category', 'Khác'),
                 'created_at': record.get('Created At', '')
             }
             

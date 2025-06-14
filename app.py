@@ -1135,7 +1135,6 @@ def manage_expenses():
                 'date': data['date'],
                 'description': data['description'],
                 'amount': float(data['amount']),
-                'category': data.get('category', 'Khác'),
                 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             

@@ -2292,16 +2292,6 @@ loadExpenses();
                         <label for="expenseDate" class="form-label">Ngày</label>
                         <input type="date" class="form-control" id="expenseDate" required>
                     </div>
-                    <div class="mb-3">
-                        <label for="expenseCategory" class="form-label">Danh mục</label>
-                        <select class="form-select" id="expenseCategory">
-                            <option value="Điện nước">Điện nước</option>
-                            <option value="Thực phẩm">Thực phẩm</option>
-                            <option value="Vệ sinh">Vệ sinh</option>
-                            <option value="Sửa chữa">Sửa chữa</option>
-                            <option value="Khác">Khác</option>
-                        </select>
-                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -2345,7 +2335,6 @@ async function loadExpenses() {
                                 <div class="fw-bold text-dark small">${expense.description || 'N/A'}</div>
                                 <div class="text-muted" style="font-size: 11px;">
                                     <i class="fas fa-calendar me-1"></i>${expense.date || 'N/A'}
-                                    <span class="badge bg-info ms-1 px-1" style="font-size: 9px;">${expense.category || 'Khác'}</span>
                                 </div>
                             </div>
                             <div class="text-end">
@@ -2396,7 +2385,6 @@ async function addExpense() {
     const description = document.getElementById('expenseDescription').value.trim();
     const amount = document.getElementById('expenseAmount').value;
     const date = document.getElementById('expenseDate').value;
-    const category = document.getElementById('expenseCategory').value;
     
     if (!description || !amount || !date) {
         alert('Vui lòng điền đầy đủ thông tin!');
@@ -2412,8 +2400,7 @@ async function addExpense() {
             body: JSON.stringify({
                 description: description,
                 amount: parseFloat(amount),
-                date: date,
-                category: category
+                date: date
             })
         });
         
