@@ -208,8 +208,8 @@
                             <small class="text-white ms-2" id="defaultArrivalTime">14:00</small>
                         </div>
                     </div>
-                    <div style="max-height: 120px; overflow-y: auto;">
-                        {% for notification in arrival_notifications[:5] %}
+                    <div>
+                        {% for notification in arrival_notifications %}
                         <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="flex-grow-1">
@@ -233,11 +233,6 @@
                             </div>
                         </div>
                         {% endfor %}
-                        {% if arrival_notifications|length > 5 %}
-                        <div class="text-center mt-1">
-                            <small class="text-white">+{{ arrival_notifications|length - 5 }} khác</small>
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -259,8 +254,8 @@
                             </button>
                         </div>
                     </div>
-                    <div style="max-height: 120px; overflow-y: auto;">
-                        {% for notification in departure_notifications[:5] %}
+                    <div>
+                        {% for notification in departure_notifications %}
                         <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="flex-grow-1">
@@ -283,11 +278,6 @@
                             </div>
                         </div>
                         {% endfor %}
-                        {% if departure_notifications|length > 5 %}
-                        <div class="text-center mt-1">
-                            <small class="text-white">+{{ departure_notifications|length - 5 }} khác</small>
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>
