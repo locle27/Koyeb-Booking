@@ -2199,17 +2199,9 @@ function calculateCommissionDiscount(totalAmount, commissionFromApp) {
 }
 
 function roundToNiceAmount(amount) {
-    // Get the last 5 digits (tens of thousands)
-    const lastFiveDigits = amount % 100000;
-    
-    // If last 5 digits are <= 50k, round DOWN to nearest 100k
-    if (lastFiveDigits <= 50000) {
-        return Math.floor(amount / 100000) * 100000;
-    } else {
-        // If > 50k, round to nearest 20k increment
-        // Examples: 1,424,250 → 1,420,000 | 1,467,000 → 1,460,000
-        return Math.round(amount / 20000) * 20000;
-    }
+    // ALWAYS round DOWN to give customer better discount
+    // Round down to nearest 100k for clean amounts
+    return Math.floor(amount / 100000) * 100000;
 }
 
 function copyPaymentMessage(guestName, totalAmount, commissionAmount) {
