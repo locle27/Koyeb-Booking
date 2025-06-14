@@ -870,13 +870,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.log('Review button clicked for booking:', mainBookingId, 'group index:', groupIndex);
                 
                 try {
-                    // Get the similar bookings from the loaded data
-                    if (duplicateGroups && duplicateGroups[groupIndex] && duplicateGroups[groupIndex].similar_bookings) {
-                        const similarBookings = duplicateGroups[groupIndex].similar_bookings;
+                    // Get both main booking and similar bookings for comparison
+                    if (duplicateGroups && duplicateGroups[groupIndex]) {
+                        const group = duplicateGroups[groupIndex];
+                        const mainBooking = group.main_booking;
+                        const similarBookings = group.similar_bookings || [];
+                        console.log('Found main booking:', mainBooking);
                         console.log('Found similar bookings:', similarBookings);
-                        showDuplicateDetail(mainBookingId, similarBookings);
+                        showDuplicateComparison(mainBooking, similarBookings);
                     } else {
-                        console.warn('No similar bookings found for group index:', groupIndex);
+                        console.warn('No duplicate group found for index:', groupIndex);
                         showDuplicateDetail(mainBookingId, []);
                     }
                 } catch (error) {
@@ -1061,6 +1064,125 @@ function showDuplicateDetail(mainBookingId, similarBookings) {
     modal.show();
 }
 
+// New function to show booking comparison with both main and duplicate bookings
+function showDuplicateComparison(mainBooking, similarBookings) {
+    console.log('Showing duplicate comparison for main booking:', mainBooking, 'and similar bookings:', similarBookings);
+    
+    // Build comparison modal content
+    let modalContent = '<div class="modal fade" id="duplicateComparisonModal" tabindex="-1">' +
+        '<div class="modal-dialog modal-xl">' +
+        '<div class="modal-content">' +
+        '<div class="modal-header bg-warning text-dark">' +
+        '<h5 class="modal-title">' +
+        '<i class="fas fa-balance-scale me-2"></i>' +
+        'Compare Duplicate Bookings - Choose Which to Keep' +
+        '</h5>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="modal"></button>' +
+        '</div>' +
+        '<div class="modal-body">' +
+        '<div class="alert alert-info">' +
+        '<i class="fas fa-info-circle me-2"></i>' +
+        '<strong>Instructions:</strong> Compare the bookings below and delete the duplicate(s). ' +
+        'Keep the booking with the most complete/accurate information.' +
+        '</div>' +
+        '<div class="row">';
+    
+    // Add main booking card
+    modalContent += '<div class="col-md-6 mb-3">' +
+        '<div class="card border-success">' +
+        '<div class="card-header bg-success text-white">' +
+        '<h6 class="mb-0"><i class="fas fa-star me-2"></i>Main Booking (Currently Kept)</h6>' +
+        '</div>' +
+        '<div class="card-body">' +
+        '<table class="table table-sm">' +
+        '<tr><td><strong>ID:</strong></td><td>' + (mainBooking.booking_id || 'N/A') + '</td></tr>' +
+        '<tr><td><strong>Guest Name:</strong></td><td>' + (mainBooking.guest_name || 'N/A') + '</td></tr>' +
+        '<tr><td><strong>Check-in:</strong></td><td>' + (mainBooking.check_in_date || 'N/A') + '</td></tr>' +
+        '<tr><td><strong>Check-out:</strong></td><td>' + (mainBooking.check_out_date || 'N/A') + '</td></tr>' +
+        '<tr><td><strong>Total Payment:</strong></td><td>' + (mainBooking.total_payment || 0).toLocaleString() + ' VND</td></tr>' +
+        '<tr><td><strong>Status:</strong></td><td><span class="badge ' + (mainBooking.status === 'OK' ? 'bg-success' : 'bg-danger') + '">' + (mainBooking.status || 'Unknown') + '</span></td></tr>' +
+        '<tr><td><strong>Commission:</strong></td><td>' + (mainBooking.commission || 0).toLocaleString() + ' VND</td></tr>' +
+        '<tr><td><strong>Accommodation:</strong></td><td>' + (mainBooking.accommodation_name || 'N/A') + '</td></tr>' +
+        '</table>' +
+        '<div class="d-grid mt-3">' +
+        '<button class="btn btn-danger" onclick="deleteDuplicateBooking(\'' + (mainBooking.booking_id || '') + '\')">' +
+        '<i class="fas fa-trash me-2"></i>Delete This Main Booking' +
+        '</button>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+    
+    // Add similar bookings
+    similarBookings.forEach((booking, index) => {
+        modalContent += '<div class="col-md-6 mb-3">' +
+            '<div class="card border-danger">' +
+            '<div class="card-header bg-danger text-white">' +
+            '<h6 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Duplicate #' + (index + 1) + '</h6>' +
+            '</div>' +
+            '<div class="card-body">' +
+            '<table class="table table-sm">' +
+            '<tr><td><strong>ID:</strong></td><td>' + (booking.booking_id || 'N/A') + '</td></tr>' +
+            '<tr><td><strong>Guest Name:</strong></td><td>' + (booking.guest_name || 'N/A') + '</td></tr>' +
+            '<tr><td><strong>Check-in:</strong></td><td>' + (booking.check_in_date || 'N/A') + '</td></tr>' +
+            '<tr><td><strong>Check-out:</strong></td><td>' + (booking.check_out_date || 'N/A') + '</td></tr>' +
+            '<tr><td><strong>Total Payment:</strong></td><td>' + (booking.total_payment || 0).toLocaleString() + ' VND</td></tr>' +
+            '<tr><td><strong>Status:</strong></td><td><span class="badge ' + (booking.status === 'OK' ? 'bg-success' : 'bg-danger') + '">' + (booking.status || 'Unknown') + '</span></td></tr>' +
+            '<tr><td><strong>Commission:</strong></td><td>' + (booking.commission || 0).toLocaleString() + ' VND</td></tr>' +
+            '<tr><td><strong>Accommodation:</strong></td><td>' + (booking.accommodation_name || 'N/A') + '</td></tr>' +
+            '</table>';
+        
+        // Add differences highlighting
+        if (booking.date_diff !== undefined || booking.price_diff !== undefined) {
+            modalContent += '<div class="alert alert-warning alert-sm">' +
+                '<small><strong>Differences:</strong> ';
+            if (booking.date_diff !== undefined) {
+                modalContent += '±' + booking.date_diff + ' days ';
+            }
+            if (booking.price_diff !== undefined) {
+                modalContent += '±' + (booking.price_diff || 0).toLocaleString() + ' VND';
+            }
+            modalContent += '</small></div>';
+        }
+        
+        modalContent += '<div class="d-grid mt-3">' +
+            '<button class="btn btn-danger" onclick="deleteDuplicateBooking(\'' + (booking.booking_id || '') + '\')">' +
+            '<i class="fas fa-trash me-2"></i>Delete This Duplicate' +
+            '</button>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+    });
+    
+    modalContent += '</div>' +
+        '</div>' +
+        '<div class="modal-footer">' +
+        '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">' +
+        '<i class="fas fa-times me-2"></i>Close Without Changes' +
+        '</button>' +
+        '<button type="button" class="btn btn-info" onclick="refreshDuplicateAnalysis()">' +
+        '<i class="fas fa-sync me-2"></i>Refresh Analysis' +
+        '</button>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+    
+    // Remove existing modal if it exists
+    const existingModal = document.getElementById('duplicateComparisonModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add new modal to body
+    document.body.insertAdjacentHTML('beforeend', modalContent);
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('duplicateComparisonModal'));
+    modal.show();
+}
+
 function deleteDuplicateBooking(bookingId) {
     if (!confirm('Are you sure you want to delete booking ' + bookingId + '?')) {
         return;
@@ -1084,9 +1206,11 @@ function deleteDuplicateBooking(bookingId) {
         
         if (data.success) {
             alert('✅ Booking deleted successfully!');
-            // Close modal and reload page
-            const modal = bootstrap.Modal.getInstance(document.getElementById('duplicateDetailModal'));
-            modal.hide();
+            // Close any open modals and reload page
+            const detailModal = bootstrap.Modal.getInstance(document.getElementById('duplicateDetailModal'));
+            const comparisonModal = bootstrap.Modal.getInstance(document.getElementById('duplicateComparisonModal'));
+            if (detailModal) detailModal.hide();
+            if (comparisonModal) comparisonModal.hide();
             window.location.reload();
         } else {
             alert('❌ Error deleting booking: ' + (data.message || 'Unknown error'));
@@ -1113,11 +1237,26 @@ function compareBookings(mainBookingId, similarBookingId) {
     console.log('Comparing bookings:', mainBookingId, 'vs', similarBookingId);
     
     // For now, show a simple comparison alert
-    if (confirm(`🔍 So sánh booking ${mainBookingId} với ${similarBookingId}\n\nBạn có muốn mở cả 2 booking trong tab mới để so sánh không?`)) {
+    if (confirm('🔍 So sánh booking ' + mainBookingId + ' với ' + similarBookingId + '\n\nBạn có muốn mở cả 2 booking trong tab mới để so sánh không?')) {
         // Open both bookings in new tabs for manual comparison
-        window.open(`/booking/${mainBookingId}/edit`, '_blank');
-        window.open(`/booking/${similarBookingId}/edit`, '_blank');
+        window.open('/booking/' + mainBookingId + '/edit', '_blank');
+        window.open('/booking/' + similarBookingId + '/edit', '_blank');
     }
+}
+
+function refreshDuplicateAnalysis() {
+    console.log('Refreshing duplicate analysis...');
+    // Close any open modals
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        const modalInstance = bootstrap.Modal.getInstance(modal);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+    });
+    
+    // Reload the page to get fresh data
+    window.location.reload();
 }
 </script>
 {% endblock %} 
