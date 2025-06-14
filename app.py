@@ -2478,6 +2478,17 @@ def scrape_apartments_api():
             "recommendation": "Use /api/market_intelligence for better results"
         }), 500
 
+# ==============================================================================
+# MARKET INTELLIGENCE FRONTEND ROUTE
+# ==============================================================================
+
+@app.route('/market_intelligence')
+def market_intelligence():
+    """
+    Market Intelligence frontend page
+    """
+    return render_template('market_intelligence.html')
+
 # Thêm route sau các route hiện có
 @app.route('/templates/export')
 def export_templates_route():
