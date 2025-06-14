@@ -1758,7 +1758,7 @@ def format_apartments_display(apartments_data: Dict[str, Any]) -> str:
     return output
 
 def add_expense_to_sheet(expense_data: dict) -> bool:
-    """Add a new expense to the Expenses tab in Google Sheets
+    """Add a new expense to the Expenses tab in Google Sheets using existing helper functions
     
     Args:
         expense_data: Dictionary containing expense details
@@ -1771,68 +1771,84 @@ def add_expense_to_sheet(expense_data: dict) -> bool:
         bool: True if successful, False otherwise
     """
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
         import os
-        from datetime import datetime
         
-        # Get credentials and sheet configuration
+        print("🔍 [DEBUG] Starting add_expense_to_sheet function...")
+        
+        # Get credentials and sheet configuration using existing pattern
         gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
         sheet_id = os.getenv('DEFAULT_SHEET_ID')
+        
+        print(f"🔍 [DEBUG] GCP_CREDS_FILE_PATH: {gcp_creds_file_path}")
+        print(f"🔍 [DEBUG] DEFAULT_SHEET_ID: {sheet_id}")
+        print(f"🔍 [DEBUG] Current working directory: {os.getcwd()}")
+        print(f"🔍 [DEBUG] Credentials file exists: {os.path.exists(gcp_creds_file_path)}")
         
         if not sheet_id:
             print("❌ DEFAULT_SHEET_ID not found in environment variables")
             return False
         
-        if not os.path.exists(gcp_creds_file_path):
-            print(f"❌ Credentials file not found: {gcp_creds_file_path}")
+        # Use existing helper function to get client
+        try:
+            print("🔍 [DEBUG] Getting Google Sheets client using existing helper...")
+            gc = _get_gspread_client(gcp_creds_file_path)
+            print("✅ [DEBUG] Google Sheets client obtained successfully")
+        except Exception as e:
+            print(f"❌ [DEBUG] Error getting Google Sheets client: {e}")
             return False
         
-        # Setup credentials
-        scope = ['https://spreadsheets.google.com/feeds',
-                'https://www.googleapis.com/auth/drive']
-        creds = Credentials.from_service_account_file(gcp_creds_file_path, scopes=scope)
-        client = gspread.authorize(creds)
-        
         # Open the spreadsheet
-        spreadsheet = client.open_by_key(sheet_id)
+        try:
+            print(f"🔍 [DEBUG] Opening spreadsheet with ID: {sheet_id}")
+            spreadsheet = gc.open_by_key(sheet_id)
+            print(f"✅ [DEBUG] Spreadsheet opened: {spreadsheet.title}")
+        except Exception as e:
+            print(f"❌ [DEBUG] Error opening spreadsheet: {e}")
+            return False
         
         # Try to get the Expenses worksheet, create if it doesn't exist
         try:
             worksheet = spreadsheet.worksheet('Expenses')
             print("✅ Found existing 'Expenses' tab")
-        except gspread.exceptions.WorksheetNotFound:
+        except:
             # Create new Expenses worksheet
-            print("📋 Creating new 'Expenses' tab...")
-            worksheet = spreadsheet.add_worksheet(title='Expenses', rows=1000, cols=6)
-            
-            # Add headers
-            headers = [
-                'Date', 'Description', 'Amount', 'Created At'
+            try:
+                print("📋 Creating new 'Expenses' tab...")
+                worksheet = spreadsheet.add_worksheet(title='Expenses', rows=1000, cols=6)
+                print("✅ [DEBUG] Worksheet created successfully")
+                
+                # Add headers
+                headers = ['Date', 'Description', 'Amount', 'Created At']
+                print(f"🔍 [DEBUG] Adding headers: {headers}")
+                worksheet.append_row(headers)
+                print("✅ [DEBUG] Headers added successfully")
+                
+                print("✅ Created new 'Expenses' tab with headers")
+            except Exception as e:
+                print(f"❌ [DEBUG] Error creating worksheet: {e}")
+                return False
+        
+        # Prepare and add row data
+        try:
+            print(f"🔍 [DEBUG] Preparing expense data: {expense_data}")
+            row_data = [
+                expense_data['date'],
+                expense_data['description'],
+                float(expense_data['amount']),
+                expense_data['created_at']
             ]
-            worksheet.append_row(headers)
+            print(f"🔍 [DEBUG] Row data prepared: {row_data}")
             
-            # Format the header row
-            worksheet.format('A1:D1', {
-                'backgroundColor': {'red': 0.8, 'green': 0.8, 'blue': 0.8},
-                'textFormat': {'bold': True}
-            })
+            # Add the expense row using existing pattern
+            print("🔍 [DEBUG] Adding expense row to worksheet...")
+            worksheet.append_row(row_data)
+            print(f"✅ Added expense: {expense_data['description']} - {expense_data['amount']}đ")
             
-            print("✅ Created new 'Expenses' tab with headers and formatting")
-        
-        # Prepare row data
-        row_data = [
-            expense_data['date'],
-            expense_data['description'],
-            float(expense_data['amount']),
-            expense_data['created_at']
-        ]
-        
-        # Add the expense row
-        worksheet.append_row(row_data)
-        print(f"✅ Added expense: {expense_data['description']} - {expense_data['amount']}đ")
-        
-        return True
+            return True
+            
+        except Exception as e:
+            print(f"❌ [DEBUG] Error adding expense row: {e}")
+            return False
         
     except Exception as e:
         print(f"❌ Error adding expense to sheet: {e}")
@@ -1841,18 +1857,18 @@ def add_expense_to_sheet(expense_data: dict) -> bool:
         return False
 
 def get_expenses_from_sheet() -> List[dict]:
-    """Get all expenses from the Expenses tab in Google Sheets
+    """Get all expenses from the Expenses tab in Google Sheets using existing helper functions
     
     Returns:
         List[dict]: List of expense dictionaries sorted by date (newest first)
     """
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
         import os
         from datetime import datetime
         
-        # Get credentials and sheet configuration
+        print("🔍 [DEBUG] Starting get_expenses_from_sheet function...")
+        
+        # Get credentials and sheet configuration using existing pattern
         gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
         sheet_id = os.getenv('DEFAULT_SHEET_ID')
         
@@ -1860,31 +1876,41 @@ def get_expenses_from_sheet() -> List[dict]:
             print("❌ DEFAULT_SHEET_ID not found in environment variables")
             return []
         
-        if not os.path.exists(gcp_creds_file_path):
-            print(f"❌ Credentials file not found: {gcp_creds_file_path}")
+        # Use existing helper function to get client
+        try:
+            gc = _get_gspread_client(gcp_creds_file_path)
+            print("✅ [DEBUG] Google Sheets client obtained successfully")
+        except Exception as e:
+            print(f"❌ [DEBUG] Error getting Google Sheets client: {e}")
             return []
         
-        # Setup credentials
-        scope = ['https://spreadsheets.google.com/feeds',
-                'https://www.googleapis.com/auth/drive']
-        creds = Credentials.from_service_account_file(gcp_creds_file_path, scopes=scope)
-        client = gspread.authorize(creds)
-        
         # Open the spreadsheet
-        spreadsheet = client.open_by_key(sheet_id)
+        try:
+            spreadsheet = gc.open_by_key(sheet_id)
+            print(f"✅ [DEBUG] Spreadsheet opened: {spreadsheet.title}")
+        except Exception as e:
+            print(f"❌ [DEBUG] Error opening spreadsheet: {e}")
+            return []
         
         # Try to get the Expenses worksheet
         try:
             worksheet = spreadsheet.worksheet('Expenses')
-        except gspread.exceptions.WorksheetNotFound:
+            print("✅ Found existing 'Expenses' tab")
+        except:
             # Expenses tab doesn't exist yet
             print("ℹ️ Expenses tab not found, returning empty list")
             return []
         
         # Get all records
-        records = worksheet.get_all_records()
+        try:
+            records = worksheet.get_all_records()
+            print(f"✅ [DEBUG] Retrieved {len(records)} expense records")
+        except Exception as e:
+            print(f"❌ [DEBUG] Error getting records: {e}")
+            return []
         
         if not records:
+            print("ℹ️ No expense records found")
             return []
         
         # Filter today's expenses and sort by date (newest first)
