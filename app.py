@@ -2380,77 +2380,102 @@ def control_reminder_system():
 # APARTMENT MARKET ANALYSIS API - BOOKING.COM SCRAPER
 # ==============================================================================
 
-@app.route('/api/scrape_apartments', methods=['GET', 'POST'])
-def scrape_apartments_api():
+@app.route('/api/market_intelligence', methods=['GET', 'POST'])
+def market_intelligence_api():
     """
-    API endpoint to scrape apartment listings from Booking.com
-    Supports both GET (with URL parameter) and POST (with JSON data)
+    Complete hotel market intelligence API endpoint
+    Provides comprehensive market analysis with multiple data sources
     """
     try:
-        # Import the scraper functions from logic
-        from logic import scrape_booking_apartments, format_apartments_display
+        # Import the complete market intelligence system
+        import sys
+        import os
+        sys.path.append(os.path.dirname(__file__))
         
-        # Get URL from request
+        from market_intelligence_complete import HotelMarketIntelligence, MarketAnalyzer, format_complete_analysis
+        
+        # Get parameters
         if request.method == 'POST':
             data = request.get_json() or {}
-            url = data.get('url')
+            location = data.get('location', 'Hanoi')
+            max_price = data.get('max_price', 500000)
         else:
-            url = request.args.get('url')
+            location = request.args.get('location', 'Hanoi')
+            max_price = int(request.args.get('max_price', 500000))
         
-        # Run the scraper
-        print("🔍 Starting apartment data extraction...")
-        apartments_data = scrape_booking_apartments(url)
+        print(f"🔍 Starting market intelligence for {location} (under {max_price:,} VND)")
         
-        # Check for errors
-        if "error" in apartments_data:
+        # Initialize systems
+        intel = HotelMarketIntelligence()
+        analyzer = MarketAnalyzer()
+        
+        # Get market data
+        market_data = intel.get_market_data(location, max_price)
+        
+        if "error" in market_data:
             return jsonify({
                 "success": False,
-                "error": apartments_data["error"]
+                "error": market_data["error"]
             }), 500
         
-        # Format for display
-        formatted_display = format_apartments_display(apartments_data)
+        # Perform comprehensive analysis
+        analysis = analyzer.analyze_market(market_data)
         
-        # Calculate market summary
-        apartments = apartments_data.get('apartments', [])
-        market_summary = {}
+        # Generate formatted report
+        formatted_report = format_complete_analysis(market_data, analysis)
         
-        if apartments:
-            # Extract price information for analysis
-            prices = []
-            for apt in apartments:
-                price_str = apt.get('price', '').replace(',', '').replace('VND', '').replace('₫', '')
-                # Extract numbers from price string
-                import re
-                numbers = re.findall(r'\d+', price_str)
-                if numbers:
-                    prices.append(int(numbers[0]))
-            
-            if prices:
-                market_summary = {
-                    "total_properties": len(apartments),
-                    "price_range": {
-                        "min": min(prices),
-                        "max": max(prices),
-                        "average": sum(prices) // len(prices)
-                    },
-                    "price_range_formatted": f"{min(prices):,} - {max(prices):,} VND",
-                    "average_price_formatted": f"{sum(prices)//len(prices):,} VND"
-                }
+        # Create summary for API response
+        apartments = market_data.get("apartments", [])
+        prices = [apt.get("price_num", 0) for apt in apartments if apt.get("price_num")]
+        
+        summary = {
+            "total_properties": len(apartments),
+            "average_price": sum(prices) // len(prices) if prices else 0,
+            "price_range": {
+                "min": min(prices) if prices else 0,
+                "max": max(prices) if prices else 0
+            },
+            "data_source": market_data.get("source", "Unknown"),
+            "location": location,
+            "max_price_filter": max_price
+        }
         
         return jsonify({
             "success": True,
-            "data": apartments_data,
-            "formatted_display": formatted_display,
-            "market_summary": market_summary,
-            "timestamp": datetime.now().isoformat()
+            "summary": summary,
+            "market_data": market_data,
+            "analysis": analysis,
+            "formatted_report": formatted_report,
+            "timestamp": datetime.now().isoformat(),
+            "intelligence_level": "complete"
         })
         
+    except ImportError as e:
+        return jsonify({
+            "success": False,
+            "error": f"Market intelligence system not available: {str(e)}"
+        }), 500
     except Exception as e:
-        print(f"❌ Apartment scraper API error: {e}")
+        print(f"❌ Market intelligence API error: {e}")
         return jsonify({
             "success": False,
             "error": f"Unexpected error: {str(e)}"
+        }), 500
+
+@app.route('/api/scrape_apartments', methods=['GET', 'POST'])
+def scrape_apartments_api():
+    """
+    Legacy API endpoint - redirects to new market intelligence system
+    """
+    try:
+        print("🔄 Redirecting to optimized market intelligence system...")
+        return market_intelligence_api()
+    except Exception as e:
+        print(f"❌ Legacy API error: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Legacy endpoint error: {str(e)}",
+            "recommendation": "Use /api/market_intelligence for better results"
         }), 500
 
 # Thêm route sau các route hiện có

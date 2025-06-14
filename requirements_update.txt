@@ -1,0 +1,23 @@
+# Updated requirements for Market Intelligence System
+# Add these to your existing requirements.txt
+
+# Web Scraping (if not already present)
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# Browser automation for JavaScript-heavy sites
+selenium>=4.15.0
+
+# Optional: For advanced scraping
+scrapy>=2.11.0
+
+# Alternative API for real data
+agoda-api>=1.0.0
+booking-api>=2.0.0
+
+# Rate limiting for production
+flask-limiter>=3.5.0
+
+# Caching
+redis>=4.5.0
+flask-caching>=2.1.0

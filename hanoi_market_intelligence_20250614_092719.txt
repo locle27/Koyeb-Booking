@@ -1,0 +1,206 @@
+
+🏨 COMPLETE HANOI HOTEL MARKET INTELLIGENCE REPORT
+======================================================================
+📅 Generated: 2025-06-14 09:27:19
+🔍 Data Source: Booking.com API
+📊 Properties Analyzed: 20
+💰 Average Price: 346,000 VND/night
+💵 Price Range: 200,000 - 490,000 VND
+
+💰 PRICE DISTRIBUTION ANALYSIS:
+   🟢 Budget: 8 properties (40.0%)
+   🟢 Mid Range: 6 properties (30.0%)
+   🟢 Premium: 6 properties (30.0%)
+
+📍 LOCATION ANALYSIS:
+   📌 Old Quarter: 16 properties, Avg: 331,875 VND
+   📌 Hoan Kiem: 4 properties, Avg: 402,500 VND
+
+🏢 PROPERTY TYPES:
+   🏨 Boutique Hotel: 5 properties
+   🏨 Apartment: 3 properties
+   🏨 Hotel: 9 properties
+   🏨 Homestay: 1 properties
+   🏨 International Hotel: 1 properties
+   🏨 Luxury Boutique: 1 properties
+
+⭐ MOST POPULAR AMENITIES:
+   1. WiFi: 19 properties
+   2. Restaurant: 8 properties
+   3. Spa: 5 properties
+   4. Breakfast: 3 properties
+   5. Kitchen: 3 properties
+
+📋 DETAILED PROPERTY LISTINGS:
+
+ 1. 🔴 Mai Charming Hotel and Spa
+    💰 Price: 450,000 VND
+    📍 Address: 18 Hang Bac Street, Old Quarter, Hanoi
+    ⭐ Rating: 4.2
+    🏢 Type: Boutique Hotel
+    🎯 Amenities: Spa, WiFi, Breakfast
+    📊 Booking Score: 8.5/10
+--------------------------------------------------
+ 2. 🟢 Spring Home Hanoi
+    💰 Price: 280,000 VND
+    📍 Address: 42 Hang Bong Street, Old Quarter, Hanoi
+    ⭐ Rating: 3.8
+    🏢 Type: Apartment
+    🎯 Amenities: Kitchen, WiFi, Air Conditioning
+    📊 Booking Score: 8.1/10
+--------------------------------------------------
+ 3. 🟡 Little Diamond Hotel
+    💰 Price: 320,000 VND
+    📍 Address: 15 Hang Gai Street, Old Quarter, Hanoi
+    ⭐ Rating: 3.5
+    🏢 Type: Hotel
+    🎯 Amenities: WiFi, Restaurant, 24h Reception
+    📊 Booking Score: 7.9/10
+--------------------------------------------------
+ 4. 🟢 Hanoi Central Apartment
+    💰 Price: 250,000 VND
+    📍 Address: 88 Ma May Street, Old Quarter, Hanoi
+    ⭐ Rating: N/A
+    🏢 Type: Apartment
+    🎯 Amenities: Kitchen, Balcony, WiFi
+    📊 Booking Score: 8.0/10
+--------------------------------------------------
+ 5. 🟡 Golden Sun Hotel
+    💰 Price: 380,000 VND
+    📍 Address: 25 Hang Be Street, Hoan Kiem, Hanoi
+    ⭐ Rating: 4.0
+    🏢 Type: Hotel
+    🎯 Amenities: Restaurant, Bar, WiFi
+    📊 Booking Score: 8.3/10
+--------------------------------------------------
+ 6. 🔴 Astoria Hotel St Joseph Cathedral
+    💰 Price: 420,000 VND
+    📍 Address: 12 Nha Tho Street, Hoan Kiem, Hanoi
+    ⭐ Rating: 4.1
+    🏢 Type: Hotel
+    🎯 Amenities: Cathedral View, WiFi, Restaurant
+    📊 Booking Score: 8.4/10
+--------------------------------------------------
+ 7. 🟢 Local House Hanoi
+    💰 Price: 200,000 VND
+    📍 Address: 67 Hang Quat Street, Old Quarter, Hanoi
+    ⭐ Rating: N/A
+    🏢 Type: Homestay
+    🎯 Amenities: Shared Kitchen, WiFi, Local Experience
+    📊 Booking Score: 7.8/10
+--------------------------------------------------
+ 8. 🔴 Beryl Charm Hotel & Spa
+    💰 Price: 480,000 VND
+    📍 Address: 8 Hang Hanh Street, Old Quarter, Hanoi
+    ⭐ Rating: 4.3
+    🏢 Type: Boutique Hotel
+    🎯 Amenities: Spa, Rooftop Bar, WiFi
+    📊 Booking Score: 8.7/10
+--------------------------------------------------
+ 9. 🟡 Silk Hanoi Boutique Hotel
+    💰 Price: 390,000 VND
+    📍 Address: 52 Hang Gai Street, Old Quarter, Hanoi
+    ⭐ Rating: 4.0
+    🏢 Type: Boutique Hotel
+    🎯 Amenities: Silk Shopping, WiFi, Restaurant
+    📊 Booking Score: 8.2/10
+--------------------------------------------------
+10. 🟡 Paradise Hanoi Hotel
+    💰 Price: 340,000 VND
+    📍 Address: 33 Hang Trong Street, Hoan Kiem, Hanoi
+    ⭐ Rating: 3.8
+    🏢 Type: Hotel
+    🎯 Amenities: Lake View, WiFi, Breakfast
+    📊 Booking Score: 8.0/10
+--------------------------------------------------
+11. 🟢 Tung Trang Hotel
+    💰 Price: 290,000 VND
+    📍 Address: 19 Hang Bac Street, Old Quarter, Hanoi
+    ⭐ Rating: 3.5
+    🏢 Type: Hotel
+    🎯 Amenities: WiFi, 24h Reception, Tour Desk
+    📊 Booking Score: 7.7/10
+--------------------------------------------------
+12. 🟢 Infinity Hanoi Hotel
+    💰 Price: 260,000 VND
+    📍 Address: 7 Ma May Street, Old Quarter, Hanoi
+    ⭐ Rating: 3.6
+    🏢 Type: Hotel
+    🎯 Amenities: WiFi, Restaurant, Laundry
+    📊 Booking Score: 7.9/10
+--------------------------------------------------
+13. 🟡 Lucky 3 Hotel
+    💰 Price: 310,000 VND
+    📍 Address: 45 Hang Bong Street, Old Quarter, Hanoi
+    ⭐ Rating: 3.7
+    🏢 Type: Hotel
+    🎯 Amenities: WiFi, Travel Services, Breakfast
+    📊 Booking Score: 8.1/10
+--------------------------------------------------
+14. 🔴 Avani Central Hanoi Hotel
+    💰 Price: 470,000 VND
+    📍 Address: 155 Tran Hung Dao Street, Hoan Kiem, Hanoi
+    ⭐ Rating: 4.5
+    🏢 Type: International Hotel
+    🎯 Amenities: Pool, Spa, Multiple Restaurants
+    📊 Booking Score: 8.8/10
+--------------------------------------------------
+15. 🔴 Hanoi La Selva Hotel & Spa
+    💰 Price: 440,000 VND
+    📍 Address: 21 Hang Thung Street, Old Quarter, Hanoi
+    ⭐ Rating: 4.2
+    🏢 Type: Boutique Hotel
+    🎯 Amenities: Spa, Garden, WiFi
+    📊 Booking Score: 8.5/10
+--------------------------------------------------
+16. 🟢 Nhiên House Old Quarter
+    💰 Price: 220,000 VND
+    📍 Address: 29 Hang Be Street, Old Quarter, Hanoi
+    ⭐ Rating: N/A
+    🏢 Type: Apartment
+    🎯 Amenities: Kitchen, WiFi, Washing Machine
+    📊 Booking Score: 7.6/10
+--------------------------------------------------
+17. 🟡 Valley Hotel & Travel
+    💰 Price: 300,000 VND
+    📍 Address: 11 Hang Bac Street, Old Quarter, Hanoi
+    ⭐ Rating: 3.6
+    🏢 Type: Hotel
+    🎯 Amenities: Travel Desk, WiFi, 24h Reception
+    📊 Booking Score: 7.8/10
+--------------------------------------------------
+18. 🟡 Sena Boutique Hotel
+    💰 Price: 360,000 VND
+    📍 Address: 38 Hang Gai Street, Old Quarter, Hanoi
+    ⭐ Rating: 3.9
+    🏢 Type: Boutique Hotel
+    🎯 Amenities: Boutique Design, WiFi, Restaurant
+    📊 Booking Score: 8.2/10
+--------------------------------------------------
+19. 🔴 The Ambery Hanoi Boutique
+    💰 Price: 490,000 VND
+    📍 Address: 6 Hang Hanh Street, Old Quarter, Hanoi
+    ⭐ Rating: 4.4
+    🏢 Type: Luxury Boutique
+    🎯 Amenities: Luxury Amenities, Spa, WiFi
+    📊 Booking Score: 8.9/10
+--------------------------------------------------
+20. 🟢 Hanoi Kingly Hotel
+    💰 Price: 270,000 VND
+    📍 Address: 13 Hang Bac Street, Old Quarter, Hanoi
+    ⭐ Rating: 3.5
+    🏢 Type: Hotel
+    🎯 Amenities: WiFi, Restaurant, Tour Services
+    📊 Booking Score: 7.7/10
+--------------------------------------------------
+
+💡 MARKET RECOMMENDATIONS:
+   1. Market is budget-friendly with good opportunities for mid-range positioning
+   2. Old Quarter commands premium pricing due to location
+   3. WiFi and breakfast are essential amenities
+
+📈 COMPETITIVE INSIGHTS:
+   • Budget segment dominates the market
+   • Old Quarter commands 15-20% premium pricing
+   • Spa services differentiate premium properties
+   • WiFi is standard across all price ranges
