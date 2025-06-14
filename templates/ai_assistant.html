@@ -1009,10 +1009,29 @@
     // Template functions
     window.showAddTemplateModal = function() {
         console.log('🚨 GLOBAL: showAddTemplateModal called');
-        if (typeof showAddTemplateModalAsync === 'function') {
-            showAddTemplateModalAsync();
-        } else {
-            alert('Chức năng thêm template đang được khởi tạo...');
+        try {
+            // Reset form
+            const form = document.getElementById('addTemplateForm');
+            if (form) {
+                form.reset();
+            }
+            
+            const customDiv = document.getElementById('customCategoryDiv');
+            if (customDiv) {
+                customDiv.style.display = 'none';
+            }
+            
+            // Show modal
+            const modalElement = document.getElementById('addTemplateModal');
+            if (modalElement) {
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+                console.log('✅ Add template modal opened');
+            } else {
+                console.error('❌ Add template modal element not found');
+            }
+        } catch (error) {
+            console.error('❌ Error opening add template modal:', error);
         }
     };
     
@@ -1187,12 +1206,92 @@
         }
     };
     
-    window.addNewTemplate = function() {
+    window.addNewTemplate = async function() {
         console.log('🚨 GLOBAL: addNewTemplate called');
-        if (typeof addNewTemplateAsync === 'function') {
-            addNewTemplateAsync();
-        } else {
-            alert('Chức năng thêm template đang được khởi tạo...');
+        try {
+            const form = document.getElementById('addTemplateForm');
+            if (!form) {
+                console.error('❌ Add template form not found');
+                return;
+            }
+            
+            // Get form data with correct IDs from modal
+            const categorySelect = document.getElementById('addTemplateCategory');
+            const labelInput = document.getElementById('templateLabel');
+            const contentTextarea = document.getElementById('templateMessage');
+            const customCategoryInput = document.getElementById('customCategory');
+            
+            if (!categorySelect || !labelInput || !contentTextarea) {
+                console.error('❌ Required form elements not found');
+                return;
+            }
+            
+            let category = categorySelect.value;
+            const label = labelInput.value.trim();
+            const content = contentTextarea.value.trim();
+            
+            // Handle custom category
+            if (category === 'OTHER' && customCategoryInput) {
+                const customCategory = customCategoryInput.value.trim();
+                if (customCategory) {
+                    category = customCategory;
+                } else {
+                    console.error('❌ Custom category required when OTHER selected');
+                    return;
+                }
+            }
+            
+            if (!category || !label || !content) {
+                console.error('❌ All fields are required');
+                return;
+            }
+            
+            // Show loading state
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                const originalText = submitBtn.textContent;
+                submitBtn.textContent = 'Đang lưu...';
+                submitBtn.disabled = true;
+                
+                // Submit to server
+                const response = await fetch('/api/templates/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        category: category,
+                        label: label,
+                        content: content
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ Template added successfully');
+                    
+                    // Close modal
+                    const modalElement = document.getElementById('addTemplateModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    // Reload templates
+                    window.globalTemplates = [];
+                    if (typeof loadTemplatesForTab === 'function') {
+                        await loadTemplatesForTab();
+                    }
+                } else {
+                    const error = await response.json();
+                    console.error('❌ Server error:', error);
+                }
+                
+                // Restore button
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        } catch (error) {
+            console.error('❌ Error adding template:', error);
         }
     };
     
