@@ -1206,12 +1206,25 @@
         }
     };
     
+    // Add debounce flag to prevent multiple simultaneous calls
+    let isAddingTemplate = false;
+    
     window.addNewTemplate = async function() {
         console.log('🚨 GLOBAL: addNewTemplate called');
+        
+        // Prevent multiple simultaneous calls
+        if (isAddingTemplate) {
+            console.log('⚠️ Template addition already in progress, ignoring duplicate call');
+            return;
+        }
+        
+        isAddingTemplate = true;
+        
         try {
             const form = document.getElementById('addTemplateForm');
             if (!form) {
                 console.error('❌ Add template form not found');
+                isAddingTemplate = false;
                 return;
             }
             
@@ -1223,6 +1236,7 @@
             
             if (!categorySelect || !labelInput || !contentTextarea) {
                 console.error('❌ Required form elements not found');
+                isAddingTemplate = false;
                 return;
             }
             
@@ -1237,17 +1251,19 @@
                     category = customCategory;
                 } else {
                     console.error('❌ Custom category required when OTHER selected');
+                    isAddingTemplate = false;
                     return;
                 }
             }
             
             if (!category || !label || !content) {
                 console.error('❌ All fields are required');
+                isAddingTemplate = false;
                 return;
             }
             
-            // Show loading state
-            const submitBtn = form.querySelector('button[type="submit"]');
+            // Show loading state - find the specific button
+            const submitBtn = document.querySelector('#addTemplateModal .btn-primary');
             if (submitBtn) {
                 const originalText = submitBtn.textContent;
                 submitBtn.textContent = 'Đang lưu...';
@@ -1292,6 +1308,9 @@
             }
         } catch (error) {
             console.error('❌ Error adding template:', error);
+        } finally {
+            // Always reset the flag
+            isAddingTemplate = false;
         }
     };
     
