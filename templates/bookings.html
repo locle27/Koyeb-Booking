@@ -724,8 +724,16 @@ document.addEventListener('DOMContentLoaded', function () {
         duplicate_groups.forEach((group, index) => {
             const { main_booking, similar_bookings, group_size } = group;
             
+            // Safely handle booking data with fallbacks
+            const bookingId = main_booking.booking_id || 'N/A';
+            const guestName = main_booking.guest_name || 'N/A';
+            const checkIn = main_booking.check_in_date || 'N/A';
+            const checkOut = main_booking.check_out_date || 'N/A';
+            const totalPayment = main_booking.total_payment || 0;
+            const status = main_booking.status || 'Unknown';
+            
             // Build the status badge safely
-            const statusClass = main_booking.status === 'OK' ? 'bg-success' : 'bg-danger';
+            const statusClass = status === 'OK' ? 'bg-success' : 'bg-danger';
             
             html += `
                 <div class="card mb-3 border-warning">
@@ -743,19 +751,19 @@ document.addEventListener('DOMContentLoaded', function () {
                                         <small class="text-white fw-bold"><i class="fas fa-star me-1"></i>Booking chính</small>
                                     </div>
                                     <div class="card-body bg-light">
-                                        <p class="mb-1 text-dark"><strong>ID:</strong> ${main_booking.booking_id}</p>
-                                        <p class="mb-1 text-dark"><strong>Tên:</strong> ${main_booking.guest_name}</p>
-                                        <p class="mb-1 text-dark"><strong>Check-in:</strong> ${main_booking.check_in_date}</p>
-                                        <p class="mb-1 text-dark"><strong>Check-out:</strong> ${main_booking.check_out_date}</p>
-                                        <p class="mb-1 text-dark"><strong>Giá:</strong> ${main_booking.total_payment.toLocaleString()}đ</p>
+                                        <p class="mb-1 text-dark"><strong>ID:</strong> ${bookingId}</p>
+                                        <p class="mb-1 text-dark"><strong>Tên:</strong> ${guestName}</p>
+                                        <p class="mb-1 text-dark"><strong>Check-in:</strong> ${checkIn}</p>
+                                        <p class="mb-1 text-dark"><strong>Check-out:</strong> ${checkOut}</p>
+                                        <p class="mb-1 text-dark"><strong>Giá:</strong> ${(totalPayment || 0).toLocaleString()}đ</p>
                                         <p class="mb-2 text-dark"><strong>Trạng thái:</strong> 
-                                            <span class="badge ${statusClass}">${main_booking.status}</span>
+                                            <span class="badge ${statusClass}">${status}</span>
                                         </p>
                                         <div class="d-grid gap-2">
-                                            <button class="btn btn-danger btn-sm" onclick="deleteBooking('${main_booking.booking_id}')">
+                                            <button class="btn btn-danger btn-sm" onclick="deleteBooking('${bookingId}')">
                                                 <i class="fas fa-trash me-1"></i>Xóa Booking này
                                             </button>
-                                            <button class="btn btn-info btn-sm" onclick="showBookingDetails('${main_booking.booking_id}')">
+                                            <button class="btn btn-info btn-sm" onclick="showBookingDetails('${bookingId}')">
                                                 <i class="fas fa-eye me-1"></i>Xem chi tiết
                                             </button>
                                         </div>
@@ -772,28 +780,36 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <div class="card-body bg-light">
             `;
             
-            // Store main booking ID for use in inner loop
-            const mainBookingId = main_booking.booking_id;
+            // Store main booking ID for use in inner loop (now using safe bookingId)
+            const mainBookingId = bookingId;
             
             similar_bookings.forEach((similar, idx) => {
+                // Safely handle similar booking data
+                const similId = similar.booking_id || 'N/A';
+                const similName = similar.guest_name || 'N/A';
+                const similCheckIn = similar.check_in_date || 'N/A';
+                const similPayment = similar.total_payment || 0;
+                const similDateDiff = similar.date_diff || 0;
+                const similPriceDiff = similar.price_diff || 0;
+                
                 html += `
                                         <div class="border-bottom pb-2 mb-2">
-                                            <p class="mb-1 text-dark"><small><strong>ID:</strong> ${similar.booking_id}</small></p>
-                                            <p class="mb-1 text-dark"><small><strong>Tên:</strong> ${similar.guest_name}</small></p>
-                                            <p class="mb-1 text-dark"><small><strong>Check-in:</strong> ${similar.check_in_date}</small></p>
-                                            <p class="mb-1 text-dark"><small><strong>Giá:</strong> ${similar.total_payment.toLocaleString()}đ</small></p>
+                                            <p class="mb-1 text-dark"><small><strong>ID:</strong> ${similId}</small></p>
+                                            <p class="mb-1 text-dark"><small><strong>Tên:</strong> ${similName}</small></p>
+                                            <p class="mb-1 text-dark"><small><strong>Check-in:</strong> ${similCheckIn}</small></p>
+                                            <p class="mb-1 text-dark"><small><strong>Giá:</strong> ${(similPayment || 0).toLocaleString()}đ</small></p>
                                             <p class="mb-1"><small>
-                                                <span class="badge bg-info">±${similar.date_diff} ngày</span>
-                                                <span class="badge bg-warning text-dark">±${similar.price_diff.toLocaleString()}đ</span>
+                                                <span class="badge bg-info">±${similDateDiff} ngày</span>
+                                                <span class="badge bg-warning text-dark">±${(similPriceDiff || 0).toLocaleString()}đ</span>
                                             </small></p>
                                             <div class="btn-group btn-group-sm">
-                                                <button class="btn btn-outline-danger" onclick="deleteBooking('${similar.booking_id}')">
+                                                <button class="btn btn-outline-danger" onclick="deleteBooking('${similId}')">
                                                     <i class="fas fa-trash"></i> Xóa
                                                 </button>
-                                                <button class="btn btn-outline-info" onclick="showBookingDetails('${similar.booking_id}')">
+                                                <button class="btn btn-outline-info" onclick="showBookingDetails('${similId}')">
                                                     <i class="fas fa-eye"></i> Chi tiết
                                                 </button>
-                                                <button class="btn btn-outline-warning" onclick="compareBookings('${mainBookingId}', '${similar.booking_id}')">
+                                                <button class="btn btn-outline-warning" onclick="compareBookings('${mainBookingId}', '${similId}')">
                                                     <i class="fas fa-not-equal"></i> So sánh
                                                 </button>
                                             </div>
@@ -964,12 +980,12 @@ function showDuplicateDetail(mainBookingId, similarBookings) {
                             <strong>ID:</strong> ${booking.booking_id}<br>
                             <strong>Check-in:</strong> ${booking.check_in_date}<br>
                             <strong>Check-out:</strong> ${booking.check_out_date}<br>
-                            <strong>Price:</strong> ${booking.total_payment.toLocaleString()} VND<br>
+                            <strong>Price:</strong> ${(booking.total_payment || 0).toLocaleString()} VND<br>
                             <strong>Status:</strong> ${booking.status}
                         </p>
                         <div class="mb-2">
                             <span class="badge bg-info">±${booking.date_diff} days</span>
-                            <span class="badge bg-warning text-dark">±${booking.price_diff.toLocaleString()} VND</span>
+                            <span class="badge bg-warning text-dark">±${(booking.price_diff || 0).toLocaleString()} VND</span>
                         </div>
                         <button class="btn btn-danger btn-sm w-100" onclick="deleteDuplicateBooking('${booking.booking_id}')">
                             <i class="fas fa-trash me-1"></i>Delete This Booking
