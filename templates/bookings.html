@@ -208,7 +208,7 @@
                                     <div class="text-end">
                                         <button class="btn btn-outline-danger btn-sm review-duplicate-btn" 
                                                 data-main-booking-id="{{ group.main_booking.booking_id }}"
-                                                data-similar-bookings="{{ group.similar_bookings|tojson }}">
+                                                data-group-index="{{ loop.index0 }}">
                                             <i class="fas fa-eye"></i> Review
                                         </button>
                                     </div>
@@ -221,6 +221,12 @@
             </div>
         </div>
     </div>
+    
+    <!-- Store duplicate data in JavaScript for safe access -->
+    <script type="application/json" id="duplicate-data">
+        {{ duplicate_report.duplicate_groups|tojson|safe }}
+    </script>
+    
     {% elif auto_filter_duplicates %}
     <div class="alert alert-success alert-dismissible mb-3" role="alert">
         <i class="fas fa-check-circle me-1"></i>
@@ -842,53 +848,39 @@ document.addEventListener('DOMContentLoaded', function () {
         
         console.log('AI Duplicate Analysis: Event listeners attached successfully');
         
+        // Load duplicate data from script tag
+        let duplicateGroups = [];
+        try {
+            const duplicateDataScript = document.getElementById('duplicate-data');
+            if (duplicateDataScript) {
+                duplicateGroups = JSON.parse(duplicateDataScript.textContent);
+                console.log('Loaded duplicate groups data:', duplicateGroups);
+            }
+        } catch (error) {
+            console.error('Error loading duplicate groups data:', error);
+        }
+        
         // Add event listeners for review duplicate buttons (from auto-filter)
         document.addEventListener('click', function(e) {
             if (e.target.classList.contains('review-duplicate-btn') || e.target.closest('.review-duplicate-btn')) {
                 const button = e.target.classList.contains('review-duplicate-btn') ? e.target : e.target.closest('.review-duplicate-btn');
                 const mainBookingId = button.getAttribute('data-main-booking-id');
-                const similarBookingsJson = button.getAttribute('data-similar-bookings');
+                const groupIndex = parseInt(button.getAttribute('data-group-index'));
+                
+                console.log('Review button clicked for booking:', mainBookingId, 'group index:', groupIndex);
                 
                 try {
-                    console.log('Raw similar bookings data:', similarBookingsJson);
-                    console.log('Type of data:', typeof similarBookingsJson);
-                    console.log('Length:', similarBookingsJson ? similarBookingsJson.length : 'null');
-                    console.log('First 50 characters:', similarBookingsJson ? similarBookingsJson.substring(0, 50) : 'null');
-                    
-                    // Check if data is null or empty
-                    if (!similarBookingsJson || similarBookingsJson.trim() === '') {
-                        console.warn('Empty or null JSON data, using empty array');
+                    // Get the similar bookings from the loaded data
+                    if (duplicateGroups && duplicateGroups[groupIndex] && duplicateGroups[groupIndex].similar_bookings) {
+                        const similarBookings = duplicateGroups[groupIndex].similar_bookings;
+                        console.log('Found similar bookings:', similarBookings);
+                        showDuplicateDetail(mainBookingId, similarBookings);
+                    } else {
+                        console.warn('No similar bookings found for group index:', groupIndex);
                         showDuplicateDetail(mainBookingId, []);
-                        return;
                     }
-                    
-                    // Try to decode HTML entities if needed
-                    let cleanJson = similarBookingsJson;
-                    if (cleanJson.includes('&quot;')) {
-                        cleanJson = cleanJson.replace(/&quot;/g, '"')
-                                           .replace(/&amp;/g, '&')
-                                           .replace(/&lt;/g, '<')
-                                           .replace(/&gt;/g, '>');
-                        console.log('After HTML entity decoding:', cleanJson);
-                    }
-                    
-                    // Additional cleanup for common issues
-                    cleanJson = cleanJson.trim();
-                    
-                    console.log('About to parse JSON:', cleanJson);
-                    const similarBookings = JSON.parse(cleanJson);
-                    console.log('Successfully parsed similar bookings:', similarBookings);
-                    showDuplicateDetail(mainBookingId, similarBookings);
                 } catch (error) {
-                    console.error('JSON parsing failed!');
-                    console.error('Error:', error);
-                    console.error('Error message:', error.message);
-                    console.error('Raw data type:', typeof similarBookingsJson);
-                    console.error('Raw data length:', similarBookingsJson ? similarBookingsJson.length : 'null');
-                    console.error('Raw data (full):', similarBookingsJson);
-                    
-                    // Try to show modal with empty data as fallback
-                    console.log('Falling back to empty array');
+                    console.error('Error accessing duplicate group data:', error);
                     showDuplicateDetail(mainBookingId, []);
                 }
             }
