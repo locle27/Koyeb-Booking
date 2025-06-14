@@ -226,6 +226,9 @@
                                     </div>
                                 </div>
                                 <div class="text-end">
+                                    <button class="btn btn-sm btn-outline-success px-1 mb-1" onclick="copyPaymentMessage('{{ notification.guest_name }}', {{ notification.total_amount|float }}, {{ notification.commission|float|default(0) }})" title="Copy payment message">
+                                        <i class="fas fa-dollar-sign"></i>
+                                    </button>
                                     <div class="small fw-bold text-success">{{ "{:,.0f}".format(notification.total_amount|float) }}đ</div>
                                     <div class="text-muted" style="font-size: 10px;">{{ notification.booking_id }}</div>
                                 </div>
@@ -2163,6 +2166,97 @@ function fallbackCopy(text, guestName) {
     } catch (err) {
         console.error('Fallback copy failed:', err);
         alert(`Tin nhắn taxi cho ${guestName}:\n\n${text}`);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// Commission calculation and payment message copy function
+function calculateCommissionDiscount(totalAmount, commissionFromApp) {
+    // Use the actual commission amount from app data
+    const actualCommission = commissionFromApp || 0;
+    
+    // Calculate 35% discount FROM the actual commission
+    const commissionDiscount = Math.round(actualCommission * 0.35);
+    
+    // Amount after commission discount
+    const afterCommissionDiscount = totalAmount - commissionDiscount;
+    
+    // Round to nice numbers
+    const roundedFinalAmount = roundToNiceAmount(afterCommissionDiscount);
+    
+    // Total discount = original - rounded final amount
+    const totalDiscount = totalAmount - roundedFinalAmount;
+    
+    return {
+        originalTotal: totalAmount,
+        actualCommission: actualCommission,
+        commissionDiscount: commissionDiscount,
+        afterCommissionDiscount: afterCommissionDiscount,
+        roundedFinalAmount: roundedFinalAmount,
+        totalDiscount: totalDiscount
+    };
+}
+
+function roundToNiceAmount(amount) {
+    // Get the last 5 digits (tens of thousands)
+    const lastFiveDigits = amount % 100000;
+    
+    // If last 5 digits are <= 50k, round DOWN to nearest 100k
+    if (lastFiveDigits <= 50000) {
+        return Math.floor(amount / 100000) * 100000;
+    } else {
+        // If > 50k, round to nearest 20k increment
+        // Examples: 1,424,250 → 1,420,000 | 1,467,000 → 1,460,000
+        return Math.round(amount / 20000) * 20000;
+    }
+}
+
+function copyPaymentMessage(guestName, totalAmount, commissionAmount) {
+    try {
+        // Calculate commission discount using actual app data
+        const calculation = calculateCommissionDiscount(totalAmount, commissionAmount);
+        
+        // Format numbers with thousand separators
+        const formattedDiscount = calculation.totalDiscount.toLocaleString();
+        const discountUSD = (calculation.totalDiscount / 25000).toFixed(2); // Approximate VND to USD conversion
+        const formattedFinalAmount = calculation.roundedFinalAmount.toLocaleString();
+        
+        // Create payment message template
+        const message = `Hi ${guestName} Regarding payment, I can offer you a ${formattedDiscount} VND (approx. $${discountUSD} USD) discount if you're comfortable paying me directly in cash for the room, rather than through the booking platform. Your total would be ${formattedFinalAmount} VND instead. This is just an option, of course – no pressure at all! Please let me know if you're interested. If you agree to this, I will then cancel your reservation on the booking app.`;
+        
+        // Copy to clipboard using the same method as taxi message
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(message).then(() => {
+                showDashboardToast(`💰 Đã copy tin nhắn thanh toán cho ${guestName}! Giảm ${formattedDiscount}đ → ${formattedFinalAmount}đ`, 'success');
+            }).catch(err => {
+                console.error('Failed to copy payment message:', err);
+                fallbackCopyPayment(message, guestName, formattedDiscount, formattedFinalAmount);
+            });
+        } else {
+            fallbackCopyPayment(message, guestName, formattedDiscount, formattedFinalAmount);
+        }
+    } catch (error) {
+        console.error('Error calculating payment message:', error);
+        showDashboardToast(`❌ Lỗi tính toán tin nhắn cho ${guestName}`, 'error');
+    }
+}
+
+function fallbackCopyPayment(text, guestName, discountAmount, finalAmount) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        showDashboardToast(`💰 Đã copy tin nhắn thanh toán cho ${guestName}! Giảm ${discountAmount}đ → ${finalAmount || 'N/A'}đ`, 'success');
+    } catch (err) {
+        console.error('Fallback copy payment failed:', err);
+        alert(`Tin nhắn thanh toán cho ${guestName}:\n\n${text}`);
     }
     
     document.body.removeChild(textArea);
