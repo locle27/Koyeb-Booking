@@ -106,18 +106,24 @@ class HotelMarketIntelligence:
             }
             
             print(f"📸 Taking screenshot of: {url}")
+            print(f"🔧 Using Firecrawl API key: {firecrawl_api_key[:8]}...")
             response = requests.post("https://api.firecrawl.dev/v0/scrape", headers=headers, json=data, timeout=30)
             
             if response.status_code == 200:
                 result = response.json()
+                print(f"🔍 Firecrawl response success: {result.get('success')}")
                 if result.get("success") and result.get("data", {}).get("screenshot"):
-                    print("✅ Screenshot captured successfully")
+                    screenshot_size = len(result["data"]["screenshot"]) if result["data"]["screenshot"] else 0
+                    print(f"✅ Screenshot captured successfully ({screenshot_size} bytes)")
                     return result["data"]["screenshot"]
                 else:
-                    print(f"⚠️ Firecrawl screenshot failed: {result}")
+                    print(f"⚠️ Firecrawl screenshot failed. Response keys: {list(result.keys())}")
+                    if result.get("data"):
+                        print(f"   Data keys: {list(result['data'].keys())}")
                     return None
             else:
-                print(f"⚠️ Firecrawl API error: {response.status_code} - {response.text}")
+                print(f"⚠️ Firecrawl API error: {response.status_code}")
+                print(f"   Response text: {response.text[:200]}...")
                 return None
                 
         except Exception as e:
@@ -170,7 +176,7 @@ class HotelMarketIntelligence:
             """
             
             # Use Gemini Vision to analyze the image
-            print("🔍 Analyzing screenshot with Gemini Vision...")
+            print(f"🔍 Analyzing screenshot with Gemini Vision... (Image size: {len(image_bytes)} bytes)")
             response = self.gemini_model.generate_content([prompt, {"mime_type": "image/png", "data": image_bytes}])
             
             if response and response.text:
