@@ -29,7 +29,8 @@ from logic import (
     delete_multiple_rows_in_gsheet,
     import_message_templates_from_gsheet,
     export_message_templates_to_gsheet,
-    scrape_booking_apartments, format_apartments_display
+    scrape_booking_apartments, format_apartments_display,
+    add_expense_to_sheet, get_expenses_from_sheet
 )
 
 # Import dashboard logic module
@@ -1089,6 +1090,83 @@ def update_guest_amounts():
             'success': False, 
             'message': f'Lỗi server: {str(e)}'
         }), 500
+
+@app.route('/api/expenses', methods=['GET', 'POST'])
+def manage_expenses():
+    """API endpoint for expense management"""
+    if request.method == 'GET':
+        # Get expenses from Google Sheets
+        try:
+            from logic import get_expenses_from_sheet
+            expenses = get_expenses_from_sheet()
+            return jsonify({
+                'success': True,
+                'data': expenses
+            })
+        except Exception as e:
+            print(f"[GET_EXPENSES] Error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'data': []
+            })
+    
+    elif request.method == 'POST':
+        # Add new expense to Google Sheets
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'error': 'No data provided'
+                }), 400
+            
+            # Validate required fields
+            required_fields = ['description', 'amount', 'date']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    return jsonify({
+                        'success': False,
+                        'error': f'Missing required field: {field}'
+                    }), 400
+            
+            # Prepare expense data
+            expense_data = {
+                'date': data['date'],
+                'description': data['description'],
+                'amount': float(data['amount']),
+                'category': data.get('category', 'Khác'),
+                'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            # Save to Google Sheets
+            from logic import add_expense_to_sheet
+            success = add_expense_to_sheet(expense_data)
+            
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': 'Expense added successfully'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to save expense to Google Sheets'
+                }), 500
+                
+        except ValueError as e:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid data format: {str(e)}'
+            }), 400
+        except Exception as e:
+            print(f"[ADD_EXPENSE] Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'success': False,
+                'error': f'Server error: {str(e)}'
+            }), 500
 
 @app.route('/voice_translator')
 def voice_translator():

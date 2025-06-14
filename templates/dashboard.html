@@ -325,6 +325,34 @@
         </div>
     </div>
 
+    <!-- 💰 EXPENSE MANAGEMENT (COMPACT) -->
+    <div class="row mb-2">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h6 class="mb-0 text-white fw-bold small">
+                            <i class="fas fa-receipt me-1"></i>💰 Chi Phí
+                        </h6>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-light btn-sm px-2" data-bs-toggle="modal" data-bs-target="#expenseModal" title="Thêm chi phí">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="btn btn-outline-light btn-sm px-2" onclick="loadExpenses()" title="Tải lại">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="expensesContainer">
+                        <div class="text-center py-1">
+                            <small class="text-white">Đang tải...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ⚠️ KHÁCH CHƯA THU TIỀN QUÁ HẠN (COMPACT) -->
     {% if overdue_unpaid_guests and overdue_unpaid_guests|length > 0 %}
     <div class="card border-0 shadow-sm mb-3" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
@@ -2232,6 +2260,186 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 });
+
+// Load expenses on page load
+loadExpenses();
+</script>
+
+<!-- Expense Modal -->
+<div class="modal fade" id="expenseModal" tabindex="-1" aria-labelledby="expenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);">
+                <h5 class="modal-title text-white" id="expenseModalLabel">
+                    <i class="fas fa-receipt me-2"></i>Thêm Chi Phí
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="expenseForm">
+                    <div class="mb-3">
+                        <label for="expenseDescription" class="form-label">Nội dung chi phí</label>
+                        <input type="text" class="form-control" id="expenseDescription" placeholder="VD: Điện, nước, thực phẩm..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="expenseAmount" class="form-label">Số tiền</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="expenseAmount" placeholder="100000" step="1000" required>
+                            <span class="input-group-text">đ</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="expenseDate" class="form-label">Ngày</label>
+                        <input type="date" class="form-control" id="expenseDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="expenseCategory" class="form-label">Danh mục</label>
+                        <select class="form-select" id="expenseCategory">
+                            <option value="Điện nước">Điện nước</option>
+                            <option value="Thực phẩm">Thực phẩm</option>
+                            <option value="Vệ sinh">Vệ sinh</option>
+                            <option value="Sửa chữa">Sửa chữa</option>
+                            <option value="Khác">Khác</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" onclick="addExpense()" style="background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); border: none;">
+                    <i class="fas fa-save me-1"></i>Lưu Chi Phí
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize expense modal date
+document.getElementById('expenseModal').addEventListener('show.bs.modal', function () {
+    const now = new Date();
+    document.getElementById('expenseDate').value = now.toISOString().split('T')[0];
+});
+
+// Load expenses function
+async function loadExpenses() {
+    try {
+        const response = await fetch('/api/expenses');
+        const result = await response.json();
+        
+        const container = document.getElementById('expensesContainer');
+        
+        if (result.success && result.data && result.data.length > 0) {
+            const expenses = result.data.slice(0, 5); // Show last 5 expenses
+            let html = '';
+            let totalAmount = 0;
+            
+            expenses.forEach(expense => {
+                const amount = parseFloat(expense.amount || 0);
+                totalAmount += amount;
+                
+                html += `
+                    <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold text-dark small">${expense.description || 'N/A'}</div>
+                                <div class="text-muted" style="font-size: 11px;">
+                                    <i class="fas fa-calendar me-1"></i>${expense.date || 'N/A'}
+                                    <span class="badge bg-info ms-1 px-1" style="font-size: 9px;">${expense.category || 'Khác'}</span>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="small fw-bold text-danger">-${amount.toLocaleString()}đ</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            if (result.data.length > 5) {
+                html += `
+                    <div class="text-center mt-1">
+                        <small class="text-white">+${result.data.length - 5} chi phí khác</small>
+                    </div>
+                `;
+            }
+            
+            // Add total summary
+            html += `
+                <div class="bg-white bg-opacity-75 rounded mt-1 px-2 py-1">
+                    <div class="text-center">
+                        <small class="text-dark">Tổng chi phí hôm nay: <strong class="text-danger">-${totalAmount.toLocaleString()}đ</strong></small>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = `
+                <div class="text-center py-1">
+                    <small class="text-white">Chưa có chi phí nào</small>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading expenses:', error);
+        document.getElementById('expensesContainer').innerHTML = `
+            <div class="text-center py-1">
+                <small class="text-white">Lỗi tải dữ liệu</small>
+            </div>
+        `;
+    }
+}
+
+// Add expense function
+async function addExpense() {
+    const description = document.getElementById('expenseDescription').value.trim();
+    const amount = document.getElementById('expenseAmount').value;
+    const date = document.getElementById('expenseDate').value;
+    const category = document.getElementById('expenseCategory').value;
+    
+    if (!description || !amount || !date) {
+        alert('Vui lòng điền đầy đủ thông tin!');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/expenses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                description: description,
+                amount: parseFloat(amount),
+                date: date,
+                category: category
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('expenseModal'));
+            modal.hide();
+            
+            // Reset form
+            document.getElementById('expenseForm').reset();
+            
+            // Reload expenses
+            loadExpenses();
+            
+            // Show success message
+            alert('✅ Đã lưu chi phí thành công!');
+        } else {
+            alert('❌ Lỗi: ' + (result.error || 'Không thể lưu chi phí'));
+        }
+    } catch (error) {
+        console.error('Error adding expense:', error);
+        alert('❌ Lỗi kết nối. Vui lòng thử lại!');
+    }
+}
 </script>
 
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
