@@ -353,6 +353,31 @@
         </div>
     </div>
 
+    <!-- 📊 COMMISSION MANAGEMENT (STANDALONE) -->
+    <div class="row mb-2">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h6 class="mb-0 text-white fw-bold small">
+                            <i class="fas fa-percentage me-1"></i>📊 Hoa Hồng
+                        </h6>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-light btn-sm px-2" onclick="loadCommissions()" title="Tải lại">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="commissionsContainer">
+                        <div class="text-center py-1">
+                            <small class="text-white">Đang tải...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ⚠️ KHÁCH CHƯA THU TIỀN QUÁ HẠN (COMPACT) -->
     {% if overdue_unpaid_guests and overdue_unpaid_guests|length > 0 %}
     <div class="card border-0 shadow-sm mb-3" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
@@ -854,7 +879,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <script>
 // Pass chart data from server to dashboard.js
 const monthlyRevenueChartData = {{ monthly_revenue_chart_json | tojson | safe }};
@@ -2280,17 +2305,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
-// Load expenses on page load (async, non-blocking)
-setTimeout(() => {
-    loadExpenses().catch(error => {
-        console.error('Failed to load expenses:', error);
-        document.getElementById('expensesContainer').innerHTML = `
-            <div class="text-center py-1">
-                <small class="text-white">Lỗi tải chi phí</small>
-            </div>
-        `;
-    });
-}, 100);
 </script>
 
 <!-- Expense Modal -->
@@ -2489,6 +2503,182 @@ async function addExpense() {
         console.error('Error adding expense:', error);
     }
 }
+
+// Load expenses on page load (async, non-blocking) - moved after function definition
+setTimeout(() => {
+    loadExpenses().catch(error => {
+        console.error('Failed to load expenses:', error);
+        const container = document.getElementById('expensesContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="text-center py-1">
+                    <small class="text-white">Lỗi tải chi phí</small>
+                </div>
+            `;
+        }
+    });
+}, 100);
+
+// 📊 COMMISSION MANAGEMENT FUNCTIONS
+async function loadCommissions() {
+    try {
+        console.log('🔄 Loading commissions...');
+        const container = document.getElementById('commissionsContainer');
+        if (!container) {
+            console.error('Commission container not found');
+            return;
+        }
+        
+        // Show loading state
+        container.innerHTML = `
+            <div class="text-center py-1">
+                <small class="text-white">Đang tải...</small>
+            </div>
+        `;
+        
+        // Get booking data (simulating API call - in real implementation, this would be a dedicated endpoint)
+        const response = await fetch('/api/dashboard_data');
+        const dashboardData = await response.json();
+        
+        if (!dashboardData.success || !dashboardData.data || !dashboardData.data.bookings) {
+            throw new Error('No booking data available');
+        }
+        
+        const bookings = dashboardData.data.bookings;
+        
+        // Calculate commission data
+        let totalCommission = 0;
+        let paidCommission = 0;
+        let unpaidCommission = 0;
+        let commissionBookings = [];
+        
+        bookings.forEach(booking => {
+            const commission = parseFloat(booking['Hoa hồng'] || 0);
+            if (commission > 0) {
+                totalCommission += commission;
+                const status = booking['Trạng thái thanh toán'] || '';
+                
+                if (status.toLowerCase().includes('đã thu') || status.toLowerCase().includes('paid')) {
+                    paidCommission += commission;
+                } else {
+                    unpaidCommission += commission;
+                }
+                
+                commissionBookings.push({
+                    id: booking['Số đặt phòng'] || '',
+                    guest: booking['Tên người đặt'] || 'N/A',
+                    commission: commission,
+                    status: status,
+                    isPaid: status.toLowerCase().includes('đã thu') || status.toLowerCase().includes('paid')
+                });
+            }
+        });
+        
+        // Sort by commission amount (highest first)
+        commissionBookings.sort((a, b) => b.commission - a.commission);
+        
+        // Build commission display
+        let commissionsHtml = '';
+        
+        if (commissionBookings.length === 0) {
+            commissionsHtml = `
+                <div class="text-center py-2">
+                    <small class="text-white">Không có hoa hồng</small>
+                </div>
+            `;
+        } else {
+            // Summary section
+            commissionsHtml += `
+                <div class="row g-1 mb-2">
+                    <div class="col-4 text-center">
+                        <div class="bg-white bg-opacity-20 rounded px-1 py-1">
+                            <div class="text-white fw-bold small">${totalCommission.toLocaleString()}đ</div>
+                            <div class="text-white" style="font-size: 9px;">Tổng HH</div>
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="bg-success bg-opacity-30 rounded px-1 py-1">
+                            <div class="text-white fw-bold small">${paidCommission.toLocaleString()}đ</div>
+                            <div class="text-white" style="font-size: 9px;">Đã thu</div>
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="bg-warning bg-opacity-30 rounded px-1 py-1">
+                            <div class="text-white fw-bold small">${unpaidCommission.toLocaleString()}đ</div>
+                            <div class="text-white" style="font-size: 9px;">Chưa thu</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Top commissions list (show top 5)
+            const topCommissions = commissionBookings.slice(0, 5);
+            commissionsHtml += '<div class="commission-list" style="max-height: 120px; overflow-y: auto;">';
+            
+            topCommissions.forEach(booking => {
+                const statusBadge = booking.isPaid 
+                    ? '<span class="badge bg-success bg-opacity-75 text-white" style="font-size: 8px;">Đã thu</span>'
+                    : '<span class="badge bg-warning bg-opacity-75 text-dark" style="font-size: 8px;">Chưa thu</span>';
+                
+                commissionsHtml += `
+                    <div class="d-flex justify-content-between align-items-center py-1 px-2 mb-1" 
+                         style="background: rgba(255,255,255,0.1); border-radius: 4px;">
+                        <div class="flex-grow-1">
+                            <div class="text-white fw-bold" style="font-size: 11px;">${booking.guest}</div>
+                            <div class="text-white-50" style="font-size: 9px;">ID: ${booking.id}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="text-white fw-bold" style="font-size: 11px;">${booking.commission.toLocaleString()}đ</div>
+                            ${statusBadge}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            commissionsHtml += '</div>';
+            
+            // Show more indicator if there are more than 5
+            if (commissionBookings.length > 5) {
+                commissionsHtml += `
+                    <div class="text-center pt-1">
+                        <small class="text-white-50" style="font-size: 9px;">
+                            +${commissionBookings.length - 5} hoa hồng khác
+                        </small>
+                    </div>
+                `;
+            }
+        }
+        
+        container.innerHTML = commissionsHtml;
+        console.log('✅ Commissions loaded successfully');
+        
+    } catch (error) {
+        console.error('Error loading commissions:', error);
+        const container = document.getElementById('commissionsContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="text-center py-2">
+                    <small class="text-white">Lỗi tải hoa hồng</small>
+                </div>
+            `;
+        }
+    }
+}
+
+// Load commissions on page load (async, non-blocking) - moved after function definition  
+setTimeout(() => {
+    loadCommissions().catch(error => {
+        console.error('Failed to load commissions:', error);
+        const container = document.getElementById('commissionsContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="text-center py-1">
+                    <small class="text-white">Lỗi tải hoa hồng</small>
+                </div>
+            `;
+        }
+    });
+}, 150); // Load after expenses (100ms) to stagger requests
 </script>
 
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
