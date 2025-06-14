@@ -2253,7 +2253,7 @@ def market_intelligence_api():
             location = request.args.get('location', 'Hanoi')
             max_price = int(request.args.get('max_price', 500000))
         
-        print(f"🔍 Starting market intelligence for {location} (under {max_price:,} VND)")
+        print(f"🔍 Starting market intelligence for {location} (under {int(max_price):,} VND)")
         
         # Initialize systems
         intel = HotelMarketIntelligence()

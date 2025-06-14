@@ -31,7 +31,7 @@ class HotelMarketIntelligence:
         """
         Get comprehensive market data from available sources
         """
-        print(f"🔍 Gathering market intelligence for {location} (under {max_price:,} VND)")
+        print(f"🔍 Gathering market intelligence for {location} (under {int(max_price):,} VND)")
         
         # Try multiple data sources in order of preference
         for source_name, source_func in self.data_sources.items():
@@ -465,8 +465,8 @@ def format_complete_analysis(intelligence_data: Dict[str, Any], analysis: Dict[s
     output += f"📅 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
     output += f"🔍 Data Source: {market.get('data_source', 'Unknown')}\n"
     output += f"📊 Properties Analyzed: {market.get('total_properties', 0)}\n"
-    output += f"💰 Average Price: {market.get('average_price', 0):,} VND/night\n"
-    output += f"💵 Price Range: {market.get('price_range', {}).get('min', 0):,} - {market.get('price_range', {}).get('max', 0):,} VND\n\n"
+    output += f"💰 Average Price: {int(market.get('average_price', 0)):,} VND/night\n"
+    output += f"💵 Price Range: {int(market.get('price_range', {}).get('min', 0)):,} - {int(market.get('price_range', {}).get('max', 0)):,} VND\n\n"
     
     # Price distribution
     output += "💰 PRICE DISTRIBUTION ANALYSIS:\n"
@@ -481,7 +481,7 @@ def format_complete_analysis(intelligence_data: Dict[str, Any], analysis: Dict[s
     output += "📍 LOCATION ANALYSIS:\n"
     locations = analysis.get("location_analysis", {})
     for area, data in locations.items():
-        output += f"   📌 {area}: {data.get('count', 0)} properties, Avg: {data.get('avg_price', 0):,} VND\n"
+        output += f"   📌 {area}: {data.get('count', 0)} properties, Avg: {int(data.get('avg_price', 0)):,} VND\n"
     output += "\n"
     
     # Property types
@@ -591,8 +591,8 @@ def main():
             prices = [apt.get("price_num", 0) for apt in apartments]
             print(f"\n📊 QUICK SUMMARY:")
             print(f"   Properties analyzed: {len(apartments)}")
-            print(f"   Average price: {sum(prices)//len(prices):,} VND/night")
-            print(f"   Price range: {min(prices):,} - {max(prices):,} VND")
+            print(f"   Average price: {int(sum(prices)//len(prices)):,} VND/night")
+            print(f"   Price range: {int(min(prices)):,} - {int(max(prices)):,} VND")
             print(f"   Data source: {market_data.get('source', 'Unknown')}")
         
     except Exception as e:
