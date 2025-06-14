@@ -392,7 +392,14 @@
                                     {% set amount = guest.get('calculated_total_amount') or guest.get('Tổng thanh toán', 0) or 0 %}
                                     {{ "{:,.0f}".format(amount) }}đ
                                 </div>
-                                <div class="text-muted" style="font-size: 10px;">{{ guest.get('Số đặt phòng', 'N/A') }}</div>
+                                <div class="text-muted" style="font-size: 10px;">
+                                    {% set commission = guest.get('Hoa hồng', 0) or 0 %}
+                                    {% if commission > 0 %}
+                                        <i class="fas fa-percentage me-1"></i>{{ "{:,.0f}".format(commission) }}đ
+                                        <br>
+                                    {% endif %}
+                                    {{ guest.get('Số đặt phòng', 'N/A') }}
+                                </div>
                             </td>
                             <td class="py-1 px-1">
                                 <div class="btn-group-vertical btn-group-sm">
@@ -858,7 +865,19 @@ let currentBookingData = {};
 
 // Quick Notes functionality
 document.addEventListener('DOMContentLoaded', function() {
-    loadQuickNotesOnDashboard();
+    // Load QuickNotes asynchronously to prevent blocking
+    setTimeout(() => {
+        try {
+            loadQuickNotesOnDashboard();
+        } catch (error) {
+            console.error('Failed to load QuickNotes:', error);
+            document.getElementById('quickNotesContainer').innerHTML = `
+                <div class="text-center py-1">
+                    <small class="text-white">Lỗi tải ghi chú</small>
+                </div>
+            `;
+        }
+    }, 50);
     
     // Add event listeners for taxi checkboxes
     const hasTaxiCheckbox = document.getElementById('hasTaxi');
@@ -2261,8 +2280,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
-// Load expenses on page load
-loadExpenses();
+// Load expenses on page load (async, non-blocking)
+setTimeout(() => {
+    loadExpenses().catch(error => {
+        console.error('Failed to load expenses:', error);
+        document.getElementById('expensesContainer').innerHTML = `
+            <div class="text-center py-1">
+                <small class="text-white">Lỗi tải chi phí</small>
+            </div>
+        `;
+    });
+}, 100);
 </script>
 
 <!-- Expense Modal -->
