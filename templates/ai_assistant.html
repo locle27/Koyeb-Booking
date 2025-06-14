@@ -1276,9 +1276,9 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        category: category,
-                        label: label,
-                        content: content
+                        Category: category,
+                        Label: label,
+                        Message: content
                     })
                 });
                 
@@ -1300,11 +1300,29 @@
                 } else {
                     const error = await response.json();
                     console.error('❌ Server error:', error);
+                    
+                    // Show error feedback on button
+                    if (submitBtn) {
+                        submitBtn.textContent = '❌ ' + (error.message || 'Lỗi lưu');
+                        submitBtn.classList.add('btn-danger');
+                        submitBtn.classList.remove('btn-primary');
+                        
+                        // Reset button after 3 seconds
+                        setTimeout(() => {
+                            submitBtn.textContent = originalText;
+                            submitBtn.classList.remove('btn-danger');
+                            submitBtn.classList.add('btn-primary');
+                            submitBtn.disabled = false;
+                        }, 3000);
+                    }
+                    return; // Exit early for errors
                 }
                 
-                // Restore button
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
+                // Restore button only on success
+                if (submitBtn) {
+                    submitBtn.textContent = originalText;
+                    submitBtn.disabled = false;
+                }
             }
         } catch (error) {
             console.error('❌ Error adding template:', error);
