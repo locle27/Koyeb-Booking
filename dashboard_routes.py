@@ -408,7 +408,7 @@ def create_collector_chart(dashboard_data):
 
 def process_arrival_notifications(df):
     """
-    Xử lý thông báo khách đến - hiển thị 1 ngày trước và trong ngày
+    Xử lý thông báo khách đến - chỉ hiển thị khách đến hôm nay và ngày mai
     """
     try:
         if df.empty:
@@ -420,7 +420,7 @@ def process_arrival_notifications(df):
         
         notifications = []
         
-        # Lọc khách check-in ngày mai (hiển thị từ hôm nay)
+        # Lọc khách check-in - chỉ xử lý khách đến từ hôm nay trở đi
         for index, row in df.iterrows():
             try:
                 checkin_date = row.get('Check-in Date')
@@ -437,11 +437,16 @@ def process_arrival_notifications(df):
                     elif hasattr(checkin_date, 'date'):
                         checkin_date = checkin_date.date()
                     
+                    # Bỏ qua khách đã check-in trước hôm nay
+                    if checkin_date < today:
+                        continue
+                    
                     # Khách đến ngày mai
                     if checkin_date == tomorrow:
                         guest_name = row.get('Tên người đặt', 'Không có tên')
                         booking_id = row.get('Số đặt phòng', 'N/A')
                         total_amount = row.get('Tổng thanh toán', 0)
+                        hoa_hong = row.get('Hoa hồng', 0)
                         
                         notifications.append({
                             'type': 'arrival',
@@ -450,6 +455,7 @@ def process_arrival_notifications(df):
                             'booking_id': booking_id,
                             'checkin_date': checkin_date.strftime('%d/%m/%Y'),
                             'total_amount': total_amount,
+                            'Hoa hồng': hoa_hong,
                             'days_until': 1,
                             'message': f'Khách {guest_name} sẽ đến vào ngày mai ({checkin_date.strftime("%d/%m/%Y")})'
                         })
@@ -459,6 +465,7 @@ def process_arrival_notifications(df):
                         guest_name = row.get('Tên người đặt', 'Không có tên')
                         booking_id = row.get('Số đặt phòng', 'N/A')
                         total_amount = row.get('Tổng thanh toán', 0)
+                        hoa_hong = row.get('Hoa hồng', 0)
                         
                         notifications.append({
                             'type': 'arrival',
@@ -467,6 +474,7 @@ def process_arrival_notifications(df):
                             'booking_id': booking_id,
                             'checkin_date': checkin_date.strftime('%d/%m/%Y'),
                             'total_amount': total_amount,
+                            'Hoa hồng': hoa_hong,
                             'days_until': 0,
                             'message': f'Khách {guest_name} đến HÔM NAY ({checkin_date.strftime("%d/%m/%Y")})'
                         })
