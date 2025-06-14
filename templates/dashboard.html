@@ -1773,7 +1773,20 @@ function saveQuickNote() {
     const noteTime = document.getElementById('noteTime').value;
     
     if (!noteType || !noteContent || !noteDate || !noteTime) {
-        alert('Vui lòng điền đầy đủ thông tin!');
+        console.log('❌ QuickNote validation failed: Missing required fields');
+        // Show non-blocking error feedback
+        const submitBtn = document.querySelector('#quickNotesModal .btn-primary');
+        if (submitBtn) {
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = '⚠️ Thiếu thông tin';
+            submitBtn.classList.add('btn-warning');
+            submitBtn.classList.remove('btn-primary');
+            setTimeout(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.classList.remove('btn-warning');
+                submitBtn.classList.add('btn-primary');
+            }, 2000);
+        }
         return;
     }
     
@@ -1816,23 +1829,59 @@ function saveQuickNote() {
         showDashboardToast('⚠️ Đã lưu local, nhưng lỗi khi sync lên Google Sheets', 'warning');
     });
     
-    // Reset form
-    document.getElementById('quickNotesForm').reset();
-    document.getElementById('noteDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('noteTime').value = new Date().toTimeString().slice(0, 5);
+    // Reset form (non-blocking)
+    setTimeout(() => {
+        try {
+            document.getElementById('quickNotesForm').reset();
+            document.getElementById('noteDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('noteTime').value = new Date().toTimeString().slice(0, 5);
+        } catch (e) {
+            console.error('QuickNotes form reset error:', e);
+        }
+    }, 50);
     
-    // Close modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('quickNotesModal'));
-    if (modal) {
-        modal.hide();
-    } else {
-        // Fallback: create new modal instance and hide
-        const newModal = new bootstrap.Modal(document.getElementById('quickNotesModal'));
-        newModal.hide();
-    }
+    // Close modal with enhanced safety (non-blocking)
+    setTimeout(() => {
+        try {
+            const modalElement = document.getElementById('quickNotesModal');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            
+            if (modal) {
+                modal.hide();
+            } else {
+                // Enhanced fallback for modal cleanup
+                modalElement.style.display = 'none';
+                modalElement.classList.remove('show');
+                modalElement.setAttribute('aria-hidden', 'true');
+                modalElement.removeAttribute('aria-modal');
+                
+                // Clean up body and backdrop
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+                
+                // Remove all backdrops
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                backdrops.forEach(backdrop => backdrop.remove());
+            }
+        } catch (e) {
+            console.error('QuickNotes modal close error:', e);
+            // Force cleanup if all else fails
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+        }
+    }, 100);
     
-    // Refresh notes display
-    loadQuickNotesOnDashboard();
+    // Refresh notes display (non-blocking)
+    setTimeout(() => {
+        try {
+            loadQuickNotesOnDashboard();
+        } catch (error) {
+            console.error('Error refreshing QuickNotes display:', error);
+        }
+    }, 150);
 }
 
 function selectNoteType(type) {
@@ -2445,7 +2494,20 @@ async function addExpense() {
     const date = document.getElementById('expenseDate').value;
     
     if (!description || !amount || !date) {
-        alert('Vui lòng điền đầy đủ thông tin!');
+        console.log('❌ Validation failed: Missing required fields');
+        // Show non-blocking error feedback
+        const submitBtn = document.querySelector('#expenseModal .btn-primary');
+        if (submitBtn) {
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = '⚠️ Thiếu thông tin';
+            submitBtn.classList.add('btn-warning');
+            submitBtn.classList.remove('btn-primary');
+            setTimeout(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.classList.remove('btn-warning');
+                submitBtn.classList.add('btn-primary');
+            }, 2000);
+        }
         return;
     }
     
@@ -2465,42 +2527,91 @@ async function addExpense() {
         const result = await response.json();
         
         if (result.success) {
-            // Reset form first
-            document.getElementById('expenseForm').reset();
-            
-            // Close modal safely
-            try {
-                const modal = bootstrap.Modal.getInstance(document.getElementById('expenseModal'));
-                if (modal) {
-                    modal.hide();
-                } else {
-                    // Fallback: hide modal directly
-                    document.getElementById('expenseModal').style.display = 'none';
-                    document.body.classList.remove('modal-open');
-                    const backdrop = document.querySelector('.modal-backdrop');
-                    if (backdrop) backdrop.remove();
-                }
-            } catch (e) {
-                console.error('Modal close error:', e);
-            }
-            
-            // Show success message first (non-blocking)
             console.log('✅ Expense added successfully');
             
-            // Reload expenses with error handling
+            // Reset form immediately (non-blocking)
+            setTimeout(() => {
+                try {
+                    document.getElementById('expenseForm').reset();
+                } catch (e) {
+                    console.error('Form reset error:', e);
+                }
+            }, 50);
+            
+            // Close modal with enhanced safety (non-blocking)
+            setTimeout(() => {
+                try {
+                    const modalElement = document.getElementById('expenseModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    
+                    if (modal) {
+                        modal.hide();
+                    } else {
+                        // Enhanced fallback for modal cleanup
+                        modalElement.style.display = 'none';
+                        modalElement.classList.remove('show');
+                        modalElement.setAttribute('aria-hidden', 'true');
+                        modalElement.removeAttribute('aria-modal');
+                        
+                        // Clean up body and backdrop
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                        
+                        // Remove all backdrops
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        backdrops.forEach(backdrop => backdrop.remove());
+                    }
+                } catch (e) {
+                    console.error('Modal close error:', e);
+                    // Force cleanup if all else fails
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                }
+            }, 100);
+            
+            // Reload expenses with staggered timing (non-blocking)
             setTimeout(async () => {
                 try {
                     await loadExpenses();
                 } catch (error) {
                     console.error('Error reloading expenses:', error);
                 }
-            }, 100);
+            }, 200);
             
         } else {
-            console.error('❌ Error:', result.error || 'Cannot save expense');
+            console.error('❌ Server Error:', result.error || 'Cannot save expense');
+            // Show error feedback on button instead of alert
+            const submitBtn = document.querySelector('#expenseModal .btn-primary');
+            if (submitBtn) {
+                const originalText = submitBtn.textContent;
+                submitBtn.textContent = '❌ Lỗi lưu';
+                submitBtn.classList.add('btn-danger');
+                submitBtn.classList.remove('btn-primary');
+                setTimeout(() => {
+                    submitBtn.textContent = originalText;
+                    submitBtn.classList.remove('btn-danger');
+                    submitBtn.classList.add('btn-primary');
+                }, 3000);
+            }
         }
     } catch (error) {
-        console.error('Error adding expense:', error);
+        console.error('❌ Network/API Error adding expense:', error);
+        // Show network error feedback on button instead of alert
+        const submitBtn = document.querySelector('#expenseModal .btn-primary');
+        if (submitBtn) {
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = '🌐 Lỗi kết nối';
+            submitBtn.classList.add('btn-secondary');
+            submitBtn.classList.remove('btn-primary');
+            setTimeout(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.classList.remove('btn-secondary');
+                submitBtn.classList.add('btn-primary');
+            }, 3000);
+        }
     }
 }
 
