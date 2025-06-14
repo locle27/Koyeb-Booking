@@ -206,8 +206,9 @@
                                         </small>
                                     </div>
                                     <div class="text-end">
-                                        <button class="btn btn-outline-danger btn-sm" 
-                                                onclick="showDuplicateDetail('{{ group.main_booking.booking_id }}', {{ group.similar_bookings|tojson|e }})">
+                                        <button class="btn btn-outline-danger btn-sm review-duplicate-btn" 
+                                                data-main-booking-id="{{ group.main_booking.booking_id }}"
+                                                data-similar-bookings="{{ group.similar_bookings|tojson|e }}"
                                             <i class="fas fa-eye"></i> Review
                                         </button>
                                     </div>
@@ -840,6 +841,24 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         
         console.log('AI Duplicate Analysis: Event listeners attached successfully');
+        
+        // Add event listeners for review duplicate buttons (from auto-filter)
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('review-duplicate-btn') || e.target.closest('.review-duplicate-btn')) {
+                const button = e.target.classList.contains('review-duplicate-btn') ? e.target : e.target.closest('.review-duplicate-btn');
+                const mainBookingId = button.getAttribute('data-main-booking-id');
+                const similarBookingsJson = button.getAttribute('data-similar-bookings');
+                
+                try {
+                    const similarBookings = JSON.parse(similarBookingsJson);
+                    showDuplicateDetail(mainBookingId, similarBookings);
+                } catch (error) {
+                    console.error('Error parsing similar bookings data:', error);
+                    alert('Error loading duplicate details. Please try again.');
+                }
+            }
+        });
+        
     } catch (error) {
         console.error('Error attaching AI duplicate event listeners:', error);
     }
