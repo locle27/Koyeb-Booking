@@ -570,7 +570,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .filter(cb => cb.checked)
             .map(cb => cb.value);
 
-        if (selectedIds.length > 0 && confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} mục đã chọn không?`)) {
+        if (selectedIds.length > 0 && confirm('Bạn có chắc chắn muốn xóa ' + selectedIds.length + ' mục đã chọn không?')) {
             // Show loading state
             const originalText = deleteSelectedBtn.innerHTML;
             deleteSelectedBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xóa...';
@@ -847,7 +847,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Delete booking function for duplicate analysis with improved error handling
 function deleteBooking(bookingId) {
-    if (confirm(`Bạn có chắc chắn muốn xóa booking "${bookingId}" không?`)) {
+    if (confirm('Bạn có chắc chắn muốn xóa booking "' + bookingId + '" không?')) {
         console.log('Deleting booking:', bookingId);
         
         // Show loading indicator
@@ -951,61 +951,55 @@ function showDuplicateDetail(mainBookingId, similarBookings) {
     console.log('Showing duplicate detail for:', mainBookingId, similarBookings);
     
     // Create detail modal content
-    let modalContent = `
-        <div class="modal fade" id="duplicateDetailModal" tabindex="-1">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header bg-warning text-dark">
-                        <h5 class="modal-title">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            Duplicate Group Details
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <strong>Main booking ID:</strong> ${mainBookingId} (kept visible)
-                        </div>
-                        <h6>Filtered similar bookings:</h6>
-                        <div class="row">
-    `;
+    let modalContent = '<div class="modal fade" id="duplicateDetailModal" tabindex="-1">' +
+        '<div class="modal-dialog modal-lg">' +
+        '<div class="modal-content">' +
+        '<div class="modal-header bg-warning text-dark">' +
+        '<h5 class="modal-title">' +
+        '<i class="fas fa-exclamation-triangle me-2"></i>' +
+        'Duplicate Group Details' +
+        '</h5>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="modal"></button>' +
+        '</div>' +
+        '<div class="modal-body">' +
+        '<div class="alert alert-info">' +
+        '<strong>Main booking ID:</strong> ' + mainBookingId + ' (kept visible)' +
+        '</div>' +
+        '<h6>Filtered similar bookings:</h6>' +
+        '<div class="row">';
     
     similarBookings.forEach((booking, index) => {
-        modalContent += `
-            <div class="col-md-6 mb-3">
-                <div class="card border-danger">
-                    <div class="card-body">
-                        <h6 class="card-title text-danger">${booking.guest_name}</h6>
-                        <p class="card-text">
-                            <strong>ID:</strong> ${booking.booking_id}<br>
-                            <strong>Check-in:</strong> ${booking.check_in_date}<br>
-                            <strong>Check-out:</strong> ${booking.check_out_date}<br>
-                            <strong>Price:</strong> ${(booking.total_payment || 0).toLocaleString()} VND<br>
-                            <strong>Status:</strong> ${booking.status}
-                        </p>
-                        <div class="mb-2">
-                            <span class="badge bg-info">±${booking.date_diff} days</span>
-                            <span class="badge bg-warning text-dark">±${(booking.price_diff || 0).toLocaleString()} VND</span>
-                        </div>
-                        <button class="btn btn-danger btn-sm w-100" onclick="deleteDuplicateBooking('${booking.booking_id}')">
-                            <i class="fas fa-trash me-1"></i>Delete This Booking
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
+        modalContent += '<div class="col-md-6 mb-3">' +
+            '<div class="card border-danger">' +
+            '<div class="card-body">' +
+            '<h6 class="card-title text-danger">' + (booking.guest_name || 'N/A') + '</h6>' +
+            '<p class="card-text">' +
+            '<strong>ID:</strong> ' + (booking.booking_id || 'N/A') + '<br>' +
+            '<strong>Check-in:</strong> ' + (booking.check_in_date || 'N/A') + '<br>' +
+            '<strong>Check-out:</strong> ' + (booking.check_out_date || 'N/A') + '<br>' +
+            '<strong>Price:</strong> ' + (booking.total_payment || 0).toLocaleString() + ' VND<br>' +
+            '<strong>Status:</strong> ' + (booking.status || 'Unknown') +
+            '</p>' +
+            '<div class="mb-2">' +
+            '<span class="badge bg-info">±' + (booking.date_diff || 0) + ' days</span> ' +
+            '<span class="badge bg-warning text-dark">±' + (booking.price_diff || 0).toLocaleString() + ' VND</span>' +
+            '</div>' +
+            '<button class="btn btn-danger btn-sm w-100" onclick="deleteDuplicateBooking(\'' + (booking.booking_id || '') + '\')">' +
+            '<i class="fas fa-trash me-1"></i>Delete This Booking' +
+            '</button>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
     });
     
-    modalContent += `
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+    modalContent += '</div>' +
+        '</div>' +
+        '<div class="modal-footer">' +
+        '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
     
     // Remove existing modal if it exists
     const existingModal = document.getElementById('duplicateDetailModal');
@@ -1022,7 +1016,7 @@ function showDuplicateDetail(mainBookingId, similarBookings) {
 }
 
 function deleteDuplicateBooking(bookingId) {
-    if (!confirm(`Are you sure you want to delete booking ${bookingId}?`)) {
+    if (!confirm('Are you sure you want to delete booking ' + bookingId + '?')) {
         return;
     }
     
@@ -1031,7 +1025,7 @@ function deleteDuplicateBooking(bookingId) {
     button.disabled = true;
     button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
     
-    fetch(`/api/delete_booking/${bookingId}`, {
+    fetch('/api/delete_booking/' + bookingId, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
