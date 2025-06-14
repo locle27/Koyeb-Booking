@@ -208,7 +208,7 @@
                                     <div class="text-end">
                                         <button class="btn btn-outline-danger btn-sm review-duplicate-btn" 
                                                 data-main-booking-id="{{ group.main_booking.booking_id }}"
-                                                data-similar-bookings="{{ group.similar_bookings|tojson|e }}"
+                                                data-similar-bookings="{{ group.similar_bookings|tojson }}">
                                             <i class="fas fa-eye"></i> Review
                                         </button>
                                     </div>
@@ -850,11 +850,26 @@ document.addEventListener('DOMContentLoaded', function () {
                 const similarBookingsJson = button.getAttribute('data-similar-bookings');
                 
                 try {
-                    const similarBookings = JSON.parse(similarBookingsJson);
+                    console.log('Parsing similar bookings JSON:', similarBookingsJson);
+                    
+                    // Try to decode HTML entities if needed
+                    let cleanJson = similarBookingsJson;
+                    if (cleanJson.includes('&quot;')) {
+                        cleanJson = cleanJson.replace(/&quot;/g, '"')
+                                           .replace(/&amp;/g, '&')
+                                           .replace(/&lt;/g, '<')
+                                           .replace(/&gt;/g, '>');
+                        console.log('Decoded HTML entities:', cleanJson);
+                    }
+                    
+                    const similarBookings = JSON.parse(cleanJson);
+                    console.log('Parsed similar bookings:', similarBookings);
                     showDuplicateDetail(mainBookingId, similarBookings);
                 } catch (error) {
                     console.error('Error parsing similar bookings data:', error);
-                    alert('Error loading duplicate details. Please try again.');
+                    console.error('Raw JSON string:', similarBookingsJson);
+                    console.error('Error details:', error.message);
+                    alert('Error loading duplicate details. JSON parsing failed: ' + error.message);
                 }
             }
         });
