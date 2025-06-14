@@ -850,7 +850,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const similarBookingsJson = button.getAttribute('data-similar-bookings');
                 
                 try {
-                    console.log('Parsing similar bookings JSON:', similarBookingsJson);
+                    console.log('Raw similar bookings data:', similarBookingsJson);
+                    console.log('Type of data:', typeof similarBookingsJson);
+                    console.log('Length:', similarBookingsJson ? similarBookingsJson.length : 'null');
+                    console.log('First 50 characters:', similarBookingsJson ? similarBookingsJson.substring(0, 50) : 'null');
+                    
+                    // Check if data is null or empty
+                    if (!similarBookingsJson || similarBookingsJson.trim() === '') {
+                        console.warn('Empty or null JSON data, using empty array');
+                        showDuplicateDetail(mainBookingId, []);
+                        return;
+                    }
                     
                     // Try to decode HTML entities if needed
                     let cleanJson = similarBookingsJson;
@@ -859,17 +869,27 @@ document.addEventListener('DOMContentLoaded', function () {
                                            .replace(/&amp;/g, '&')
                                            .replace(/&lt;/g, '<')
                                            .replace(/&gt;/g, '>');
-                        console.log('Decoded HTML entities:', cleanJson);
+                        console.log('After HTML entity decoding:', cleanJson);
                     }
                     
+                    // Additional cleanup for common issues
+                    cleanJson = cleanJson.trim();
+                    
+                    console.log('About to parse JSON:', cleanJson);
                     const similarBookings = JSON.parse(cleanJson);
-                    console.log('Parsed similar bookings:', similarBookings);
+                    console.log('Successfully parsed similar bookings:', similarBookings);
                     showDuplicateDetail(mainBookingId, similarBookings);
                 } catch (error) {
-                    console.error('Error parsing similar bookings data:', error);
-                    console.error('Raw JSON string:', similarBookingsJson);
-                    console.error('Error details:', error.message);
-                    alert('Error loading duplicate details. JSON parsing failed: ' + error.message);
+                    console.error('JSON parsing failed!');
+                    console.error('Error:', error);
+                    console.error('Error message:', error.message);
+                    console.error('Raw data type:', typeof similarBookingsJson);
+                    console.error('Raw data length:', similarBookingsJson ? similarBookingsJson.length : 'null');
+                    console.error('Raw data (full):', similarBookingsJson);
+                    
+                    // Try to show modal with empty data as fallback
+                    console.log('Falling back to empty array');
+                    showDuplicateDetail(mainBookingId, []);
                 }
             }
         });
