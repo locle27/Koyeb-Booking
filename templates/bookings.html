@@ -751,9 +751,14 @@ document.addEventListener('DOMContentLoaded', function () {
                                         <p class="mb-2 text-dark"><strong>Trạng thái:</strong> 
                                             <span class="badge ${statusClass}">${main_booking.status}</span>
                                         </p>
-                                        <button class="btn btn-danger btn-sm w-100" onclick="deleteBooking('${main_booking.booking_id}')">
-                                            <i class="fas fa-trash me-1"></i>Xóa Booking này
-                                        </button>
+                                        <div class="d-grid gap-2">
+                                            <button class="btn btn-danger btn-sm" onclick="deleteBooking('${main_booking.booking_id}')">
+                                                <i class="fas fa-trash me-1"></i>Xóa Booking này
+                                            </button>
+                                            <button class="btn btn-info btn-sm" onclick="showBookingDetails('${main_booking.booking_id}')">
+                                                <i class="fas fa-eye me-1"></i>Xem chi tiết
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -778,9 +783,17 @@ document.addEventListener('DOMContentLoaded', function () {
                                                 <span class="badge bg-info">±${similar.date_diff} ngày</span>
                                                 <span class="badge bg-warning text-dark">±${similar.price_diff.toLocaleString()}đ</span>
                                             </small></p>
-                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteBooking('${similar.booking_id}')">
-                                                <i class="fas fa-trash me-1"></i>Xóa
-                                            </button>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-danger" onclick="deleteBooking('${similar.booking_id}')">
+                                                    <i class="fas fa-trash"></i> Xóa
+                                                </button>
+                                                <button class="btn btn-outline-info" onclick="showBookingDetails('${similar.booking_id}')">
+                                                    <i class="fas fa-eye"></i> Chi tiết
+                                                </button>
+                                                <button class="btn btn-outline-warning" onclick="compareBookings('${main_booking.booking_id}', '${similar.booking_id}')">
+                                                    <i class="fas fa-not-equal"></i> So sánh
+                                                </button>
+                                            </div>
                                         </div>
                 `;
             });
@@ -1026,6 +1039,26 @@ function deleteDuplicateBooking(bookingId) {
         console.error('Error deleting booking:', error);
         alert('❌ Network error deleting booking. Please try again.');
     });
+}
+
+// Show booking details function
+function showBookingDetails(bookingId) {
+    console.log('Showing details for booking:', bookingId);
+    
+    // Create a simple alert for now - can be enhanced later
+    alert(`📋 Chi tiết booking ${bookingId}\n\nChức năng này sẽ được phát triển thêm để hiển thị thông tin chi tiết booking trong modal popup.`);
+}
+
+// Compare two bookings function
+function compareBookings(mainBookingId, similarBookingId) {
+    console.log('Comparing bookings:', mainBookingId, 'vs', similarBookingId);
+    
+    // For now, show a simple comparison alert
+    if (confirm(`🔍 So sánh booking ${mainBookingId} với ${similarBookingId}\n\nBạn có muốn mở cả 2 booking trong tab mới để so sánh không?`)) {
+        // Open both bookings in new tabs for manual comparison
+        window.open(`/booking/${mainBookingId}/edit`, '_blank');
+        window.open(`/booking/${similarBookingId}/edit`, '_blank');
+    }
 }
 </script>
 {% endblock %} 
