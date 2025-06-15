@@ -1913,9 +1913,8 @@ def get_expenses_from_sheet() -> List[dict]:
             print("ℹ️ No expense records found")
             return []
         
-        # Filter today's expenses and sort by date (newest first)
-        today = datetime.now().strftime('%Y-%m-%d')
-        today_expenses = []
+        # Parse all expenses and sort by date (newest first)
+        expenses = []
         
         for record in records:
             # Parse the expense data
@@ -1926,15 +1925,14 @@ def get_expenses_from_sheet() -> List[dict]:
                 'created_at': record.get('Created At', '')
             }
             
-            # Include today's expenses and recent ones
-            if expense['date'] == today:
-                today_expenses.append(expense)
+            # Include all expenses
+            expenses.append(expense)
         
-        # Sort by created_at (newest first)
-        today_expenses.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        # Sort by date (newest first), then by created_at
+        expenses.sort(key=lambda x: (x.get('date', ''), x.get('created_at', '')), reverse=True)
         
-        print(f"✅ Retrieved {len(today_expenses)} expenses for today")
-        return today_expenses
+        print(f"✅ Retrieved {len(expenses)} total expenses")
+        return expenses
         
     except Exception as e:
         print(f"❌ Error getting expenses from sheet: {e}")

@@ -515,10 +515,13 @@
                                             {% endif %}
                                         </span>
                                     </small>
+                                    <div class="fw-bold text-success mt-1">
+                                        <i class="fas fa-coins me-1"></i>{{ "{:,.0f}".format(day.daily_total if day.daily_total else 0) }}đ
+                                    </div>
                                 </div>
                                 <div class="text-end">
                                     <button class="btn btn-sm btn-outline-primary" 
-                                            onclick="showDayDetails('{{ day.date }}', {{ day.guest_count }}, {{ day.guest_names|tojson }}, {{ day.booking_ids|tojson }})"
+                                            onclick="showDayDetails('{{ day.date }}', {{ day.guest_count }}, {{ day.guest_names|tojson }}, {{ day.booking_ids|tojson }}, {{ day.daily_total if day.daily_total else 0 }}, {{ day.individual_amounts|tojson if day.individual_amounts else [] }})"
                                             title="Xem chi tiết khách">
                                         <i class="fas fa-info-circle"></i>
                                     </button>
@@ -535,6 +538,71 @@
                 <small class="text-white-75">... và {{ overcrowded_days|length - 6 }} ngày khác</small>
             </div>
             {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 📅 DAILY REVENUE CALENDAR -->
+    {% if daily_totals and daily_totals|length > 0 %}
+    <div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="card-header bg-transparent border-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-white fw-bold">
+                    <i class="fas fa-calendar-alt me-2"></i>📅 Lịch Doanh Thu Theo Ngày
+                </h5>
+                <div class="text-white text-end">
+                    <small>{{ daily_totals|length }} ngày gần đây</small>
+                </div>
+            </div>
+        </div>
+        <div class="card-body py-3">
+            <div class="row">
+                {% for day in daily_totals %}
+                <div class="col-md-4 col-lg-3 mb-3">
+                    <div class="card bg-white border-0 h-100">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <div class="fw-bold text-dark">
+                                        {% if day.date %}
+                                            {{ day.date.strftime('%d/%m') if day.date.strftime else day.date }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                        
+                                        {% if day.is_today %}
+                                            <span class="badge bg-primary ms-1">HÔM NAY</span>
+                                        {% elif day.days_from_today == 1 %}
+                                            <span class="badge bg-info ms-1">NGÀY MAI</span>
+                                        {% elif day.days_from_today == -1 %}
+                                            <span class="badge bg-secondary ms-1">HÔM QUA</span>
+                                        {% elif day.days_from_today > 0 %}
+                                            <span class="badge bg-light text-dark ms-1">+{{ day.days_from_today }}d</span>
+                                        {% elif day.days_from_today < 0 %}
+                                            <span class="badge bg-light text-dark ms-1">{{ day.days_from_today }}d</span>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-users me-1"></i>{{ day.guest_count }} khách
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center">
+                                <div class="display-6 fw-bold text-success mb-1">
+                                    {{ "{:,.0f}".format(day.daily_total if day.daily_total else 0) }}đ
+                                </div>
+                                <button class="btn btn-sm btn-outline-success" 
+                                        onclick="showDayDetails('{{ day.date }}', {{ day.guest_count }}, {{ day.guest_names|tojson }}, {{ day.booking_ids|tojson }}, {{ day.daily_total if day.daily_total else 0 }}, {{ day.individual_amounts|tojson if day.individual_amounts else [] }})"
+                                        title="Xem chi tiết doanh thu">
+                                    <i class="fas fa-eye me-1"></i>Chi tiết
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
     {% endif %}
@@ -1666,31 +1734,32 @@ function toggleOvercrowdedDetails() {
 }
 
 // Show day details modal
-function showDayDetails(date, guestCount, guestNames, bookingIds) {
+function showDayDetails(date, guestCount, guestNames, bookingIds, dailyTotal, individualAmounts) {
     const modal = document.createElement('div');
     modal.className = 'modal fade';
     modal.innerHTML = `
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-warning">
-                    <h5 class="modal-title">
-                        <i class="fas fa-users me-2"></i>Chi tiết ngày quá tải: ${date}
+                <div class="modal-header bg-success">
+                    <h5 class="modal-title text-white">
+                        <i class="fas fa-calendar-day me-2"></i>Chi tiết doanh thu ngày: ${date}
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-warning">
-                        <strong><i class="fas fa-exclamation-triangle me-2"></i>Cảnh báo:</strong> 
-                        Ngày này có ${guestCount} khách check-in, vượt quá sức chứa 4 phòng.
+                    <div class="alert alert-success">
+                        <strong><i class="fas fa-coins me-2"></i>Tổng doanh thu:</strong> 
+                        <span class="fs-5 fw-bold">${dailyTotal ? dailyTotal.toLocaleString() : '0'}đ</span>
+                        <small class="text-muted ms-2">(${guestCount} khách check-in)</small>
                     </div>
-                    <h6><i class="fas fa-list me-2"></i>Danh sách khách check-in:</h6>
+                    <h6><i class="fas fa-list me-2"></i>Danh sách khách và số tiền:</h6>
                     <div class="table-responsive">
                         <table class="table table-striped">
                             <thead>
                                 <tr>
                                     <th>STT</th>
                                     <th>Tên khách</th>
-                                    <th>Mã booking</th>
+                                    <th>Số tiền</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1698,19 +1767,16 @@ function showDayDetails(date, guestCount, guestNames, bookingIds) {
                                     <tr>
                                         <td>${index + 1}</td>
                                         <td><strong>${name}</strong></td>
-                                        <td><span class="badge bg-info">${bookingIds[index]}</span></td>
+                                        <td><span class="badge bg-success fs-6">${individualAmounts && individualAmounts[index] ? individualAmounts[index].toLocaleString() : '0'}đ</span></td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
                     </div>
-                    <div class="mt-3">
-                        <h6><i class="fas fa-lightbulb me-2"></i>Đề xuất giải pháp:</h6>
-                        <ul class="list-unstyled">
-                            <li><i class="fas fa-check text-success me-2"></i>Liên hệ khách để sắp xếp lại lịch check-in</li>
-                            <li><i class="fas fa-check text-success me-2"></i>Tìm phòng trống ở khách sạn khác gần đó</li>
-                            <li><i class="fas fa-check text-success me-2"></i>Đề xuất upgrade hoặc early check-in ngày hôm trước</li>
-                        </ul>
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>Doanh thu tính theo ngày check-in
+                        </small>
                     </div>
                 </div>
                 <div class="modal-footer">

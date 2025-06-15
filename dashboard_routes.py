@@ -53,6 +53,9 @@ def process_dashboard_data(df, start_date, end_date, sort_by, sort_order, dashbo
     # Phát hiện ngày có quá nhiều khách
     overcrowded_days = detect_overcrowded_days(df)
     
+    # Tính tổng doanh thu theo ngày cho calendar
+    daily_totals = get_daily_totals(df)
+    
     # Tạo biểu đồ pie chart cho người thu tiền
     collector_chart_data = create_collector_chart(dashboard_data)
     
@@ -71,6 +74,7 @@ def process_dashboard_data(df, start_date, end_date, sort_by, sort_order, dashbo
         'overdue_unpaid_guests': overdue_unpaid_guests,
         'overdue_total_amount': overdue_total_amount,
         'overcrowded_days': overcrowded_days,
+        'daily_totals': daily_totals,
         'collector_chart_json': collector_chart_data,
         'arrival_notifications': arrival_notifications,
         'departure_notifications': departure_notifications
@@ -327,12 +331,13 @@ def detect_overcrowded_days(df):
         if valid_checkins.empty:
             return overcrowded_days
             
-        # Group by date and count guests
+        # Group by date and count guests + calculate daily totals
         daily_checkins = valid_checkins.groupby(valid_checkins['Check-in Date'].dt.date).agg({
             'Số đặt phòng': ['count', lambda x: list(x)],
-            'Tên người đặt': lambda x: list(x)
+            'Tên người đặt': lambda x: list(x),
+            'Tổng thanh toán': ['sum', lambda x: list(x)]
         })
-        daily_checkins.columns = ['guest_count', 'booking_ids', 'guest_names']
+        daily_checkins.columns = ['guest_count', 'booking_ids', 'guest_names', 'daily_total', 'individual_amounts']
         
         # Find overcrowded dates (>4 guests)
         overcrowded_dates = daily_checkins[daily_checkins['guest_count'] > 4]
@@ -353,6 +358,7 @@ def detect_overcrowded_days(df):
             overcrowded_days.append({
                 'date': date, 'guest_count': row['guest_count'],
                 'booking_ids': row['booking_ids'], 'guest_names': row['guest_names'],
+                'daily_total': row['daily_total'], 'individual_amounts': row['individual_amounts'],
                 'days_from_today': days_from_today, 'alert_level': alert_level,
                 'alert_color': alert_color, 'is_today': days_from_today == 0,
                 'is_future': days_from_today > 0
@@ -365,6 +371,63 @@ def detect_overcrowded_days(df):
         print(f"Detect overcrowded days error: {e}")
     
     return overcrowded_days
+
+
+def get_daily_totals(df):
+    """Tính tổng doanh thu theo ngày cho calendar"""
+    daily_totals = []
+    
+    try:
+        if df.empty or 'Check-in Date' not in df.columns:
+            return daily_totals
+            
+        today = datetime.today()
+        check_start = today - timedelta(days=7)  # 7 days ago
+        check_end = today + timedelta(days=14)   # 14 days ahead
+        
+        df_check = df.copy()
+        df_check['Check-in Date'] = pd.to_datetime(df_check['Check-in Date'], errors='coerce', dayfirst=True)
+        
+        valid_checkins = df_check[
+            (df_check['Check-in Date'].notna()) &
+            (df_check['Check-in Date'] >= pd.Timestamp(check_start)) &
+            (df_check['Check-in Date'] <= pd.Timestamp(check_end)) &
+            (df_check['Tình trạng'] != 'Đã hủy')
+        ].copy()
+        
+        if valid_checkins.empty:
+            return daily_totals
+            
+        # Group by date and calculate totals
+        daily_checkins = valid_checkins.groupby(valid_checkins['Check-in Date'].dt.date).agg({
+            'Số đặt phòng': ['count', lambda x: list(x)],
+            'Tên người đặt': lambda x: list(x),
+            'Tổng thanh toán': ['sum', lambda x: list(x)]
+        })
+        daily_checkins.columns = ['guest_count', 'booking_ids', 'guest_names', 'daily_total', 'individual_amounts']
+        
+        for date, row in daily_checkins.iterrows():
+            days_from_today = (date - today.date()).days
+            
+            daily_totals.append({
+                'date': date,
+                'guest_count': row['guest_count'],
+                'booking_ids': row['booking_ids'],
+                'guest_names': row['guest_names'],
+                'daily_total': row['daily_total'],
+                'individual_amounts': row['individual_amounts'],
+                'days_from_today': days_from_today,
+                'is_today': days_from_today == 0,
+                'is_future': days_from_today > 0
+            })
+        
+        # Sort by date
+        daily_totals.sort(key=lambda x: x['date'])
+    
+    except Exception as e:
+        print(f"Get daily totals error: {e}")
+    
+    return daily_totals
 
 
 def create_collector_chart(dashboard_data):
