@@ -973,6 +973,8 @@ def collect_payment():
         collector_name = data.get('collector_name')
         payment_note = data.get('payment_note', '')
         payment_type = data.get('payment_type', 'room')  # 'room' hoặc 'taxi'
+        commission_amount = data.get('commission_amount', 0)
+        commission_type = data.get('commission_type', 'normal')  # 'normal' hoặc 'none'
         
         # Validate input
         if not booking_id:
@@ -986,6 +988,12 @@ def collect_payment():
         
         # Chuẩn bị dữ liệu cập nhật dựa trên loại thu tiền
         new_data = {}
+        
+        # Update commission based on commission type
+        if commission_type == 'none':
+            new_data['Hoa hồng'] = 0
+        elif commission_amount is not None:
+            new_data['Hoa hồng'] = commission_amount
         
         if payment_type == 'taxi':
             # Thu tiền taxi - cập nhật trường Taxi và checkbox Có taxi
@@ -1016,15 +1024,19 @@ def collect_payment():
             # Xóa cache để cập nhật dữ liệu
             load_data.cache_clear()
             
+            commission_msg = ""
+            if commission_type == 'none':
+                commission_msg = " (Không có hoa hồng)"
+            
             if payment_type == 'taxi':
                 return jsonify({
                     'success': True, 
-                    'message': f'Đã thu thành công {collected_amount:,.0f}đ tiền taxi từ {booking_id}'
+                    'message': f'Đã thu thành công {collected_amount:,.0f}đ tiền taxi từ {booking_id}{commission_msg}'
                 })
             else:
                 return jsonify({
                     'success': True, 
-                    'message': f'Đã thu thành công {collected_amount:,.0f}đ từ {booking_id}'
+                    'message': f'Đã thu thành công {collected_amount:,.0f}đ từ {booking_id}{commission_msg}'
                 })
         else:
             return jsonify({

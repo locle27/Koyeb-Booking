@@ -737,6 +737,21 @@
                         <div class="fw-bold text-warning fs-6" id="modalCommissionAmount">Chưa có thông tin</div>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Loại hoa hồng:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="commissionType" id="hasCommission" value="normal" checked>
+                            <label class="form-check-label fw-bold text-warning" for="hasCommission">
+                                <i class="fas fa-percentage me-1"></i>Có hoa hồng (bình thường)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="commissionType" id="noCommission" value="none">
+                            <label class="form-check-label fw-bold text-muted" for="noCommission">
+                                <i class="fas fa-ban me-1"></i>Không có hoa hồng (0%)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
                         <label for="collectedAmount" class="form-label">Số tiền thực thu (VND):</label>
                         <input type="number" class="form-control" id="collectedAmount" 
                                placeholder="Nhập số tiền đã thu" min="0" step="1000">
@@ -921,6 +936,10 @@ function openCollectModal(bookingId, guestName, totalAmount, commission, roomFee
     document.getElementById('noTaxi').checked = false;
     document.getElementById('taxiAmountGroup').style.display = 'none';
     
+    // Reset commission type to default
+    document.getElementById('hasCommission').checked = true;
+    document.getElementById('noCommission').checked = false;
+    
     // Populate modal data
     document.getElementById('modalGuestName').textContent = guestName;
     document.getElementById('modalBookingId').textContent = bookingId;
@@ -936,6 +955,19 @@ function openCollectModal(bookingId, guestName, totalAmount, commission, roomFee
         commissionElement.parentElement.style.display = 'block';
     }
     
+    // Add event listeners for commission type changes
+    document.getElementById('hasCommission').addEventListener('change', function() {
+        if (this.checked) {
+            updateCommissionDisplay(commission);
+        }
+    });
+    
+    document.getElementById('noCommission').addEventListener('change', function() {
+        if (this.checked) {
+            updateCommissionDisplay(0);
+        }
+    });
+    
     // Set default collected amount to total amount for room payment
     document.getElementById('collectedAmount').value = totalAmount;
     
@@ -944,15 +976,36 @@ function openCollectModal(bookingId, guestName, totalAmount, commission, roomFee
     modal.show();
 }
 
+// Function to update commission display based on selected type
+function updateCommissionDisplay(originalCommission) {
+    const commissionElement = document.getElementById('modalCommissionAmount');
+    const noCommissionSelected = document.getElementById('noCommission').checked;
+    
+    if (noCommissionSelected) {
+        commissionElement.textContent = '0đ (Không có hoa hồng)';
+        commissionElement.className = 'fw-bold text-muted fs-6';
+    } else {
+        if (originalCommission && originalCommission > 0) {
+            commissionElement.textContent = originalCommission.toLocaleString() + 'đ';
+            commissionElement.className = 'fw-bold text-warning fs-6';
+        } else {
+            commissionElement.textContent = 'Chưa có thông tin';
+            commissionElement.className = 'fw-bold text-warning fs-6';
+        }
+    }
+}
+
 function collectPayment() {
     const hasTaxi = document.getElementById('hasTaxi').checked;
     const noTaxi = document.getElementById('noTaxi').checked;
     const collectorName = document.getElementById('collectorName').value;
     const paymentNote = document.getElementById('paymentNote').value.trim();
+    const noCommissionSelected = document.getElementById('noCommission').checked;
     
     let collectedAmount = 0;
     let finalNote = paymentNote;
     let paymentType = 'room';
+    let finalCommission = noCommissionSelected ? 0 : currentBookingData.commission;
     
     if (hasTaxi) {
         // Thu tiền taxi
@@ -990,13 +1043,20 @@ function collectPayment() {
     confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang xử lý...';
     confirmBtn.disabled = true;
     
+    // Add commission info to note if no commission selected
+    if (noCommissionSelected) {
+        finalNote += ' (Không có hoa hồng)';
+    }
+    
     // Prepare data
     const requestData = {
         booking_id: currentBookingData.bookingId,
         collected_amount: collectedAmount,
         collector_name: collectorName,
         payment_note: finalNote,
-        payment_type: paymentType
+        payment_type: paymentType,
+        commission_amount: finalCommission,
+        commission_type: noCommissionSelected ? 'none' : 'normal'
     };
     
     // Call API
@@ -2509,17 +2569,10 @@ document.getElementById('expenseModal').addEventListener('show.bs.modal', functi
     document.getElementById('expenseDate').value = now.toISOString().split('T')[0];
 });
 
-// Load monthly expenses function
+// Load monthly expenses function (SIMPLIFIED - No more timeouts/aborts)
 async function loadMonthlyExpenses() {
     try {
-        // Add timeout to prevent hanging
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-        
-        const response = await fetch('/api/expenses', {
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+        const response = await fetch('/api/expenses');
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -2541,68 +2594,28 @@ async function loadMonthlyExpenses() {
         }
         
         if (result.success && result.data && result.data.length > 0) {
-            // Debug: Log all expense data
-            console.log('🔍 [DEBUG] All expense data from API:', result.data);
-            
-            // Filter expenses for current month
+            // Filter expenses for current month (simplified)
             const currentMonth = now.getMonth() + 1;
             const currentYear = now.getFullYear();
             
-            console.log(`🔍 [DEBUG] Looking for expenses in: ${currentMonth}/${currentYear}`);
-            
             const monthlyExpenses = result.data.filter(expense => {
-                if (!expense.date) {
-                    console.log('⚠️ [DEBUG] Expense without date:', expense);
-                    return false;
-                }
+                if (!expense.date) return false;
                 
-                // Try multiple date parsing approaches
-                let expenseDate;
                 try {
-                    // Handle different date formats: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY
-                    if (expense.date.includes('/')) {
-                        // Try DD/MM/YYYY format first (common in Vietnam)
-                        const dateParts = expense.date.split('/');
-                        if (dateParts.length === 3) {
-                            // DD/MM/YYYY format
-                            expenseDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
-                        }
-                    } else {
-                        // YYYY-MM-DD format
-                        expenseDate = new Date(expense.date);
-                    }
+                    // Simple date parsing - expecting YYYY-MM-DD format from API
+                    const expenseDate = new Date(expense.date);
+                    if (isNaN(expenseDate.getTime())) return false;
                     
-                    console.log(`🔍 [DEBUG] Expense date: ${expense.date} -> Parsed: ${expenseDate.getFullYear()}/${expenseDate.getMonth() + 1}/${expenseDate.getDate()}`);
-                    
-                    // Check if date is valid
-                    if (isNaN(expenseDate.getTime())) {
-                        console.log('⚠️ [DEBUG] Invalid date:', expense.date, expense);
-                        return false;
-                    }
-                    
-                    const matches = expenseDate.getMonth() + 1 === currentMonth && 
-                                   expenseDate.getFullYear() === currentYear;
-                    
-                    if (matches) {
-                        console.log(`✅ [DEBUG] Matched expense: ${expense.description} - ${expense.amount}đ on ${expense.date}`);
-                    }
-                    
-                    return matches;
+                    return expenseDate.getMonth() + 1 === currentMonth && 
+                           expenseDate.getFullYear() === currentYear;
                 } catch (error) {
-                    console.log('❌ [DEBUG] Date parsing error:', error, expense);
                     return false;
                 }
             });
             
-            console.log(`🔍 [DEBUG] Found ${monthlyExpenses.length} monthly expenses:`, monthlyExpenses);
-            
             const monthlyTotal = monthlyExpenses.reduce((sum, expense) => {
-                const amount = parseFloat(expense.amount || 0);
-                console.log(`🔍 [DEBUG] Adding expense amount: ${expense.amount} -> ${amount}`);
-                return sum + amount;
+                return sum + parseFloat(expense.amount || 0);
             }, 0);
-            
-            console.log(`🔍 [DEBUG] Monthly total calculated: ${monthlyTotal}`);
             
             if (monthlyTotalElement) {
                 if (monthlyTotal > 0) {
@@ -2612,7 +2625,6 @@ async function loadMonthlyExpenses() {
                 }
             }
         } else {
-            console.log('⚠️ [DEBUG] No expense data received or API failed:', result);
             if (monthlyTotalElement) {
                 monthlyTotalElement.textContent = 'Chưa có chi phí';
             }
@@ -2626,28 +2638,31 @@ async function loadMonthlyExpenses() {
     }
 }
 
-// Add expense function
+// Add expense function (FIXED - No more UI freezing)
 async function addExpense() {
     const description = document.getElementById('expenseDescription').value.trim();
     const amount = document.getElementById('expenseAmount').value;
     const date = document.getElementById('expenseDate').value;
+    const submitBtn = document.querySelector('#expenseModal .btn-primary');
     
+    // Validation
     if (!description || !amount || !date) {
-        console.log('❌ Validation failed: Missing required fields');
-        // Show non-blocking error feedback
-        const submitBtn = document.querySelector('#expenseModal .btn-primary');
         if (submitBtn) {
-            const originalText = submitBtn.textContent;
-            submitBtn.textContent = '⚠️ Thiếu thông tin';
-            submitBtn.classList.add('btn-warning');
-            submitBtn.classList.remove('btn-primary');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '⚠️ Thiếu thông tin';
+            submitBtn.className = 'btn btn-warning';
             setTimeout(() => {
-                submitBtn.textContent = originalText;
-                submitBtn.classList.remove('btn-warning');
-                submitBtn.classList.add('btn-primary');
+                submitBtn.innerHTML = originalText;
+                submitBtn.className = 'btn btn-primary';
             }, 2000);
         }
         return;
+    }
+    
+    // Prevent multiple submissions
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang lưu...';
     }
     
     try {
@@ -2668,88 +2683,44 @@ async function addExpense() {
         if (result.success) {
             console.log('✅ Expense added successfully');
             
-            // Reset form immediately (non-blocking)
-            setTimeout(() => {
-                try {
-                    document.getElementById('expenseForm').reset();
-                } catch (e) {
-                    console.error('Form reset error:', e);
-                }
-            }, 50);
+            // Success feedback
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Đã lưu!';
+                submitBtn.className = 'btn btn-success';
+            }
             
-            // Close modal with enhanced safety (non-blocking)
-            setTimeout(() => {
-                try {
-                    const modalElement = document.getElementById('expenseModal');
-                    const modal = bootstrap.Modal.getInstance(modalElement);
-                    
-                    if (modal) {
-                        modal.hide();
-                    } else {
-                        // Enhanced fallback for modal cleanup
-                        modalElement.style.display = 'none';
-                        modalElement.classList.remove('show');
-                        modalElement.setAttribute('aria-hidden', 'true');
-                        modalElement.removeAttribute('aria-modal');
-                        
-                        // Clean up body and backdrop
-                        document.body.classList.remove('modal-open');
-                        document.body.style.overflow = '';
-                        document.body.style.paddingRight = '';
-                        
-                        // Remove all backdrops
-                        const backdrops = document.querySelectorAll('.modal-backdrop');
-                        backdrops.forEach(backdrop => backdrop.remove());
-                    }
-                } catch (e) {
-                    console.error('Modal close error:', e);
-                    // Force cleanup if all else fails
-                    document.body.classList.remove('modal-open');
-                    document.body.style.overflow = '';
-                    const backdrops = document.querySelectorAll('.modal-backdrop');
-                    backdrops.forEach(backdrop => backdrop.remove());
-                }
-            }, 100);
+            // Clean reset and close
+            document.getElementById('expenseForm').reset();
             
-            // Reload monthly expenses with staggered timing (non-blocking)
-            setTimeout(async () => {
-                try {
-                    await loadMonthlyExpenses();
-                } catch (error) {
-                    console.error('Error reloading monthly expenses:', error);
-                }
-            }, 200);
+            // Close modal properly
+            const modalElement = document.getElementById('expenseModal');
+            const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+            modal.hide();
+            
+            // Reload data after modal is closed
+            modalElement.addEventListener('hidden.bs.modal', function reloadHandler() {
+                loadMonthlyExpenses().catch(console.error);
+                modalElement.removeEventListener('hidden.bs.modal', reloadHandler);
+            });
             
         } else {
-            console.error('❌ Server Error:', result.error || 'Cannot save expense');
-            // Show error feedback on button instead of alert
-            const submitBtn = document.querySelector('#expenseModal .btn-primary');
-            if (submitBtn) {
-                const originalText = submitBtn.textContent;
-                submitBtn.textContent = '❌ Lỗi lưu';
-                submitBtn.classList.add('btn-danger');
-                submitBtn.classList.remove('btn-primary');
-                setTimeout(() => {
-                    submitBtn.textContent = originalText;
-                    submitBtn.classList.remove('btn-danger');
-                    submitBtn.classList.add('btn-primary');
-                }, 3000);
-            }
+            throw new Error(result.error || 'Cannot save expense');
         }
+        
     } catch (error) {
-        console.error('❌ Network/API Error adding expense:', error);
-        // Show network error feedback on button instead of alert
-        const submitBtn = document.querySelector('#expenseModal .btn-primary');
+        console.error('❌ Error adding expense:', error);
         if (submitBtn) {
-            const originalText = submitBtn.textContent;
-            submitBtn.textContent = '🌐 Lỗi kết nối';
-            submitBtn.classList.add('btn-secondary');
-            submitBtn.classList.remove('btn-primary');
+            submitBtn.innerHTML = '❌ Lỗi - Thử lại';
+            submitBtn.className = 'btn btn-danger';
+        }
+    } finally {
+        // Reset button after 2 seconds
+        if (submitBtn) {
             setTimeout(() => {
-                submitBtn.textContent = originalText;
-                submitBtn.classList.remove('btn-secondary');
-                submitBtn.classList.add('btn-primary');
-            }, 3000);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Lưu Chi Phí';
+                submitBtn.className = 'btn btn-primary';
+            }, 2000);
         }
     }
 }
