@@ -3028,13 +3028,12 @@ async function saveExpenseEdit(expenseId) {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang lưu...';
     
     try {
-        const response = await fetch('/api/expenses/edit', {
+        const response = await fetch(`/api/expenses/${expenseId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                expense_id: expenseId,
                 description: description,
                 amount: parseFloat(amount),
                 date: date
@@ -3072,14 +3071,11 @@ async function deleteExpense(expenseId) {
     }
     
     try {
-        const response = await fetch('/api/expenses/delete', {
+        const response = await fetch(`/api/expenses/${expenseId}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                expense_id: expenseId
-            })
+            }
         });
         
         const result = await response.json();
