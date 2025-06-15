@@ -201,6 +201,9 @@
                             <i class="fas fa-plane-arrival me-1"></i>📜 Khách Đến ({{ arrival_notifications|length }})
                         </h6>
                         <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-light btn-sm px-2" onclick="copyArrivalTaxiMessage('Khách')" title="Copy taxi message">
+                                <i class="fas fa-copy"></i>
+                            </button>
                             <button class="btn btn-light btn-sm px-2" onclick="editDefaultArrivalTime()" title="Chỉnh thời gian">
                                 <i class="fas fa-clock"></i>
                             </button>
@@ -228,6 +231,9 @@
                                 <div class="text-end">
                                     <button class="btn btn-sm btn-outline-success px-1 mb-1" onclick="copyPaymentMessage('{{ notification.guest_name }}', {{ notification.total_amount|float }}, {{ notification['Hoa hồng']|default(0)|float }})" title="Copy payment message">
                                         <i class="fas fa-dollar-sign"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary px-1 mb-1" onclick="copyArrivalTaxiMessage('{{ notification.guest_name }}')" title="Copy taxi message">
+                                        <i class="fas fa-copy"></i>
                                     </button>
                                     <div class="small fw-bold text-success">{{ "{:,.0f}".format(notification.total_amount|float) }}đ</div>
                                     <div class="text-muted" style="font-size: 10px;">{{ notification.booking_id }}</div>
@@ -1827,6 +1833,8 @@ function saveQuickNote() {
         return;
     }
     
+    const isEditing = !!editId;
+    
     const noteData = {
         id: editId || Date.now().toString(),
         type: noteType,
@@ -1837,8 +1845,6 @@ function saveQuickNote() {
         completed: false, // Explicitly set as not completed
         created_at: new Date().toISOString()
     };
-    
-    const isEditing = !!editId;
     
     // Save to localStorage
     let savedNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
@@ -2325,6 +2331,45 @@ function fallbackCopy(text, guestName) {
     } catch (err) {
         console.error('Fallback copy failed:', err);
         alert(`Tin nhắn taxi cho ${guestName}:\n\n${text}`);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+function copyArrivalTaxiMessage(guestName) {
+    // Arrival taxi message template with custom content
+    const message = `Hi ${guestName}, Have you arranged transportation from the airport yet? I have a driver who offers cheap taxi rates. Would you like me to book it for you? If you'd like to confirm the booking, kindly let me know. It's only 280,000 VND. That's cheaper than usual because I have my own driver ready available at the airport. You're welcome to check normal prices and compare. Please feel free to message me if you need anything, and I'll arrange a driver for you right at the airport.`;
+    
+    // Copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(message).then(() => {
+            showDashboardToast(`🚕 Đã copy tin nhắn taxi đón sân bay cho ${guestName}!`, 'success');
+        }).catch(err => {
+            console.error('Failed to copy arrival taxi message:', err);
+            // Fallback method
+            fallbackCopyArrivalTaxi(message, guestName);
+        });
+    } else {
+        // Fallback for older browsers
+        fallbackCopyArrivalTaxi(message, guestName);
+    }
+}
+
+function fallbackCopyArrivalTaxi(text, guestName) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        showDashboardToast(`🚕 Đã copy tin nhắn taxi đón sân bay cho ${guestName}!`, 'success');
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        alert(`Tin nhắn taxi đón sân bay cho ${guestName}:\n\n${text}`);
     }
     
     document.body.removeChild(textArea);
