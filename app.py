@@ -347,18 +347,62 @@ def view_bookings():
                          filtered_count=len(filtered_booking_ids))
 
 @app.route('/calendar/')
-def calendar_view():
-    """Revenue Calendar - shows daily totals"""
+@app.route('/calendar/<int:year>/<int:month>')
+def calendar_view(year=None, month=None):
+    """Monthly Calendar with Revenue Totals"""
     try:
+        today = datetime.today()
+        if year is None or month is None:
+            return redirect(url_for('calendar_view', year=today.year, month=today.month))
+        
+        current_month_start = datetime(year, month, 1)
+        prev_month_date = (current_month_start.replace(day=1) - timedelta(days=1)).replace(day=1)
+        next_month_date = (current_month_start.replace(day=1) + timedelta(days=32)).replace(day=1)
+
         df, _ = load_data()
         
-        # Get daily totals using the function from dashboard_routes
+        # Get daily totals for revenue information
         from dashboard_routes import get_daily_totals
         daily_totals = get_daily_totals(df)
         
+        # Create a mapping of date to revenue total
+        revenue_by_date = {}
+        for day_data in daily_totals:
+            if day_data.get('date'):
+                revenue_by_date[day_data['date']] = {
+                    'daily_total': day_data.get('daily_total', 0),
+                    'guest_count': day_data.get('guest_count', 0)
+                }
+        
+        # Build calendar matrix
+        month_matrix = calendar.monthcalendar(year, month)
+        calendar_data = []
+        
+        for week in month_matrix:
+            week_data = []
+            for day in week:
+                if day != 0:
+                    current_date = datetime(year, month, day).date()
+                    date_str = current_date.strftime('%Y-%m-%d')
+                    
+                    # Get original booking info
+                    day_info = get_overall_calendar_day_info(current_date, df, TOTAL_HOTEL_CAPACITY)
+                    
+                    # Add revenue info if available
+                    revenue_info = revenue_by_date.get(current_date, {'daily_total': 0, 'guest_count': 0})
+                    
+                    week_data.append((current_date, date_str, day_info, revenue_info))
+                else:
+                    week_data.append((None, None, None, None))
+            calendar_data.append(week_data)
+
         return render_template(
             'calendar.html',
-            daily_totals=daily_totals
+            calendar_data=calendar_data,
+            current_month=current_month_start,
+            prev_month=prev_month_date,
+            next_month=next_month_date,
+            today=today.date()
         )
     except Exception as e:
         print(f"Calendar error: {e}")
