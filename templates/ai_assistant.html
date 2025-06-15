@@ -3520,16 +3520,15 @@
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang cập nhật...';
         
         try {
-            const response = await fetch('/api/templates/edit', {
+            const response = await fetch(`/api/templates/${templateId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    template_id: templateId,
-                    category: category,
-                    label: label,
-                    message: message
+                    Category: category,
+                    Label: label,
+                    Message: message
                 })
             });
             
@@ -3565,7 +3564,7 @@
         }
         
         try {
-            const response = await fetch('/api/templates/delete', {
+            const response = await fetch(`/api/templates/${templateId}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',

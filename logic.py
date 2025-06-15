@@ -1981,16 +1981,33 @@ def update_expense_in_sheet(expense_id: str, expense_data: dict) -> bool:
             print(f"❌ [DEBUG] Error accessing Expenses worksheet: {e}")
             return False
         
-        # Find the expense row by ID (assuming ID is row number for now)
+        # Find the expense row by created_at timestamp
         try:
-            row_num = int(expense_id) + 1  # +1 because sheets are 1-indexed
-            worksheet.update_cell(row_num, 1, expense_data['date'])
-            worksheet.update_cell(row_num, 2, expense_data['description'])
-            worksheet.update_cell(row_num, 3, expense_data['amount'])
-            if 'updated_at' in expense_data:
-                worksheet.update_cell(row_num, 4, expense_data['updated_at'])
+            all_records = worksheet.get_all_records()
+            target_row = None
             
-            print(f"✅ [DEBUG] Successfully updated expense at row {row_num}")
+            for i, record in enumerate(all_records):
+                record_created_at = record.get('created at', '') or record.get('Created At', '')
+                if record_created_at == expense_id:
+                    target_row = i + 2  # +2 because sheets are 1-indexed and header row
+                    break
+            
+            if target_row is None:
+                print(f"❌ [DEBUG] Expense with created_at '{expense_id}' not found")
+                return False
+            
+            # Update the found row
+            worksheet.update_cell(target_row, 1, expense_data['date'])
+            worksheet.update_cell(target_row, 2, expense_data['description'])
+            worksheet.update_cell(target_row, 3, expense_data['amount'])
+            if 'updated_at' in expense_data:
+                # Check if there's a 5th column for updated_at, if not, don't update
+                try:
+                    worksheet.update_cell(target_row, 5, expense_data['updated_at'])
+                except:
+                    pass  # Column doesn't exist, skip
+            
+            print(f"✅ [DEBUG] Successfully updated expense at row {target_row}")
             return True
             
         except Exception as e:
@@ -2034,12 +2051,25 @@ def delete_expense_from_sheet(expense_id: str) -> bool:
             print(f"❌ [DEBUG] Error accessing Expenses worksheet: {e}")
             return False
         
-        # Delete the expense row by ID (assuming ID is row number for now)
+        # Find and delete the expense row by created_at timestamp
         try:
-            row_num = int(expense_id) + 1  # +1 because sheets are 1-indexed
-            worksheet.delete_rows(row_num)
+            all_records = worksheet.get_all_records()
+            target_row = None
             
-            print(f"✅ [DEBUG] Successfully deleted expense at row {row_num}")
+            for i, record in enumerate(all_records):
+                record_created_at = record.get('created at', '') or record.get('Created At', '')
+                if record_created_at == expense_id:
+                    target_row = i + 2  # +2 because sheets are 1-indexed and header row
+                    break
+            
+            if target_row is None:
+                print(f"❌ [DEBUG] Expense with created_at '{expense_id}' not found")
+                return False
+            
+            # Delete the found row
+            worksheet.delete_rows(target_row)
+            
+            print(f"✅ [DEBUG] Successfully deleted expense at row {target_row}")
             return True
             
         except Exception as e:

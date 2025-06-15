@@ -1833,7 +1833,7 @@ function saveQuickNote() {
         content: noteContent,
         date: noteDate,
         time: noteTime,
-        guestName: '', // Add missing guestName field
+        guest_name: isEditing ? (document.getElementById('quickNotesForm').getAttribute('data-guest-name') || '') : '', // Use stored guest name for edits
         completed: false, // Explicitly set as not completed
         created_at: new Date().toISOString()
     };
@@ -1854,9 +1854,12 @@ function saveQuickNote() {
     }
     localStorage.setItem('quickNotes', JSON.stringify(savedNotes));
     
-    // Send to server
-    fetch('/api/quick_notes', {
-        method: 'POST',
+    // Send to server (different endpoints for create vs edit)
+    const apiUrl = isEditing ? `/api/quick_notes/${editId}` : '/api/quick_notes';
+    const method = isEditing ? 'PUT' : 'POST';
+    
+    fetch(apiUrl, {
+        method: method,
         headers: {
             'Content-Type': 'application/json'
         },
@@ -1940,6 +1943,10 @@ function editQuickNote(noteId, noteType, noteContent, noteDate, noteTime, guestN
     document.getElementById('noteDate').value = noteDate;
     document.getElementById('noteTime').value = noteTime;
     
+    // Store the guest name and edit ID in form attributes
+    document.getElementById('quickNotesForm').setAttribute('data-edit-id', noteId);
+    document.getElementById('quickNotesForm').setAttribute('data-guest-name', guestName || '');
+    
     // Set note type visually
     document.querySelectorAll('.note-type-btn').forEach(btn => {
         btn.classList.remove('active', 'btn-primary', 'btn-outline-success', 'btn-outline-danger', 'btn-outline-warning');
@@ -1952,9 +1959,6 @@ function editQuickNote(noteId, noteType, noteContent, noteDate, noteTime, guestN
             else if (noteType === 'taxi') btn.classList.add('btn-outline-warning');
         }
     });
-    
-    // Store the note ID for editing
-    document.getElementById('quickNotesForm').setAttribute('data-edit-id', noteId);
     
     // Change modal title
     document.getElementById('quickNotesModalLabel').innerHTML = '<i class="fas fa-edit me-2"></i>Sửa Quick Note';
@@ -2013,6 +2017,7 @@ document.getElementById('quickNotesModal').addEventListener('hidden.bs.modal', f
     // Reset form
     document.getElementById('quickNotesForm').reset();
     document.getElementById('quickNotesForm').removeAttribute('data-edit-id');
+    document.getElementById('quickNotesForm').removeAttribute('data-guest-name');
     
     // Reset modal title
     document.getElementById('quickNotesModalLabel').innerHTML = '<i class="fas fa-sticky-note me-2"></i>Tạo Quick Note';
@@ -2604,7 +2609,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     <div class="mb-3">
                         <label for="expenseAmount" class="form-label">Số tiền</label>
                         <div class="input-group">
-                            <input type="number" class="form-control" id="expenseAmount" placeholder="100000" step="1000" required>
+                            <input type="number" class="form-control" id="expenseAmount" placeholder="100000" step="any" required>
                             <span class="input-group-text">đ</span>
                         </div>
                     </div>
@@ -2981,7 +2986,7 @@ function editExpense(expenseId, currentDescription, currentAmount, currentDate) 
                         <div class="mb-3">
                             <label for="editExpenseAmount" class="form-label">Số tiền</label>
                             <div class="input-group">
-                                <input type="number" class="form-control" id="editExpenseAmount" value="${currentAmount}" step="1000" required>
+                                <input type="number" class="form-control" id="editExpenseAmount" value="${currentAmount}" step="any" required>
                                 <span class="input-group-text">đ</span>
                             </div>
                         </div>
