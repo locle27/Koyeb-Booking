@@ -3031,8 +3031,14 @@
                                                 <button class="btn btn-sm btn-primary me-1" onclick="useTemplateFromTab('${template.id}')" title="Sử dụng template">
                                                     <i class="fas fa-paper-plane"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-secondary" onclick="copyTemplateFromTab('${template.id}')" title="Copy nội dung">
+                                                <button class="btn btn-sm btn-outline-secondary me-1" onclick="copyTemplateFromTab('${template.id}')" title="Copy nội dung">
                                                     <i class="fas fa-copy"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning me-1" onclick="editTemplate('${template.id}', '${template.category}', '${template.label}', '${template.content.replace(/'/g, "\\'")}', '${template.usage || ""}')" title="Sửa template">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteTemplate('${template.id}', '${template.label}')" title="Xóa template">
+                                                    <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
                                         </div>
@@ -3443,6 +3449,147 @@
             showError('❌ Lỗi khi thêm mẫu tin nhắn: ' + error.message);
         } finally {
             showLoading(false);
+        }
+    }
+    
+    // Edit template function
+    async function editTemplate(templateId, currentCategory, currentLabel, currentContent, currentUsage) {
+        // Show loading and populate edit modal
+        const editModal = document.createElement('div');
+        editModal.className = 'modal fade';
+        editModal.id = 'editTemplateModal';
+        editModal.innerHTML = `
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title text-dark">
+                            <i class="fas fa-edit me-2"></i>Sửa Mẫu Tin Nhắn
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editTemplateForm">
+                            <div class="mb-3">
+                                <label for="editTemplateCategory" class="form-label">Danh mục</label>
+                                <input type="text" class="form-control" id="editTemplateCategory" value="${currentCategory}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editTemplateLabel" class="form-label">Nhãn</label>
+                                <input type="text" class="form-control" id="editTemplateLabel" value="${currentLabel}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editTemplateMessage" class="form-label">Nội dung tin nhắn</label>
+                                <textarea class="form-control" id="editTemplateMessage" rows="6" required>${currentContent}</textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="button" class="btn btn-warning" onclick="saveTemplateEdit('${templateId}')">
+                            <i class="fas fa-save me-1"></i>Cập nhật Template
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(editModal);
+        const modal = new bootstrap.Modal(editModal);
+        modal.show();
+        
+        // Clean up modal when hidden
+        editModal.addEventListener('hidden.bs.modal', function() {
+            document.body.removeChild(editModal);
+        });
+    }
+    
+    // Save template edit
+    async function saveTemplateEdit(templateId) {
+        const category = document.getElementById('editTemplateCategory').value.trim();
+        const label = document.getElementById('editTemplateLabel').value.trim();
+        const message = document.getElementById('editTemplateMessage').value.trim();
+        
+        if (!category || !label || !message) {
+            alert('⚠️ Vui lòng điền đầy đủ thông tin');
+            return;
+        }
+        
+        const submitBtn = document.querySelector('#editTemplateModal .btn-warning');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang cập nhật...';
+        
+        try {
+            const response = await fetch('/api/templates/edit', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    template_id: templateId,
+                    category: category,
+                    label: label,
+                    message: message
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showSuccess('✅ Đã cập nhật template thành công!');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editTemplateModal'));
+                modal.hide();
+                
+                // Refresh templates
+                templates = []; // Clear cache
+                isTemplatesLoaded = false;
+                await autoImportAndLoadTemplates();
+            } else {
+                throw new Error(result.message || 'Lỗi không xác định');
+            }
+        } catch (error) {
+            console.error('Error editing template:', error);
+            showError('❌ Lỗi cập nhật template: ' + error.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+    
+    // Delete template function
+    async function deleteTemplate(templateId, templateLabel) {
+        if (!confirm(`❌ Bạn có chắc muốn xóa template "${templateLabel}"?\n\nHành động này không thể hoàn tác!`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/templates/delete', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    template_id: templateId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showSuccess('🗑️ Đã xóa template thành công!');
+                
+                // Refresh templates
+                templates = []; // Clear cache
+                isTemplatesLoaded = false;
+                await autoImportAndLoadTemplates();
+            } else {
+                throw new Error(result.message || 'Lỗi không xác định');
+            }
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            showError('❌ Lỗi xóa template: ' + error.message);
         }
     }
     

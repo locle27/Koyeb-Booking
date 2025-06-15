@@ -1948,3 +1948,179 @@ def get_expenses_from_sheet() -> List[dict]:
         import traceback
         traceback.print_exc()
         return []
+
+def update_expense_in_sheet(expense_id: str, expense_data: dict) -> bool:
+    """Update an existing expense in the Expenses tab in Google Sheets
+    
+    Args:
+        expense_id: The ID of the expense to update (row number or unique identifier)
+        expense_data: Dictionary containing updated expense details
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        import os
+        
+        print(f"🔍 [DEBUG] Starting update_expense_in_sheet for ID: {expense_id}")
+        
+        # Get credentials and sheet configuration
+        gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
+        sheet_id = os.getenv('DEFAULT_SHEET_ID')
+        
+        if not sheet_id:
+            print("❌ DEFAULT_SHEET_ID not found in environment variables")
+            return False
+        
+        # Get Google Sheets client
+        try:
+            gc = _get_gspread_client(gcp_creds_file_path)
+            spreadsheet = gc.open_by_key(sheet_id)
+            worksheet = spreadsheet.worksheet('Expenses')
+        except Exception as e:
+            print(f"❌ [DEBUG] Error accessing Expenses worksheet: {e}")
+            return False
+        
+        # Find the expense row by ID (assuming ID is row number for now)
+        try:
+            row_num = int(expense_id) + 1  # +1 because sheets are 1-indexed
+            worksheet.update_cell(row_num, 1, expense_data['date'])
+            worksheet.update_cell(row_num, 2, expense_data['description'])
+            worksheet.update_cell(row_num, 3, expense_data['amount'])
+            if 'updated_at' in expense_data:
+                worksheet.update_cell(row_num, 4, expense_data['updated_at'])
+            
+            print(f"✅ [DEBUG] Successfully updated expense at row {row_num}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ [DEBUG] Error updating expense: {e}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error updating expense in sheet: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def delete_expense_from_sheet(expense_id: str) -> bool:
+    """Delete an expense from the Expenses tab in Google Sheets
+    
+    Args:
+        expense_id: The ID of the expense to delete (row number or unique identifier)
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        import os
+        
+        print(f"🔍 [DEBUG] Starting delete_expense_from_sheet for ID: {expense_id}")
+        
+        # Get credentials and sheet configuration
+        gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
+        sheet_id = os.getenv('DEFAULT_SHEET_ID')
+        
+        if not sheet_id:
+            print("❌ DEFAULT_SHEET_ID not found in environment variables")
+            return False
+        
+        # Get Google Sheets client
+        try:
+            gc = _get_gspread_client(gcp_creds_file_path)
+            spreadsheet = gc.open_by_key(sheet_id)
+            worksheet = spreadsheet.worksheet('Expenses')
+        except Exception as e:
+            print(f"❌ [DEBUG] Error accessing Expenses worksheet: {e}")
+            return False
+        
+        # Delete the expense row by ID (assuming ID is row number for now)
+        try:
+            row_num = int(expense_id) + 1  # +1 because sheets are 1-indexed
+            worksheet.delete_rows(row_num)
+            
+            print(f"✅ [DEBUG] Successfully deleted expense at row {row_num}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ [DEBUG] Error deleting expense: {e}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error deleting expense from sheet: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def update_quick_note_in_sheet(note_id: str, note_data: dict) -> bool:
+    """Update an existing quick note in the QuickNotes tab in Google Sheets
+    
+    Args:
+        note_id: The ID of the note to update
+        note_data: Dictionary containing updated note details
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        import os
+        
+        print(f"🔍 [DEBUG] Starting update_quick_note_in_sheet for ID: {note_id}")
+        
+        # Get credentials and sheet configuration
+        gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
+        sheet_id = os.getenv('DEFAULT_SHEET_ID')
+        
+        if not sheet_id:
+            print("❌ DEFAULT_SHEET_ID not found in environment variables")
+            return False
+        
+        # Get Google Sheets client
+        try:
+            gc = _get_gspread_client(gcp_creds_file_path)
+            spreadsheet = gc.open_by_key(sheet_id)
+            
+            # Try to get QuickNotes worksheet
+            try:
+                worksheet = spreadsheet.worksheet('QuickNotes')
+            except:
+                print("❌ QuickNotes worksheet not found")
+                return False
+                
+        except Exception as e:
+            print(f"❌ [DEBUG] Error accessing QuickNotes worksheet: {e}")
+            return False
+        
+        # Find and update the note
+        try:
+            # Get all records to find the note
+            records = worksheet.get_all_records()
+            
+            for i, record in enumerate(records):
+                if str(record.get('id', i)) == str(note_id):
+                    row_num = i + 2  # +2 because sheets are 1-indexed and header row
+                    
+                    # Update the note data
+                    worksheet.update_cell(row_num, 1, note_data['type'])
+                    worksheet.update_cell(row_num, 2, note_data['content'])
+                    worksheet.update_cell(row_num, 3, note_data['guest_name'])
+                    worksheet.update_cell(row_num, 4, note_data['date'])
+                    worksheet.update_cell(row_num, 5, note_data['time'])
+                    if 'updated_at' in note_data:
+                        worksheet.update_cell(row_num, 6, note_data['updated_at'])
+                    
+                    print(f"✅ [DEBUG] Successfully updated quick note at row {row_num}")
+                    return True
+            
+            print(f"❌ [DEBUG] Quick note with ID {note_id} not found")
+            return False
+            
+        except Exception as e:
+            print(f"❌ [DEBUG] Error updating quick note: {e}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error updating quick note in sheet: {e}")
+        import traceback
+        traceback.print_exc()
+        return False

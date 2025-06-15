@@ -1218,6 +1218,311 @@ def manage_expenses():
                 'error': f'Server error: {str(e)}'
             }), 500
 
+@app.route('/api/expenses/<expense_id>', methods=['PUT'])
+def edit_expense(expense_id):
+    """API endpoint to edit an existing expense"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Validate required fields
+        required_fields = ['description', 'amount', 'date']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }), 400
+        
+        # Prepare updated expense data
+        expense_data = {
+            'date': data['date'],
+            'description': data['description'],
+            'amount': float(data['amount']),
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # Update expense in Google Sheets
+        from logic import update_expense_in_sheet
+        success = update_expense_in_sheet(expense_id, expense_data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Expense updated successfully',
+                'expense_id': expense_id
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to update expense in Google Sheets'
+            }), 500
+            
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': f'Invalid data format: {str(e)}'
+        }), 400
+    except Exception as e:
+        print(f"[EDIT_EXPENSE] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+@app.route('/api/expenses/<expense_id>', methods=['DELETE'])
+def delete_expense(expense_id):
+    """API endpoint to delete an expense"""
+    try:
+        # Delete expense from Google Sheets
+        from logic import delete_expense_from_sheet
+        success = delete_expense_from_sheet(expense_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Expense deleted successfully',
+                'expense_id': expense_id
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to delete expense from Google Sheets'
+            }), 500
+            
+    except Exception as e:
+        print(f"[DELETE_EXPENSE] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+@app.route('/api/templates/<template_id>', methods=['PUT'])
+def edit_template(template_id):
+    """API endpoint to edit an existing template"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Validate required fields
+        required_fields = ['Category', 'Label', 'Message']
+        for field in required_fields:
+            if field not in data or not data[field].strip():
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }), 400
+        
+        # Read current templates from Google Sheets
+        try:
+            templates = import_message_templates_from_gsheet(
+                sheet_id=DEFAULT_SHEET_ID,
+                gcp_creds_file_path=GCP_CREDS_FILE_PATH
+            )
+        except Exception as e:
+            print(f"Error reading Google Sheets, using JSON file: {e}")
+            templates_path = BASE_DIR / 'message_templates.json'
+            try:
+                with open(templates_path, 'r', encoding='utf-8') as f:
+                    templates = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                return jsonify({
+                    'success': False,
+                    'error': 'Cannot read templates data'
+                }), 500
+        
+        # Find and update the template
+        template_index = None
+        for i, template in enumerate(templates):
+            if str(template.get('id', i)) == str(template_id):
+                template_index = i
+                break
+        
+        if template_index is None:
+            return jsonify({
+                'success': False,
+                'error': 'Template not found'
+            }), 404
+        
+        # Update template
+        templates[template_index].update({
+            'Category': data['Category'].strip(),
+            'Label': data['Label'].strip(),
+            'Message': data['Message'].strip()
+        })
+        
+        # Sync with Google Sheets
+        try:
+            export_message_templates_to_gsheet(templates, DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH)
+            sheets_sync = " - Google Sheets OK"
+        except Exception as export_error:
+            print(f"Export Google Sheets error: {export_error}")
+            sheets_sync = " - Google Sheets ERROR"
+        
+        # Update JSON backup
+        try:
+            templates_path = BASE_DIR / 'message_templates.json'
+            with open(templates_path, 'w', encoding='utf-8') as f:
+                json.dump(templates, f, ensure_ascii=False, indent=4)
+            json_sync = " - JSON backup OK"
+        except Exception as json_error:
+            print(f"JSON backup error: {json_error}")
+            json_sync = " - JSON backup ERROR"
+        
+        return jsonify({
+            'success': True,
+            'message': f'Template updated successfully! Sync:{sheets_sync}{json_sync}',
+            'template_id': template_id
+        })
+        
+    except Exception as e:
+        print(f"[EDIT_TEMPLATE] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+@app.route('/api/templates/<template_id>', methods=['DELETE'])
+def delete_template(template_id):
+    """API endpoint to delete a template"""
+    try:
+        # Read current templates from Google Sheets
+        try:
+            templates = import_message_templates_from_gsheet(
+                sheet_id=DEFAULT_SHEET_ID,
+                gcp_creds_file_path=GCP_CREDS_FILE_PATH
+            )
+        except Exception as e:
+            print(f"Error reading Google Sheets, using JSON file: {e}")
+            templates_path = BASE_DIR / 'message_templates.json'
+            try:
+                with open(templates_path, 'r', encoding='utf-8') as f:
+                    templates = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                return jsonify({
+                    'success': False,
+                    'error': 'Cannot read templates data'
+                }), 500
+        
+        # Find and remove the template
+        template_index = None
+        for i, template in enumerate(templates):
+            if str(template.get('id', i)) == str(template_id):
+                template_index = i
+                break
+        
+        if template_index is None:
+            return jsonify({
+                'success': False,
+                'error': 'Template not found'
+            }), 404
+        
+        # Remove template
+        deleted_template = templates.pop(template_index)
+        
+        # Sync with Google Sheets
+        try:
+            export_message_templates_to_gsheet(templates, DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH)
+            sheets_sync = " - Google Sheets OK"
+        except Exception as export_error:
+            print(f"Export Google Sheets error: {export_error}")
+            sheets_sync = " - Google Sheets ERROR"
+        
+        # Update JSON backup
+        try:
+            templates_path = BASE_DIR / 'message_templates.json'
+            with open(templates_path, 'w', encoding='utf-8') as f:
+                json.dump(templates, f, ensure_ascii=False, indent=4)
+            json_sync = " - JSON backup OK"
+        except Exception as json_error:
+            print(f"JSON backup error: {json_error}")
+            json_sync = " - JSON backup ERROR"
+        
+        return jsonify({
+            'success': True,
+            'message': f'Template deleted successfully! Sync:{sheets_sync}{json_sync}',
+            'template_id': template_id,
+            'deleted_template': deleted_template
+        })
+        
+    except Exception as e:
+        print(f"[DELETE_TEMPLATE] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+@app.route('/api/quick_notes/<note_id>', methods=['PUT'])
+def edit_quick_note(note_id):
+    """API endpoint to edit an existing quick note"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Validate required fields
+        required_fields = ['type', 'content', 'guest_name']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }), 400
+        
+        # Prepare updated note data
+        note_data = {
+            'type': data['type'],
+            'content': data['content'],
+            'guest_name': data['guest_name'],
+            'date': data.get('date', datetime.now().strftime('%Y-%m-%d')),
+            'time': data.get('time', datetime.now().strftime('%H:%M')),
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # Update quick note in Google Sheets
+        from logic import update_quick_note_in_sheet
+        success = update_quick_note_in_sheet(note_id, note_data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Quick note updated successfully',
+                'note_id': note_id
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to update quick note in Google Sheets'
+            }), 500
+            
+    except Exception as e:
+        print(f"[EDIT_QUICK_NOTE] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}'
+        }), 500
+
 @app.route('/voice_translator')
 def voice_translator():
     """Trang Voice Translator - Dịch giọng nói"""

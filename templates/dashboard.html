@@ -1417,9 +1417,17 @@ function displayQuickNotes(notes, container) {
                                 <i class="${typeIcons[note.type]} text-${typeColors[note.type]} me-2"></i>
                                 <strong class="text-dark">${typeNames[note.type]}</strong>
                             </div>
-                            <button class="btn btn-success btn-sm" onclick="markNoteCompleted('${note.id}')" title="Hoàn thành và xóa note">
-                                <i class="fas fa-check"></i>
-                            </button>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-primary btn-sm" onclick="editQuickNote('${note.id}', '${note.type}', '${note.content.replace(/'/g, "\\'")}', '${note.date}', '${note.time}', '${note.guestName || ""}')" title="Sửa note">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-success btn-sm" onclick="markNoteCompleted('${note.id}')" title="Hoàn thành và xóa note">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteQuickNote('${note.id}')" title="Xóa note">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="bg-light rounded p-3 mb-3">
                             <p class="text-dark mb-0" style="font-size: 16px; line-height: 1.5; font-weight: 500;">${note.content}</p>
@@ -1801,27 +1809,26 @@ function saveQuickNote() {
     const noteContent = document.getElementById('noteContent').value;
     const noteDate = document.getElementById('noteDate').value;
     const noteTime = document.getElementById('noteTime').value;
+    const editId = document.getElementById('quickNotesForm').getAttribute('data-edit-id');
     
     if (!noteType || !noteContent || !noteDate || !noteTime) {
         console.log('❌ QuickNote validation failed: Missing required fields');
         // Show non-blocking error feedback
         const submitBtn = document.querySelector('#quickNotesModal .btn-primary');
         if (submitBtn) {
-            const originalText = submitBtn.textContent;
-            submitBtn.textContent = '⚠️ Thiếu thông tin';
-            submitBtn.classList.add('btn-warning');
-            submitBtn.classList.remove('btn-primary');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '⚠️ Thiếu thông tin';
+            submitBtn.className = 'btn btn-warning';
             setTimeout(() => {
-                submitBtn.textContent = originalText;
-                submitBtn.classList.remove('btn-warning');
-                submitBtn.classList.add('btn-primary');
+                submitBtn.innerHTML = originalText;
+                submitBtn.className = 'btn btn-primary';
             }, 2000);
         }
         return;
     }
     
     const noteData = {
-        id: Date.now().toString(),
+        id: editId || Date.now().toString(),
         type: noteType,
         content: noteContent,
         date: noteDate,
@@ -1831,9 +1838,20 @@ function saveQuickNote() {
         created_at: new Date().toISOString()
     };
     
+    const isEditing = !!editId;
+    
     // Save to localStorage
     let savedNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
-    savedNotes.unshift(noteData);
+    if (isEditing) {
+        // Update existing note
+        const noteIndex = savedNotes.findIndex(note => note.id === editId);
+        if (noteIndex !== -1) {
+            savedNotes[noteIndex] = noteData;
+        }
+    } else {
+        // Add new note
+        savedNotes.unshift(noteData);
+    }
     localStorage.setItem('quickNotes', JSON.stringify(savedNotes));
     
     // Send to server
@@ -1847,11 +1865,11 @@ function saveQuickNote() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('Note saved to Google Sheets successfully');
-            showDashboardToast('✅ Đã lưu quick note vào Google Sheets!', 'success');
+            console.log(`Note ${isEditing ? 'updated' : 'saved'} to Google Sheets successfully`);
+            showDashboardToast(`✅ Đã ${isEditing ? 'cập nhật' : 'lưu'} quick note vào Google Sheets!`, 'success');
         } else {
             console.error('Server save failed:', data.message);
-            showDashboardToast('⚠️ Đã lưu local, nhưng lỗi khi sync lên Google Sheets', 'warning');
+            showDashboardToast(`⚠️ Đã ${isEditing ? 'cập nhật' : 'lưu'} local, nhưng lỗi khi sync lên Google Sheets`, 'warning');
         }
     })
     .catch(error => {
@@ -1913,6 +1931,104 @@ function saveQuickNote() {
         }
     }, 150);
 }
+
+// Edit Quick Note function
+function editQuickNote(noteId, noteType, noteContent, noteDate, noteTime, guestName) {
+    // Populate the form with existing data
+    document.getElementById('noteType').value = noteType;
+    document.getElementById('noteContent').value = noteContent;
+    document.getElementById('noteDate').value = noteDate;
+    document.getElementById('noteTime').value = noteTime;
+    
+    // Set note type visually
+    document.querySelectorAll('.note-type-btn').forEach(btn => {
+        btn.classList.remove('active', 'btn-primary', 'btn-outline-success', 'btn-outline-danger', 'btn-outline-warning');
+        if (btn.getAttribute('onclick').includes(noteType)) {
+            btn.classList.add('active', 'btn-primary');
+        } else {
+            // Restore original colors
+            if (noteType === 'thu-tien') btn.classList.add('btn-outline-success');
+            else if (noteType === 'huy-phong') btn.classList.add('btn-outline-danger');
+            else if (noteType === 'taxi') btn.classList.add('btn-outline-warning');
+        }
+    });
+    
+    // Store the note ID for editing
+    document.getElementById('quickNotesForm').setAttribute('data-edit-id', noteId);
+    
+    // Change modal title
+    document.getElementById('quickNotesModalLabel').innerHTML = '<i class="fas fa-edit me-2"></i>Sửa Quick Note';
+    
+    // Change save button text
+    const saveBtn = document.querySelector('#quickNotesModal .btn-primary');
+    saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Cập nhật Note';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('quickNotesModal'));
+    modal.show();
+}
+
+// Delete Quick Note function
+async function deleteQuickNote(noteId) {
+    if (!confirm('❌ Bạn có chắc muốn xóa note này?\n\nHành động này không thể hoàn tác!')) {
+        return;
+    }
+    
+    try {
+        // Delete from server first
+        const response = await fetch(`/api/quick_notes/${noteId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Also delete from localStorage
+            let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+            notes = notes.filter(note => note.id !== noteId);
+            localStorage.setItem('quickNotes', JSON.stringify(notes));
+            
+            showDashboardToast('🗑️ Đã xóa note thành công!', 'success');
+            loadQuickNotesOnDashboard();
+        } else {
+            throw new Error(data.message || 'Server error');
+        }
+    } catch (error) {
+        console.error('Error deleting note:', error);
+        showDashboardToast('❌ Lỗi khi xóa note: ' + error.message, 'error');
+        
+        // Fallback to localStorage only
+        let notes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+        notes = notes.filter(note => note.id !== noteId);
+        localStorage.setItem('quickNotes', JSON.stringify(notes));
+        loadQuickNotesOnDashboard();
+    }
+}
+
+// Reset Quick Notes modal when closed
+document.getElementById('quickNotesModal').addEventListener('hidden.bs.modal', function() {
+    // Reset form
+    document.getElementById('quickNotesForm').reset();
+    document.getElementById('quickNotesForm').removeAttribute('data-edit-id');
+    
+    // Reset modal title
+    document.getElementById('quickNotesModalLabel').innerHTML = '<i class="fas fa-sticky-note me-2"></i>Tạo Quick Note';
+    
+    // Reset save button text
+    const saveBtn = document.querySelector('#quickNotesModal .btn-primary');
+    saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Lưu Quick Note';
+    
+    // Reset note type buttons
+    document.querySelectorAll('.note-type-btn').forEach(btn => {
+        btn.classList.remove('active', 'btn-primary');
+    });
+    
+    // Clear note type
+    document.getElementById('noteType').value = '';
+});
 
 function selectNoteType(type) {
     document.getElementById('noteType').value = type;
@@ -2783,7 +2899,7 @@ async function loadExpenseReview() {
                 reviewSummary.style.display = 'block';
                 
                 // Generate expense list
-                let html = '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Ngày</th><th>Nội dung</th><th class="text-end">Số tiền</th></tr></thead><tbody>';
+                let html = '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Ngày</th><th>Nội dung</th><th class="text-end">Số tiền</th><th class="text-center">Thao tác</th></tr></thead><tbody>';
                 
                 monthlyExpenses
                     .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by date desc
@@ -2796,6 +2912,16 @@ async function loadExpenseReview() {
                                 <td><small class="text-muted">${date}</small></td>
                                 <td>${expense.description || 'N/A'}</td>
                                 <td class="text-end text-danger fw-bold">-${amount.toLocaleString()}đ</td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-outline-primary btn-sm" onclick="editExpense('${expense.created_at}', '${expense.description}', ${expense.amount}, '${expense.date}')" title="Sửa">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-sm" onclick="deleteExpense('${expense.created_at}')" title="Xóa">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                         `;
                     });
@@ -2829,6 +2955,181 @@ async function loadExpenseReview() {
             </div>
         `;
     }
+}
+
+// Edit expense function
+function editExpense(expenseId, currentDescription, currentAmount, currentDate) {
+    // Create edit modal dynamically
+    const editModal = document.createElement('div');
+    editModal.className = 'modal fade';
+    editModal.id = 'editExpenseModal';
+    editModal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);">
+                    <h5 class="modal-title text-white">
+                        <i class="fas fa-edit me-2"></i>Sửa Chi Phí
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editExpenseForm">
+                        <div class="mb-3">
+                            <label for="editExpenseDescription" class="form-label">Nội dung chi phí</label>
+                            <input type="text" class="form-control" id="editExpenseDescription" value="${currentDescription}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editExpenseAmount" class="form-label">Số tiền</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="editExpenseAmount" value="${currentAmount}" step="1000" required>
+                                <span class="input-group-text">đ</span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editExpenseDate" class="form-label">Ngày</label>
+                            <input type="date" class="form-control" id="editExpenseDate" value="${currentDate}" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="saveExpenseEdit('${expenseId}')">
+                        <i class="fas fa-save me-1"></i>Lưu thay đổi
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(editModal);
+    const modal = new bootstrap.Modal(editModal);
+    modal.show();
+    
+    // Clean up modal when hidden
+    editModal.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(editModal);
+    });
+}
+
+// Save expense edit
+async function saveExpenseEdit(expenseId) {
+    const description = document.getElementById('editExpenseDescription').value.trim();
+    const amount = document.getElementById('editExpenseAmount').value;
+    const date = document.getElementById('editExpenseDate').value;
+    
+    if (!description || !amount || !date) {
+        alert('⚠️ Vui lòng điền đầy đủ thông tin');
+        return;
+    }
+    
+    const submitBtn = document.querySelector('#editExpenseModal .btn-primary');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang lưu...';
+    
+    try {
+        const response = await fetch('/api/expenses/edit', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                expense_id: expenseId,
+                description: description,
+                amount: parseFloat(amount),
+                date: date
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showExpenseToast('✅ Đã cập nhật chi phí thành công!', 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editExpenseModal'));
+            modal.hide();
+            
+            // Refresh expense review and monthly expenses
+            await loadExpenseReview();
+            await loadMonthlyExpenses();
+        } else {
+            throw new Error(result.message || 'Lỗi không xác định');
+        }
+    } catch (error) {
+        console.error('Error editing expense:', error);
+        showExpenseToast('❌ Lỗi cập nhật chi phí: ' + error.message, 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+}
+
+// Delete expense function
+async function deleteExpense(expenseId) {
+    if (!confirm('❌ Bạn có chắc muốn xóa chi phí này?\n\nHành động này không thể hoàn tác!')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/expenses/delete', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                expense_id: expenseId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showExpenseToast('🗑️ Đã xóa chi phí thành công!', 'success');
+            
+            // Refresh expense review and monthly expenses
+            await loadExpenseReview();
+            await loadMonthlyExpenses();
+        } else {
+            throw new Error(result.message || 'Lỗi không xác định');
+        }
+    } catch (error) {
+        console.error('Error deleting expense:', error);
+        showExpenseToast('❌ Lỗi xóa chi phí: ' + error.message, 'error');
+    }
+}
+
+// Helper function for expense toast notifications
+function showExpenseToast(message, type = 'success') {
+    const colors = {
+        success: 'bg-success',
+        error: 'bg-danger',
+        info: 'bg-info',
+        warning: 'bg-warning'
+    };
+    
+    const toast = document.createElement('div');
+    toast.className = `position-fixed top-0 end-0 m-3 p-3 ${colors[type]} text-white rounded shadow`;
+    toast.style.zIndex = '9999';
+    toast.style.minWidth = '300px';
+    toast.innerHTML = `
+        <div class="d-flex align-items-center">
+            <div class="flex-grow-1">${message}</div>
+            <button type="button" class="btn-close btn-close-white ms-2" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.style.transition = 'all 0.3s ease';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 4000);
 }
 
 </script>
