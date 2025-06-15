@@ -53,8 +53,24 @@ def process_dashboard_data(df, start_date, end_date, sort_by, sort_order, dashbo
     # Phát hiện ngày có quá nhiều khách
     overcrowded_days = detect_overcrowded_days(df)
     
-    # Tính tổng doanh thu theo ngày cho calendar
-    daily_totals = get_daily_totals(df)
+    # Tính tổng doanh thu theo ngày cho calendar (chia theo số đêm ở)
+    daily_revenue_by_stay = get_daily_revenue_by_stay(df)
+    
+    # Convert to daily_totals format for compatibility
+    daily_totals = []
+    for date, data in daily_revenue_by_stay.items():
+        today = datetime.today().date()
+        days_from_today = (date - today).days
+        
+        daily_totals.append({
+            'date': date,
+            'guest_count': data['guest_count'],
+            'daily_total': data['daily_total'],
+            'bookings': data['bookings'],
+            'days_from_today': days_from_today,
+            'is_today': days_from_today == 0,
+            'is_future': days_from_today > 0
+        })
     
     # Tạo biểu đồ pie chart cho người thu tiền
     collector_chart_data = create_collector_chart(dashboard_data)
@@ -428,6 +444,85 @@ def get_daily_totals(df):
         print(f"Get daily totals error: {e}")
     
     return daily_totals
+
+
+def get_daily_revenue_by_stay(df):
+    """Calculate daily revenue by dividing total booking amount by stay duration"""
+    daily_revenue = {}
+    
+    try:
+        if df.empty:
+            return daily_revenue
+            
+        today = datetime.today()
+        check_start = today - timedelta(days=30)  # 30 days ago
+        check_end = today + timedelta(days=60)    # 60 days ahead
+        
+        df_clean = df.copy()
+        
+        # Parse dates
+        df_clean['Check-in Date'] = pd.to_datetime(df_clean['Check-in Date'], errors='coerce', dayfirst=True)
+        df_clean['Check-out Date'] = pd.to_datetime(df_clean['Check-out Date'], errors='coerce', dayfirst=True)
+        
+        # Filter valid bookings
+        valid_bookings = df_clean[
+            (df_clean['Check-in Date'].notna()) &
+            (df_clean['Check-out Date'].notna()) &
+            (df_clean['Check-in Date'] >= pd.Timestamp(check_start)) &
+            (df_clean['Check-in Date'] <= pd.Timestamp(check_end)) &
+            (df_clean['Tình trạng'] != 'Đã hủy') &
+            (df_clean['Tổng thanh toán'].notna()) &
+            (df_clean['Tổng thanh toán'] > 0)
+        ].copy()
+        
+        if valid_bookings.empty:
+            return daily_revenue
+        
+        for _, booking in valid_bookings.iterrows():
+            checkin_date = booking['Check-in Date'].date()
+            checkout_date = booking['Check-out Date'].date()
+            total_amount = float(booking['Tổng thanh toán'])
+            
+            # Calculate number of nights
+            nights = (checkout_date - checkin_date).days
+            if nights <= 0:
+                nights = 1  # Minimum 1 night
+            
+            # Calculate daily rate
+            daily_rate = total_amount / nights
+            
+            # Add daily rate to each date in the stay
+            current_date = checkin_date
+            while current_date < checkout_date:
+                if current_date not in daily_revenue:
+                    daily_revenue[current_date] = {
+                        'daily_total': 0,
+                        'guest_count': 0,
+                        'bookings': []
+                    }
+                
+                daily_revenue[current_date]['daily_total'] += daily_rate
+                daily_revenue[current_date]['guest_count'] += 1
+                daily_revenue[current_date]['bookings'].append({
+                    'guest_name': booking.get('Tên người đặt', 'N/A'),
+                    'booking_id': booking.get('Số đặt phòng', 'N/A'),
+                    'daily_amount': daily_rate,
+                    'total_amount': total_amount,
+                    'nights': nights,
+                    'checkin': checkin_date,
+                    'checkout': checkout_date
+                })
+                
+                current_date += timedelta(days=1)
+        
+        print(f"✅ Calculated daily revenue for {len(daily_revenue)} dates")
+        
+    except Exception as e:
+        print(f"Error calculating daily revenue by stay: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return daily_revenue
 
 
 def create_collector_chart(dashboard_data):

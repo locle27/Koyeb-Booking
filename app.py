@@ -361,18 +361,9 @@ def calendar_view(year=None, month=None):
 
         df, _ = load_data()
         
-        # Get daily totals for revenue information
-        from dashboard_routes import get_daily_totals
-        daily_totals = get_daily_totals(df)
-        
-        # Create a mapping of date to revenue total
-        revenue_by_date = {}
-        for day_data in daily_totals:
-            if day_data.get('date'):
-                revenue_by_date[day_data['date']] = {
-                    'daily_total': day_data.get('daily_total', 0),
-                    'guest_count': day_data.get('guest_count', 0)
-                }
+        # Get daily revenue by stay duration (total/nights)
+        from dashboard_routes import get_daily_revenue_by_stay
+        revenue_by_date = get_daily_revenue_by_stay(df)
         
         # Build calendar matrix
         month_matrix = calendar.monthcalendar(year, month)
@@ -417,14 +408,26 @@ def calendar_details(date_str):
     except ValueError:
         flash("Định dạng ngày không hợp lệ.", "danger")
         return redirect(url_for('calendar_view'))
+    
     df, _ = load_data()
     activities = get_daily_activity(parsed_date, df)
+    
+    # Get daily revenue breakdown for this date
+    from dashboard_routes import get_daily_revenue_by_stay
+    daily_revenue = get_daily_revenue_by_stay(df)
+    day_revenue_info = daily_revenue.get(parsed_date, {
+        'daily_total': 0,
+        'guest_count': 0,
+        'bookings': []
+    })
+    
     return render_template('calendar_details.html',
                            date=parsed_date.strftime('%d/%m/%Y'),
                            check_in=activities.get('check_in', []),
                            check_out=activities.get('check_out', []),
                            staying_over=activities.get('staying_over', []),
-                           current_date=parsed_date)
+                           current_date=parsed_date,
+                           day_revenue_info=day_revenue_info)
     
 # Combined with add_booking route for unified experience
 
