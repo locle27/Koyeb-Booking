@@ -1917,12 +1917,18 @@ def get_expenses_from_sheet() -> List[dict]:
         expenses = []
         
         for record in records:
-            # Parse the expense data
+            # Parse the expense data - handle both 'Date' and 'created at' columns
+            date_value = record.get('Date', '') or record.get('created at', '') or record.get('Created At', '')
+            
+            # Extract just the date part if it's a full timestamp (YYYY-MM-DD HH:MM:SS)
+            if date_value and ' ' in date_value:
+                date_value = date_value.split(' ')[0]  # Take only YYYY-MM-DD part
+            
             expense = {
-                'date': record.get('Date', ''),
+                'date': date_value,
                 'description': record.get('Description', ''),
                 'amount': record.get('Amount', 0),
-                'created_at': record.get('Created At', '')
+                'created_at': record.get('created at', '') or record.get('Created At', '')
             }
             
             # Debug: Log each parsed expense
