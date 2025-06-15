@@ -1175,134 +1175,131 @@ function updateOverdueGuestsSummary(paidAmount) {
     }
 }
 
-// Update guest card amounts after editing
+// Update guest card amounts after editing (FIXED - Works with table structure)
 function updateGuestCardAmounts(bookingId, newRoomAmount, newTaxiAmount) {
-    const guestCards = document.querySelectorAll('.col-md-4');
+    // Calculate new total
+    const newTotal = newRoomAmount + newTaxiAmount;
     
-    guestCards.forEach(card => {
-        const bookingIdElement = card.querySelector('small.text-muted:last-child');
-        if (bookingIdElement && bookingIdElement.textContent.includes(bookingId)) {
-            // Find the amount display elements
-            const totalAmountElement = card.querySelector('.fw-bold.text-danger');
-            const roomAmountElement = card.querySelector('small.text-muted.d-block');
-            const taxiAmountElement = card.querySelector('small.text-info.d-block');
-            
-            // Calculate new total
-            const newTotal = newRoomAmount + newTaxiAmount;
-            
-            // Update total amount with animation
-            if (totalAmountElement) {
-                totalAmountElement.style.transition = 'all 0.3s ease';
-                totalAmountElement.style.transform = 'scale(1.1)';
-                totalAmountElement.style.color = '#28a745'; // Green for update
+    // Find the guest row in the overdue table
+    const overdueTable = document.querySelector('.table-responsive table tbody');
+    if (overdueTable) {
+        const rows = overdueTable.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            // Find booking ID in the row (it's in the text-muted div at the end)
+            const bookingIdText = row.querySelector('.text-muted');
+            if (bookingIdText && bookingIdText.textContent.includes(bookingId)) {
                 
-                setTimeout(() => {
-                    totalAmountElement.textContent = `${newTotal.toLocaleString()}đ`;
+                // Update the total amount display (fw-bold text-danger small)
+                const totalAmountElement = row.querySelector('.fw-bold.text-danger.small');
+                if (totalAmountElement) {
+                    // Add update animation
+                    totalAmountElement.style.transition = 'all 0.3s ease';
+                    totalAmountElement.style.transform = 'scale(1.1)';
+                    totalAmountElement.style.color = '#28a745'; // Green for update
                     
                     setTimeout(() => {
-                        totalAmountElement.style.transform = 'scale(1)';
-                        totalAmountElement.style.color = '#dc3545'; // Back to red
-                    }, 200);
-                }, 150);
-            }
-            
-            // Update room amount
-            if (roomAmountElement) {
-                roomAmountElement.textContent = `Phòng: ${newRoomAmount.toLocaleString()}đ`;
-            }
-            
-            // Update taxi amount (create or remove element as needed)
-            const existingTaxiElement = card.querySelector('small.text-info.d-block');
-            if (newTaxiAmount > 0) {
-                if (existingTaxiElement) {
-                    // Update existing taxi element
-                    existingTaxiElement.textContent = `Taxi: ${newTaxiAmount.toLocaleString()}đ`;
-                } else {
-                    // Create new taxi element
-                    const newTaxiElement = document.createElement('small');
-                    newTaxiElement.className = 'text-info d-block';
-                    newTaxiElement.textContent = `Taxi: ${newTaxiAmount.toLocaleString()}đ`;
-                    
-                    // Insert after room amount
-                    if (roomAmountElement && roomAmountElement.parentNode) {
-                        roomAmountElement.parentNode.insertBefore(newTaxiElement, roomAmountElement.nextSibling);
+                        totalAmountElement.textContent = `${newTotal.toLocaleString()}đ`;
+                        
+                        setTimeout(() => {
+                            totalAmountElement.style.transform = 'scale(1)';
+                            totalAmountElement.style.color = '#dc3545'; // Back to red
+                        }, 200);
+                    }, 150);
+                }
+                
+                // Update commission info if exists (shows in the same cell)
+                const commissionElement = row.querySelector('.text-muted .fas.fa-percentage');
+                if (commissionElement) {
+                    const commissionContainer = commissionElement.parentElement;
+                    // Keep existing commission or reset if needed
+                }
+                
+                // Update the collect button onclick handler
+                const collectButton = row.querySelector('button.btn-success');
+                if (collectButton) {
+                    const onclickAttr = collectButton.getAttribute('onclick');
+                    if (onclickAttr) {
+                        // Get guest name from the row
+                        const guestNameElement = row.querySelector('.fw-bold.text-dark.small');
+                        const guestName = guestNameElement ? guestNameElement.textContent : currentEditBookingData.guestName;
+                        
+                        // Update the onclick with new amounts
+                        const updatedOnclick = onclickAttr.replace(
+                            /openCollectModal\([^)]+\)/,
+                            `openCollectModal('${bookingId}', '${guestName}', ${newTotal}, 0, ${newRoomAmount}, ${newTaxiAmount})`
+                        );
+                        collectButton.setAttribute('onclick', updatedOnclick);
                     }
                 }
-            } else {
-                // Remove taxi element if amount is 0
-                if (existingTaxiElement) {
-                    existingTaxiElement.remove();
+                
+                // Update the edit button onclick handler
+                const editButton = row.querySelector('button.btn-outline-primary');
+                if (editButton) {
+                    const onclickAttr = editButton.getAttribute('onclick');
+                    if (onclickAttr) {
+                        // Get guest name from the row
+                        const guestNameElement = row.querySelector('.fw-bold.text-dark.small');
+                        const guestName = guestNameElement ? guestNameElement.textContent : currentEditBookingData.guestName;
+                        
+                        // Update the onclick with new amounts
+                        const updatedOnclick = onclickAttr.replace(
+                            /openEditAmountModal\([^)]+\)/,
+                            `openEditAmountModal('${bookingId}', '${guestName}', ${newRoomAmount}, ${newTaxiAmount})`
+                        );
+                        editButton.setAttribute('onclick', updatedOnclick);
+                    }
                 }
+                
+                console.log(`✅ Updated amounts for ${bookingId}: Room=${newRoomAmount}đ, Taxi=${newTaxiAmount}đ, Total=${newTotal}đ`);
             }
-            
-            // Update the onclick handlers for the buttons to use new amounts
-            const collectButton = card.querySelector('button.btn-success');
-            const editButton = card.querySelector('button.btn-outline-primary');
-            
-            if (collectButton) {
-                const onclickAttr = collectButton.getAttribute('onclick');
-                if (onclickAttr) {
-                    // Update the onclick with new amounts
-                    const updatedOnclick = onclickAttr.replace(
-                        /openCollectModal\([^)]+\)/,
-                        `openCollectModal('${bookingId}', '${currentEditBookingData.guestName}', ${newTotal}, 0, ${newRoomAmount}, ${newTaxiAmount})`
-                    );
-                    collectButton.setAttribute('onclick', updatedOnclick);
-                }
-            }
-            
-            if (editButton) {
-                const onclickAttr = editButton.getAttribute('onclick');
-                if (onclickAttr) {
-                    // Update the onclick with new amounts
-                    const updatedOnclick = onclickAttr.replace(
-                        /openEditAmountModal\([^)]+\)/,
-                        `openEditAmountModal('${bookingId}', '${currentEditBookingData.guestName}', ${newRoomAmount}, ${newTaxiAmount})`
-                    );
-                    editButton.setAttribute('onclick', updatedOnclick);
-                }
-            }
-            
-            // Show success feedback
-            showDashboardToast(`📝 Đã cập nhật số tiền cho ${currentEditBookingData.guestName}`, 'success');
-        }
-    });
+        });
+    }
     
-    // Update the overdue total summary as well
+    // Update the overdue total summary
     setTimeout(() => {
-        // Force refresh the overdue total by recalculating from visible cards
         recalculateOverdueTotal();
     }, 400);
+    
+    // Show success feedback
+    showDashboardToast(`📝 Đã cập nhật số tiền cho ${currentEditBookingData.guestName}`, 'success');
 }
 
-// Recalculate total overdue amount from visible cards
+// Recalculate total overdue amount from table rows (FIXED)
 function recalculateOverdueTotal() {
-    const visibleCards = document.querySelectorAll('.col-md-4:not([style*="display: none"])');
+    const overdueTable = document.querySelector('.table-responsive table tbody');
     let totalAmount = 0;
     let totalGuests = 0;
     
-    visibleCards.forEach(card => {
-        const amountElement = card.querySelector('.fw-bold.text-danger');
-        if (amountElement) {
-            const amountText = amountElement.textContent.replace(/[^\d]/g, '');
-            const amount = parseInt(amountText) || 0;
-            if (amount > 0) {
-                totalAmount += amount;
-                totalGuests++;
+    if (overdueTable) {
+        const rows = overdueTable.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            const amountElement = row.querySelector('.fw-bold.text-danger.small');
+            if (amountElement) {
+                const amountText = amountElement.textContent.replace(/[^\d]/g, '');
+                const amount = parseInt(amountText) || 0;
+                if (amount > 0) {
+                    totalAmount += amount;
+                    totalGuests++;
+                }
             }
-        }
-    });
-    
-    // Update the header total
-    const totalAmountElement = document.querySelector('.alert-danger .h5');
-    if (totalAmountElement) {
-        totalAmountElement.textContent = `${totalAmount.toLocaleString()}đ`;
+        });
     }
     
-    // Update guest count
-    const guestCountElement = document.querySelector('.alert-danger p');
-    if (guestCountElement) {
-        guestCountElement.textContent = `${totalGuests} khách đã check-in nhưng chưa thu tiền`;
+    // Update the header total (in the overdue section header)
+    const headerTotalElement = document.querySelector('.card.border-0.shadow-sm .text-white.text-end .fw-bold');
+    if (headerTotalElement) {
+        headerTotalElement.textContent = `${totalAmount.toLocaleString()}đ`;
+        console.log(`📊 Updated overdue total: ${totalAmount.toLocaleString()}đ for ${totalGuests} guests`);
+    }
+    
+    // Update the guest count in the header title
+    const titleElement = document.querySelector('.card.border-0.shadow-sm h6 .text-white.fw-bold');
+    if (titleElement) {
+        const currentText = titleElement.textContent;
+        const updatedText = currentText.replace(/\(\d+\)/, `(${totalGuests})`);
+        titleElement.textContent = updatedText;
     }
 }
 
