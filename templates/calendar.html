@@ -1,601 +1,272 @@
 {% extends "base.html" %}
 
-{% block title %}Lịch Đặt Phòng{% endblock %}
+{% block title %}Lịch Doanh Thu - Hotel Management{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-3 mt-3">
-    <div class="row">
-        <div class="col-12">
-            <!-- Header với navigation -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <a href="{{ url_for('calendar_view', year=prev_month.year, month=prev_month.month) }}" 
-                   class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-chevron-left"></i> Tháng {{ prev_month.month }}
-                </a>
-                <h3 class="mb-0 text-primary">
-                    📅 Lịch Đặt Phòng - Tháng {{ current_month.month }}/{{ current_month.year }}
-                </h3>
-                <a href="{{ url_for('calendar_view', year=next_month.year, month=next_month.month) }}" 
-                   class="btn btn-outline-primary btn-sm">
-                    Tháng {{ next_month.month }} <i class="fas fa-chevron-right"></i>
-                </a>
-            </div>
+<div class="container-fluid px-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-calendar-alt me-2 text-primary"></i>📅 Lịch Doanh Thu
+            </h1>
+            <p class="text-muted mb-0">Theo dõi doanh thu theo ngày check-in</p>
+        </div>
+        <div class="text-end">
+            <button class="btn btn-primary" onclick="window.location.reload()">
+                <i class="fas fa-sync-alt me-1"></i>Làm mới
+            </button>
+        </div>
+    </div>
 
-            <!-- Legend -->
-            <div class="d-flex justify-content-center mb-3">
-                <div class="legend d-flex gap-3">
-                    <span class="legend-item">
-                        <span class="legend-color bg-danger"></span> Hết phòng
-                    </span>
-                    <span class="legend-item">
-                        <span class="legend-color bg-primary"></span> Có khách
-                    </span>
-                    <span class="legend-item">
-                        <span class="legend-color bg-warning"></span> Trống
-                    </span>
-                    <span class="legend-item">
-                        <span class="legend-color bg-light border"></span> Không có dữ liệu
-                    </span>
+    <!-- Calendar Container -->
+    <div class="calendar-container mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="text-white mb-0">
+                <i class="fas fa-coins me-2"></i>Doanh Thu Theo Ngày
+            </h4>
+            <div class="text-white">
+                <small>{{ daily_totals|length if daily_totals else 0 }} ngày</small>
+            </div>
+        </div>
+
+        {% if daily_totals and daily_totals|length > 0 %}
+        <div class="calendar-grid">
+            {% for day in daily_totals %}
+            <div class="card calendar-day-card border-0 h-100" 
+                 onclick="showDayDetails('{{ day.date }}', {{ day.guest_count }}, {{ day.guest_names|tojson }}, {{ day.booking_ids|tojson }}, {{ day.daily_total if day.daily_total else 0 }}, {{ day.individual_amounts|tojson if day.individual_amounts else [] }})">
+                <div class="card-body p-4">
+                    <!-- Date Header -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="calendar-date text-dark">
+                            {% if day.date %}
+                                {{ day.date.strftime('%d/%m/%Y') if day.date.strftime else day.date }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                        <div>
+                            {% if day.is_today %}
+                                <span class="badge today-badge text-white px-2 py-1">HÔM NAY</span>
+                            {% elif day.days_from_today == 1 %}
+                                <span class="badge bg-info text-white px-2 py-1">NGÀY MAI</span>
+                            {% elif day.days_from_today == -1 %}
+                                <span class="badge bg-secondary text-white px-2 py-1">HÔM QUA</span>
+                            {% elif day.days_from_today > 0 %}
+                                <span class="badge bg-light text-dark px-2 py-1">+{{ day.days_from_today }} ngày</span>
+                            {% elif day.days_from_today < 0 %}
+                                <span class="badge bg-light text-dark px-2 py-1">{{ day.days_from_today }} ngày</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Guest Count -->
+                    <div class="guest-count mb-3">
+                        <i class="fas fa-users me-1"></i>{{ day.guest_count }} khách check-in
+                    </div>
+
+                    <!-- Revenue Amount -->
+                    <div class="text-center">
+                        <div class="revenue-amount">
+                            {{ "{:,.0f}".format(day.daily_total if day.daily_total else 0) }}đ
+                        </div>
+                        <small class="text-muted">Tổng doanh thu</small>
+                    </div>
+
+                    <!-- Action Button -->
+                    <div class="text-center mt-3">
+                        <div class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye me-1"></i>Xem chi tiết
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <!-- Mobile/Small screen scroll hint -->
-            <div class="mobile-scroll-hint d-block d-lg-none mb-2">
-                <small class="text-muted">
-                    <i class="fas fa-arrows-alt-h"></i> <span class="scroll-hint-text">Kéo ngang để xem đầy đủ 7 ngày trong tuần</span>
-                </small>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-white py-5">
+            <i class="fas fa-calendar-times fa-3x mb-3 opacity-75"></i>
+            <h5>Không có dữ liệu</h5>
+            <p class="mb-0">Chưa có booking nào trong khoảng thời gian này</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Summary Statistics -->
+    {% if daily_totals and daily_totals|length > 0 %}
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="h4 mb-0 text-primary">{{ daily_totals|length }}</div>
+                    <small class="text-muted">Tổng số ngày</small>
+                </div>
             </div>
-
-            <!-- Calendar Grid -->
-            <div class="calendar-container">
-                <div class="calendar-grid">
-                    <!-- Header days -->
-                    <div class="calendar-header">
-                        <div class="day-header sunday">Chủ nhật</div>
-                        <div class="day-header">Thứ hai</div>
-                        <div class="day-header">Thứ ba</div>
-                        <div class="day-header">Thứ tư</div>
-                        <div class="day-header">Thứ năm</div>
-                        <div class="day-header">Thứ sáu</div>
-                        <div class="day-header saturday">Thứ bảy</div>
-                    </div>
-
-                    <!-- Calendar days -->
-                    <div class="calendar-body">
-                        {% for week in calendar_data %}
-                            {% for date, date_str, info in week %}
-                                <div class="calendar-day 
-                                    {% if not date %}empty-day{% endif %}
-                                    {% if date and date == today %}today{% endif %}
-                                    {% if date and date.weekday() == 6 %}sunday{% endif %}
-                                    {% if date and date.weekday() == 5 %}saturday{% endif %}
-                                    {% if info %}{{ info.status_color }}{% endif %}">
-                                    
-                                    {% if date %}
-                                        <a href="{{ url_for('calendar_details', date_str=date_str) }}" class="day-link">
-                                            <div class="day-content">
-                                                <div class="date-number">{{ date.day }}</div>
-                                                
-                                                {% if info %}
-                                                    <div class="status-indicator">
-                                                        <span class="status-badge {{ info.status_color }}">
-                                                            {{ info.status_text }}
-                                                        </span>
-                                                    </div>
-                                                    
-                                                    <!-- Hiển thị thông tin chi tiết -->
-                                                    <div class="booking-details">
-                                                        <small class="text-primary">
-                                                            <i class="fas fa-bed"></i> {{ info.occupied_units }}/{{ info.occupied_units + info.available_units }}
-                                                        </small>
-                                                        {% if info.available_units > 0 %}
-                                                            <small class="text-success">
-                                                                <i class="fas fa-check"></i> {{ info.available_units }} trống
-                                                            </small>
-                                                        {% else %}
-                                                            <small class="text-danger">
-                                                                <i class="fas fa-times"></i> Hết phòng
-                                                            </small>
-                                                        {% endif %}
-                                                    </div>
-                                                {% else %}
-                                                    <div class="status-indicator">
-                                                        <span class="status-badge bg-light text-muted">Trống</span>
-                                                    </div>
-                                                {% endif %}
-                                            </div>
-                                        </a>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                        {% endfor %}
-                    </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    {% set total_guests = daily_totals | sum(attribute='guest_count') %}
+                    <div class="h4 mb-0 text-info">{{ total_guests }}</div>
+                    <small class="text-muted">Tổng khách</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    {% set total_revenue = daily_totals | sum(attribute='daily_total') %}
+                    <div class="h4 mb-0 text-success">{{ "{:,.0f}".format(total_revenue) }}đ</div>
+                    <small class="text-muted">Tổng doanh thu</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    {% if total_guests > 0 %}
+                        {% set avg_per_guest = total_revenue / total_guests %}
+                        <div class="h4 mb-0 text-warning">{{ "{:,.0f}".format(avg_per_guest) }}đ</div>
+                    {% else %}
+                        <div class="h4 mb-0 text-warning">0đ</div>
+                    {% endif %}
+                    <small class="text-muted">TB/khách</small>
                 </div>
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
+<!-- Day Details Modal Script -->
+<script>
+// Show day details modal (reuse from dashboard)
+function showDayDetails(date, guestCount, guestNames, bookingIds, dailyTotal, individualAmounts) {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success">
+                    <h5 class="modal-title text-white">
+                        <i class="fas fa-calendar-day me-2"></i>Chi tiết doanh thu ngày: ${date}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        <strong><i class="fas fa-coins me-2"></i>Tổng doanh thu:</strong> 
+                        <span class="fs-5 fw-bold">${dailyTotal ? dailyTotal.toLocaleString() : '0'}đ</span>
+                        <small class="text-muted ms-2">(${guestCount} khách check-in)</small>
+                    </div>
+                    <h6><i class="fas fa-list me-2"></i>Danh sách khách và số tiền:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Tên khách</th>
+                                    <th>Số tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${guestNames.map((name, index) => `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td><strong>${name}</strong></td>
+                                        <td><span class="badge bg-success fs-6">${individualAmounts && individualAmounts[index] ? individualAmounts[index].toLocaleString() : '0'}đ</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>Doanh thu tính theo ngày check-in
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // Clean up modal after it's hidden
+    modal.addEventListener('hidden.bs.modal', function () {
+        document.body.removeChild(modal);
+    });
+}
+</script>
+
+{% endblock %}
+
+{% block extra_css %}
 <style>
-/* Calendar container */
+/* Calendar Styling */
 .calendar-container {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    overflow: hidden;
-    overflow-x: auto; /* Cho phép scroll ngang trên mọi kích thước */
-    min-width: 100%;
-    position: relative;
-}
-
-/* Smooth scrolling */
-.calendar-container {
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling trên iOS */
-}
-
-/* Scrollbar styling */
-.calendar-container::-webkit-scrollbar {
-    height: 8px;
-}
-
-.calendar-container::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.calendar-container::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
-
-.calendar-container::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
-/* Calendar grid layout */
-.calendar-grid {
-    display: flex;
-    flex-direction: column;
-    min-width: 800px; /* Tăng width tối thiểu để đảm bảo hiển thị tốt */
-}
-
-.calendar-header {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-width: 100%;
+    border-radius: 15px;
+    padding: 20px;
 }
 
-.day-header {
-    padding: 12px 8px;
-    text-align: center;
-    color: white;
-    font-weight: 600;
-    font-size: 0.9rem;
-    border-right: 1px solid rgba(255,255,255,0.2);
-    min-width: 110px; /* Tăng width tối thiểu */
+.calendar-day-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
 }
 
-.day-header:last-child {
-    border-right: none;
+.calendar-day-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
 }
 
-.day-header.sunday, .day-header.saturday {
-    background: rgba(255,255,255,0.1);
+.revenue-amount {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #28a745;
 }
 
-/* Calendar body */
-.calendar-body {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    grid-auto-rows: minmax(120px, auto);
-    min-width: 100%;
-}
-
-/* Individual day cells */
-.calendar-day {
-    border: 1px solid #e9ecef;
-    border-collapse: collapse;
-    position: relative;
-    transition: all 0.2s ease;
-    background: white;
-    min-width: 110px; /* Tăng width tối thiểu */
-}
-
-.calendar-day:hover {
-    background: #f8f9fa;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    z-index: 2;
-}
-
-.calendar-day.empty-day {
-    background: #f8f9fa;
-    opacity: 0.3;
-}
-
-.calendar-day.today {
-    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-    border: 2px solid #ffc107;
+.calendar-date {
+    font-size: 1.2rem;
     font-weight: bold;
 }
 
-.calendar-day.sunday, .calendar-day.saturday {
-    background: #f1f3f4;
-}
-
-/* Day link */
-.day-link {
-    display: block;
-    width: 100%;
-    height: 100%;
-    text-decoration: none;
-    color: inherit;
-    padding: 8px;
-}
-
-.day-link:hover {
-    color: inherit;
-    text-decoration: none;
-}
-
-/* Day content layout */
-.day-content {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.date-number {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #2c3e50;
-    text-align: right;
-    margin-bottom: 4px;
-}
-
-.today .date-number {
-    color: #856404;
-}
-
-/* Status indicator */
-.status-indicator {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 4px 0;
-}
-
-.status-badge {
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-align: center;
-    min-width: 60px;
-}
-
-.status-badge.full, .status-badge.bg-danger {
-    background-color: #dc3545 !important;
-    color: white;
-}
-
-.status-badge.occupied, .status-badge.bg-primary {
-    background-color: #0d6efd !important;
-    color: white;
-}
-
-.status-badge.empty, .status-badge.bg-warning {
-    background-color: #ffc107 !important;
-    color: #000;
-}
-
-.status-badge.bg-light {
-    background-color: #f8f9fa !important;
+.guest-count {
     color: #6c757d;
-    border: 1px solid #dee2e6;
+    font-size: 0.9rem;
 }
 
-/* Booking details */
-.booking-details {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    margin-top: auto;
-    padding-top: 4px;
-    border-top: 1px solid #eee;
+.today-badge {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    animation: pulse 2s infinite;
 }
 
-.booking-details small {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    font-size: 0.7rem;
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0); }
 }
 
-/* Legend */
-.legend {
-    flex-wrap: wrap;
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
 }
 
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    color: #495057;
-}
-
-.legend-color {
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
-    display: inline-block;
-}
-
-/* Mobile scroll hint */
-.mobile-scroll-hint {
-    text-align: center;
-    background: #e3f2fd;
-    border: 1px solid #bbdefb;
-    border-radius: 6px;
-    padding: 8px 12px;
-    animation: fadeIn 0.5s ease-in;
-}
-
-.scroll-hint-text {
-    display: inline;
-}
-
-@media (max-width: 399px) {
-    .scroll-hint-text {
-        display: block;
-        margin-top: 4px;
-    }
-    
-    .mobile-scroll-hint {
-        padding: 6px 8px;
-    }
-    
-    .mobile-scroll-hint small {
-        font-size: 0.75rem;
-    }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Calendar resize indicator */
-.calendar-container {
-    position: relative;
-}
-
-.calendar-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 30px;
-    height: 100%;
-    background: linear-gradient(to left, rgba(255,255,255,0.9), transparent);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: 1;
-}
-
-.calendar-container:hover::before {
-    opacity: 1;
-}
-
-/* Scroll position indicators */
-.calendar-container {
-    background-image: 
-        radial-gradient(ellipse at left, rgba(0,0,0,.2) 0%, transparent 75%),
-        radial-gradient(ellipse at right, rgba(0,0,0,.2) 0%, transparent 75%);
-    background-size: 10px 100%, 10px 100%;
-    background-attachment: local, local;
-    background-repeat: no-repeat;
-    background-position: left, right;
-}
-
-/* Responsive Design - Nhiều breakpoint để xử lý mọi kích thước */
-
-/* Extra Large Desktop - từ 1200px trở lên */
-@media (min-width: 1200px) {
+@media (max-width: 768px) {
     .calendar-grid {
-        min-width: 900px;
-    }
-    
-    .day-header, .calendar-day {
-        min-width: 128px;
-    }
-    
-    .day-header {
-        padding: 15px 10px;
-        font-size: 1rem;
-    }
-}
-
-/* Large Desktop - 992px đến 1199px */
-@media (max-width: 1199px) and (min-width: 992px) {
-    .calendar-grid {
-        min-width: 800px;
-    }
-    
-    .day-header, .calendar-day {
-        min-width: 114px;
-    }
-    
-    .day-header {
-        padding: 12px 8px;
-        font-size: 0.95rem;
-    }
-}
-
-/* Medium Desktop/Laptop - 768px đến 991px */
-@media (max-width: 991px) and (min-width: 768px) {
-    .calendar-grid {
-        min-width: 720px;
-    }
-    
-    .day-header, .calendar-day {
-        min-width: 102px;
-    }
-    
-    .day-header {
-        padding: 10px 6px;
-        font-size: 0.9rem;
-    }
-    
-    .calendar-body {
-        grid-auto-rows: minmax(110px, auto);
-    }
-    
-    .status-badge {
-        font-size: 0.75rem;
-        padding: 3px 7px;
-    }
-}
-
-/* Small Desktop/Large Tablet - 576px đến 767px */
-@media (max-width: 767px) and (min-width: 576px) {
-    .calendar-grid {
-        min-width: 650px;
-    }
-    
-    .day-header, .calendar-day {
-        min-width: 92px;
-    }
-    
-    .day-header {
-        padding: 8px 4px;
-        font-size: 0.85rem;
-    }
-    
-    .calendar-body {
-        grid-auto-rows: minmax(100px, auto);
-    }
-    
-    .date-number {
-        font-size: 1rem;
-    }
-    
-    .status-badge {
-        font-size: 0.7rem;
-        padding: 2px 6px;
-        min-width: 45px;
-    }
-    
-    .booking-details {
-        flex-direction: column;
-        gap: 2px;
-    }
-    
-    .booking-details small {
-        font-size: 0.65rem;
-    }
-}
-
-/* Mobile - dưới 576px */
-@media (max-width: 575px) {
-    .calendar-container {
-        margin-left: -15px;
-        margin-right: -15px;
-        border-radius: 0;
-    }
-    
-    .calendar-grid {
-        min-width: 580px; /* Đảm bảo hiển thị đủ 7 ngày */
-    }
-    
-    .day-header, .calendar-day {
-        min-width: 82px;
-    }
-    
-    .day-header {
-        padding: 6px 3px;
-        font-size: 0.8rem;
-    }
-    
-    .calendar-body {
-        grid-auto-rows: minmax(85px, auto);
-    }
-    
-    .date-number {
-        font-size: 0.95rem;
-    }
-    
-    .status-badge {
-        font-size: 0.65rem;
-        padding: 2px 5px;
-        min-width: 40px;
-    }
-    
-    .booking-details small {
-        font-size: 0.6rem;
-    }
-    
-    .legend {
-        flex-direction: column;
-        gap: 8px;
-    }
-}
-
-/* Extra Small Mobile - dưới 400px */
-@media (max-width: 399px) {
-    .calendar-grid {
-        min-width: 560px;
-    }
-    
-    .day-header, .calendar-day {
-        min-width: 80px;
-    }
-    
-    .day-header {
-        padding: 5px 2px;
-        font-size: 0.75rem;
-    }
-    
-    .calendar-body {
-        grid-auto-rows: minmax(80px, auto);
-    }
-    
-    .date-number {
-        font-size: 0.9rem;
-    }
-    
-    .status-badge {
-        font-size: 0.6rem;
-        padding: 1px 4px;
-        min-width: 35px;
-    }
-    
-    .booking-details {
-        display: none; /* Ẩn details trên màn hình rất nhỏ */
-    }
-}
-
-/* Responsive cho header navigation */
-@media (max-width: 767px) {
-    .d-flex.justify-content-between.align-items-center {
-        flex-direction: column;
+        grid-template-columns: 1fr;
         gap: 15px;
     }
     
-    .d-flex.justify-content-between.align-items-center h3 {
-        order: -1;
+    .revenue-amount {
         font-size: 1.3rem;
-        text-align: center;
-    }
-    
-    .d-flex.justify-content-between.align-items-center .btn {
-        min-width: 120px;
     }
 }
 </style>
-{% endblock %} 
+{% endblock %}

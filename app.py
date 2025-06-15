@@ -347,41 +347,23 @@ def view_bookings():
                          filtered_count=len(filtered_booking_ids))
 
 @app.route('/calendar/')
-@app.route('/calendar/<int:year>/<int:month>')
-def calendar_view(year=None, month=None):
-    today = datetime.today()
-    if year is None or month is None:
-        return redirect(url_for('calendar_view', year=today.year, month=today.month))
-    
-    current_month_start = datetime(year, month, 1)
-    prev_month_date = (current_month_start.replace(day=1) - timedelta(days=1)).replace(day=1)
-    next_month_date = (current_month_start.replace(day=1) + timedelta(days=32)).replace(day=1)
-
-    df, _ = load_data()
-    month_activities = {}
-    month_matrix = calendar.monthcalendar(year, month)
-    
-    calendar_data = []
-    for week in month_matrix:
-        week_data = []
-        for day in week:
-            if day != 0:
-                current_date = datetime(year, month, day).date()
-                date_str = current_date.strftime('%Y-%m-%d')
-                day_info = get_overall_calendar_day_info(current_date, df, TOTAL_HOTEL_CAPACITY)
-                week_data.append((current_date, date_str, day_info))
-            else:
-                week_data.append((None, None, None))
-        calendar_data.append(week_data)
-
-    return render_template(
-        'calendar.html',
-        calendar_data=calendar_data,
-        current_month=current_month_start,
-        prev_month=prev_month_date,
-        next_month=next_month_date,
-        today=today.date()
-    )
+def calendar_view():
+    """Revenue Calendar - shows daily totals"""
+    try:
+        df, _ = load_data()
+        
+        # Get daily totals using the function from dashboard_routes
+        from dashboard_routes import get_daily_totals
+        daily_totals = get_daily_totals(df)
+        
+        return render_template(
+            'calendar.html',
+            daily_totals=daily_totals
+        )
+    except Exception as e:
+        print(f"Calendar error: {e}")
+        flash(f"Lỗi tải calendar: {e}", "danger")
+        return redirect(url_for('dashboard'))
 
 @app.route('/calendar/details/<string:date_str>')
 def calendar_details(date_str):
