@@ -1578,14 +1578,15 @@
             console.error('🚨 EMERGENCY: Function linking failed:', error);
         }
         
-        // Enhanced event listener for templates tab
+        // Enhanced event listener for templates tab with auto-import
         const templatesTab = document.getElementById('templates-tab');
         if (templatesTab) {
             // Handle both click and bootstrap tab events
             templatesTab.addEventListener('click', function() {
                 console.log('[TEMPLATES] Templates tab clicked, loaded:', isTemplatesLoaded);
                 if (!isTemplatesLoaded) {
-                    loadTemplatesForTab();
+                    console.log('[TEMPLATES] Auto-importing from Google Sheets on first load...');
+                    autoImportAndLoadTemplates();
                 }
             });
             
@@ -1593,7 +1594,8 @@
             templatesTab.addEventListener('shown.bs.tab', function() {
                 console.log('[TEMPLATES] Templates tab shown via Bootstrap, loaded:', isTemplatesLoaded);
                 if (!isTemplatesLoaded) {
-                    loadTemplatesForTab();
+                    console.log('[TEMPLATES] Auto-importing from Google Sheets on tab show...');
+                    autoImportAndLoadTemplates();
                 }
             });
         }
@@ -3169,11 +3171,51 @@
 
     // Templates tab event listeners now handled in main DOMContentLoaded
     
-    // Import from Google Sheets
+    // Auto-import and load templates (silent import for default behavior)
+    async function autoImportAndLoadTemplates() {
+        console.log('[AUTO-IMPORT] Starting automatic import from Google Sheets...');
+        
+        try {
+            // Silent import without user confirmation
+            const response = await fetch('/templates/import', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json, text/html'
+                }
+            });
+            
+            if (response.status === 200 || response.redirected) {
+                console.log('[AUTO-IMPORT] Silent import successful');
+                
+                // Force reload templates
+                templates = []; // Clear cache
+                isTemplatesLoaded = false; // Reset flag
+                
+                await loadTemplatesForTab();
+                // Also reload for AI chat
+                await loadTemplateCategories();
+                
+                // Mark as loaded
+                isTemplatesLoaded = true;
+                
+                console.log('[AUTO-IMPORT] Templates auto-loaded successfully');
+            } else {
+                console.log('[AUTO-IMPORT] Import failed, falling back to regular load');
+                // Fallback to regular loading if import fails
+                await loadTemplatesForTab();
+            }
+        } catch (error) {
+            console.log('[AUTO-IMPORT] Error during auto-import, falling back to regular load:', error);
+            // Fallback to regular loading if import fails
+            await loadTemplatesForTab();
+        }
+    }
+
+    // Import from Google Sheets (manual with confirmation)
     async function importFromSheets() {
         showLoading(true);
         try {
-            console.log('[IMPORT] Starting import from Google Sheets...');
+            console.log('[IMPORT] Starting manual import from Google Sheets...');
             
             const response = await fetch('/templates/import', {
                 method: 'GET',

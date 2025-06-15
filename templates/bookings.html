@@ -1205,13 +1205,20 @@ function deleteDuplicateBooking(bookingId) {
         button.innerHTML = originalText;
         
         if (data.success) {
-            alert('✅ Booking deleted successfully!');
-            // Close any open modals and reload page
+            // Show success message without alert (less intrusive)
+            showToast('✅ Booking deleted successfully!', 'success');
+            
+            // Close any open modals
             const detailModal = bootstrap.Modal.getInstance(document.getElementById('duplicateDetailModal'));
             const comparisonModal = bootstrap.Modal.getInstance(document.getElementById('duplicateComparisonModal'));
             if (detailModal) detailModal.hide();
             if (comparisonModal) comparisonModal.hide();
-            window.location.reload();
+            
+            // Remove the booking from the DOM dynamically instead of page reload
+            removeDynamicallyBookingFromDisplay(bookingId);
+            
+            // Update booking counts and statistics
+            updateBookingStatistics();
         } else {
             alert('❌ Error deleting booking: ' + (data.message || 'Unknown error'));
         }
@@ -1222,6 +1229,83 @@ function deleteDuplicateBooking(bookingId) {
         console.error('Error deleting booking:', error);
         alert('❌ Network error deleting booking. Please try again.');
     });
+}
+
+// Helper function to dynamically remove booking from display
+function removeDynamicallyBookingFromDisplay(bookingId) {
+    // Find and remove the booking row from the table
+    const bookingRows = document.querySelectorAll('tbody tr');
+    bookingRows.forEach(row => {
+        // Check if this row contains the booking ID
+        const cells = row.querySelectorAll('td');
+        cells.forEach(cell => {
+            if (cell.textContent.includes(bookingId)) {
+                // Add fade out animation
+                row.style.transition = 'all 0.3s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(-20px)';
+                
+                // Remove the row after animation
+                setTimeout(() => {
+                    row.remove();
+                    console.log(`✅ Removed booking ${bookingId} from display`);
+                }, 300);
+            }
+        });
+    });
+}
+
+// Helper function to update booking statistics after deletion
+function updateBookingStatistics() {
+    // Update the total booking count in the header
+    const remainingRows = document.querySelectorAll('tbody tr').length;
+    const headerElement = document.querySelector('.d-flex.justify-content-between h2');
+    if (headerElement) {
+        // Update the count in parentheses
+        headerElement.innerHTML = headerElement.innerHTML.replace(/\(\d+\)/, `(${remainingRows})`);
+    }
+    
+    // Trigger duplicate analysis refresh if the analyze button is visible
+    const analyzeBtn = document.querySelector('button[onclick="performDuplicateAnalysis()"]');
+    if (analyzeBtn && !analyzeBtn.disabled) {
+        console.log('🔄 Refreshing duplicate analysis after deletion...');
+        setTimeout(() => {
+            performDuplicateAnalysis();
+        }, 500);
+    }
+}
+
+// Helper function to show toast notifications (non-blocking)
+function showToast(message, type = 'success') {
+    const colors = {
+        success: 'bg-success',
+        error: 'bg-danger', 
+        info: 'bg-info',
+        warning: 'bg-warning'
+    };
+    
+    const toast = document.createElement('div');
+    toast.className = `position-fixed top-0 end-0 m-3 p-3 ${colors[type]} text-white rounded shadow`;
+    toast.style.zIndex = '9999';
+    toast.style.minWidth = '300px';
+    toast.innerHTML = `
+        <div class="d-flex align-items-center">
+            <div class="flex-grow-1">${message}</div>
+            <button type="button" class="btn-close btn-close-white ms-2" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.style.transition = 'all 0.3s ease';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 5000);
 }
 
 // Show booking details function
