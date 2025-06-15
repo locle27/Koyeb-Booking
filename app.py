@@ -391,9 +391,9 @@ def calendar_view(year=None, month=None):
                     # Add revenue info if available
                     revenue_info = revenue_by_date.get(current_date, {'daily_total': 0, 'guest_count': 0})
                     
-                    week_data.append((current_date, date_str, day_info, revenue_info))
+                    week_data.append((current_date, date_str, day_info))
                 else:
-                    week_data.append((None, None, None, None))
+                    week_data.append((None, None, None))
             calendar_data.append(week_data)
 
         return render_template(
@@ -402,7 +402,8 @@ def calendar_view(year=None, month=None):
             current_month=current_month_start,
             prev_month=prev_month_date,
             next_month=next_month_date,
-            today=today.date()
+            today=today.date(),
+            revenue_by_date=revenue_by_date
         )
     except Exception as e:
         print(f"Calendar error: {e}")
