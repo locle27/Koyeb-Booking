@@ -1128,13 +1128,22 @@ def manage_expenses():
         # Get expenses from Google Sheets
         try:
             from logic import get_expenses_from_sheet
+            print("🔍 [DEBUG] API: Starting expense retrieval...")
             expenses = get_expenses_from_sheet()
+            print(f"🔍 [DEBUG] API: Retrieved {len(expenses)} expenses from sheets")
+            
+            # Debug: Log first few expenses
+            for i, expense in enumerate(expenses[:3]):
+                print(f"🔍 [DEBUG] API: Expense {i+1}: {expense}")
+            
             return jsonify({
                 'success': True,
                 'data': expenses
             })
         except Exception as e:
-            print(f"[GET_EXPENSES] Error: {e}")
+            print(f"❌ [GET_EXPENSES] Error: {e}")
+            import traceback
+            traceback.print_exc()
             return jsonify({
                 'success': False,
                 'error': str(e),

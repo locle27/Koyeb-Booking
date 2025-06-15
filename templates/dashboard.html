@@ -2541,20 +2541,68 @@ async function loadMonthlyExpenses() {
         }
         
         if (result.success && result.data && result.data.length > 0) {
+            // Debug: Log all expense data
+            console.log('🔍 [DEBUG] All expense data from API:', result.data);
+            
             // Filter expenses for current month
             const currentMonth = now.getMonth() + 1;
             const currentYear = now.getFullYear();
             
+            console.log(`🔍 [DEBUG] Looking for expenses in: ${currentMonth}/${currentYear}`);
+            
             const monthlyExpenses = result.data.filter(expense => {
-                if (!expense.date) return false;
-                const expenseDate = new Date(expense.date);
-                return expenseDate.getMonth() + 1 === currentMonth && 
-                       expenseDate.getFullYear() === currentYear;
+                if (!expense.date) {
+                    console.log('⚠️ [DEBUG] Expense without date:', expense);
+                    return false;
+                }
+                
+                // Try multiple date parsing approaches
+                let expenseDate;
+                try {
+                    // Handle different date formats: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY
+                    if (expense.date.includes('/')) {
+                        // Try DD/MM/YYYY format first (common in Vietnam)
+                        const dateParts = expense.date.split('/');
+                        if (dateParts.length === 3) {
+                            // DD/MM/YYYY format
+                            expenseDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+                        }
+                    } else {
+                        // YYYY-MM-DD format
+                        expenseDate = new Date(expense.date);
+                    }
+                    
+                    console.log(`🔍 [DEBUG] Expense date: ${expense.date} -> Parsed: ${expenseDate.getFullYear()}/${expenseDate.getMonth() + 1}/${expenseDate.getDate()}`);
+                    
+                    // Check if date is valid
+                    if (isNaN(expenseDate.getTime())) {
+                        console.log('⚠️ [DEBUG] Invalid date:', expense.date, expense);
+                        return false;
+                    }
+                    
+                    const matches = expenseDate.getMonth() + 1 === currentMonth && 
+                                   expenseDate.getFullYear() === currentYear;
+                    
+                    if (matches) {
+                        console.log(`✅ [DEBUG] Matched expense: ${expense.description} - ${expense.amount}đ on ${expense.date}`);
+                    }
+                    
+                    return matches;
+                } catch (error) {
+                    console.log('❌ [DEBUG] Date parsing error:', error, expense);
+                    return false;
+                }
             });
             
+            console.log(`🔍 [DEBUG] Found ${monthlyExpenses.length} monthly expenses:`, monthlyExpenses);
+            
             const monthlyTotal = monthlyExpenses.reduce((sum, expense) => {
-                return sum + parseFloat(expense.amount || 0);
+                const amount = parseFloat(expense.amount || 0);
+                console.log(`🔍 [DEBUG] Adding expense amount: ${expense.amount} -> ${amount}`);
+                return sum + amount;
             }, 0);
+            
+            console.log(`🔍 [DEBUG] Monthly total calculated: ${monthlyTotal}`);
             
             if (monthlyTotalElement) {
                 if (monthlyTotal > 0) {
@@ -2564,6 +2612,7 @@ async function loadMonthlyExpenses() {
                 }
             }
         } else {
+            console.log('⚠️ [DEBUG] No expense data received or API failed:', result);
             if (monthlyTotalElement) {
                 monthlyTotalElement.textContent = 'Chưa có chi phí';
             }

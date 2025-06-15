@@ -1925,6 +1925,9 @@ def get_expenses_from_sheet() -> List[dict]:
                 'created_at': record.get('Created At', '')
             }
             
+            # Debug: Log each parsed expense
+            print(f"🔍 [DEBUG] Parsed expense: Date='{expense['date']}', Description='{expense['description']}', Amount='{expense['amount']}'")
+            
             # Include all expenses
             expenses.append(expense)
         
