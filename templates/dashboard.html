@@ -317,27 +317,30 @@
         </div>
     </div>
 
-    <!-- 💰 EXPENSE MANAGEMENT (COMPACT) -->
+    <!-- 💰 MONTHLY EXPENSE TRACKER (COMPACT) -->
     <div class="row mb-2">
         <div class="col-12">
-            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); min-height: 60px;">
                 <div class="card-body py-2 px-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <h6 class="mb-0 text-white fw-bold small">
-                            <i class="fas fa-receipt me-1"></i>💰 Chi Phí
-                        </h6>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-0 text-white fw-bold small">
+                                <i class="fas fa-receipt me-1"></i>💰 Chi Phí Tháng
+                            </h6>
+                            <div id="monthlyExpenseSummary" class="text-white-50 small">
+                                <span id="currentMonthText"></span>: <span id="monthlyTotal">Đang tải...</span>
+                            </div>
+                        </div>
                         <div class="btn-group btn-group-sm" role="group">
                             <button class="btn btn-light btn-sm px-2" data-bs-toggle="modal" data-bs-target="#expenseModal" title="Thêm chi phí">
                                 <i class="fas fa-plus"></i>
                             </button>
-                            <button class="btn btn-outline-light btn-sm px-2" onclick="loadExpenses()" title="Tải lại">
+                            <button class="btn btn-outline-light btn-sm px-2" data-bs-toggle="modal" data-bs-target="#expenseReviewModal" title="Xem chi tiết">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-light btn-sm px-2" onclick="loadMonthlyExpenses()" title="Tải lại">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
-                        </div>
-                    </div>
-                    <div id="expensesContainer">
-                        <div class="text-center py-1">
-                            <small class="text-white">Đang tải...</small>
                         </div>
                     </div>
                 </div>
@@ -2448,6 +2451,57 @@ document.addEventListener('DOMContentLoaded', async function() {
     </div>
 </div>
 
+<!-- Expense Review Modal -->
+<div class="modal fade" id="expenseReviewModal" tabindex="-1" aria-labelledby="expenseReviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);">
+                <h5 class="modal-title text-white" id="expenseReviewModalLabel">
+                    <i class="fas fa-chart-line me-2"></i>Chi Tiết Chi Phí Tháng
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Month Selection -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="reviewMonth" class="form-label">Chọn tháng xem:</label>
+                        <input type="month" class="form-control" id="reviewMonth">
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <button class="btn btn-primary" onclick="loadExpenseReview()" style="background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); border: none;">
+                            <i class="fas fa-search me-1"></i>Xem Chi Tiết
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Monthly Summary -->
+                <div id="expenseReviewSummary" class="alert alert-info" style="display: none;">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Tổng số giao dịch:</strong> <span id="reviewTotalCount">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Tổng chi phí:</strong> <span id="reviewTotalAmount" class="text-danger">0đ</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Expense List -->
+                <div id="expenseReviewList">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                        <p>Chọn tháng để xem chi tiết chi phí</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Initialize expense modal date
 document.getElementById('expenseModal').addEventListener('show.bs.modal', function () {
@@ -2455,8 +2509,8 @@ document.getElementById('expenseModal').addEventListener('show.bs.modal', functi
     document.getElementById('expenseDate').value = now.toISOString().split('T')[0];
 });
 
-// Load expenses function
-async function loadExpenses() {
+// Load monthly expenses function
+async function loadMonthlyExpenses() {
     try {
         // Add timeout to prevent hanging
         const controller = new AbortController();
@@ -2473,70 +2527,53 @@ async function loadExpenses() {
         
         const result = await response.json();
         
-        const container = document.getElementById('expensesContainer');
-        if (!container) {
-            console.error('Expenses container not found');
-            return;
+        // Update current month display
+        const now = new Date();
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const currentMonthText = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+        
+        const monthTextElement = document.getElementById('currentMonthText');
+        const monthlyTotalElement = document.getElementById('monthlyTotal');
+        
+        if (monthTextElement) {
+            monthTextElement.textContent = currentMonthText;
         }
         
         if (result.success && result.data && result.data.length > 0) {
-            const expenses = result.data.slice(0, 5); // Show last 5 expenses
-            let html = '';
-            let totalAmount = 0;
+            // Filter expenses for current month
+            const currentMonth = now.getMonth() + 1;
+            const currentYear = now.getFullYear();
             
-            expenses.forEach(expense => {
-                const amount = parseFloat(expense.amount || 0);
-                totalAmount += amount;
-                
-                html += `
-                    <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="flex-grow-1">
-                                <div class="fw-bold text-dark small">${expense.description || 'N/A'}</div>
-                                <div class="text-muted" style="font-size: 11px;">
-                                    <i class="fas fa-calendar me-1"></i>${expense.date || 'N/A'}
-                                </div>
-                            </div>
-                            <div class="text-end">
-                                <div class="small fw-bold text-danger">-${amount.toLocaleString()}đ</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
+            const monthlyExpenses = result.data.filter(expense => {
+                if (!expense.date) return false;
+                const expenseDate = new Date(expense.date);
+                return expenseDate.getMonth() + 1 === currentMonth && 
+                       expenseDate.getFullYear() === currentYear;
             });
             
-            if (result.data.length > 5) {
-                html += `
-                    <div class="text-center mt-1">
-                        <small class="text-white">+${result.data.length - 5} chi phí khác</small>
-                    </div>
-                `;
+            const monthlyTotal = monthlyExpenses.reduce((sum, expense) => {
+                return sum + parseFloat(expense.amount || 0);
+            }, 0);
+            
+            if (monthlyTotalElement) {
+                if (monthlyTotal > 0) {
+                    monthlyTotalElement.innerHTML = `<strong class="text-white">${monthlyTotal.toLocaleString()}đ</strong> (${monthlyExpenses.length} giao dịch)`;
+                } else {
+                    monthlyTotalElement.textContent = 'Chưa có chi phí';
+                }
             }
-            
-            // Add total summary
-            html += `
-                <div class="bg-white bg-opacity-75 rounded mt-1 px-2 py-1">
-                    <div class="text-center">
-                        <small class="text-dark">Tổng chi phí hôm nay: <strong class="text-danger">-${totalAmount.toLocaleString()}đ</strong></small>
-                    </div>
-                </div>
-            `;
-            
-            container.innerHTML = html;
         } else {
-            container.innerHTML = `
-                <div class="text-center py-1">
-                    <small class="text-white">Chưa có chi phí nào</small>
-                </div>
-            `;
+            if (monthlyTotalElement) {
+                monthlyTotalElement.textContent = 'Chưa có chi phí';
+            }
         }
     } catch (error) {
-        console.error('Error loading expenses:', error);
-        document.getElementById('expensesContainer').innerHTML = `
-            <div class="text-center py-1">
-                <small class="text-white">Lỗi tải dữ liệu</small>
-            </div>
-        `;
+        console.error('Error loading monthly expenses:', error);
+        const monthlyTotalElement = document.getElementById('monthlyTotal');
+        if (monthlyTotalElement) {
+            monthlyTotalElement.textContent = 'Lỗi tải dữ liệu';
+        }
     }
 }
 
@@ -2625,12 +2662,12 @@ async function addExpense() {
                 }
             }, 100);
             
-            // Reload expenses with staggered timing (non-blocking)
+            // Reload monthly expenses with staggered timing (non-blocking)
             setTimeout(async () => {
                 try {
-                    await loadExpenses();
+                    await loadMonthlyExpenses();
                 } catch (error) {
-                    console.error('Error reloading expenses:', error);
+                    console.error('Error reloading monthly expenses:', error);
                 }
             }, 200);
             
@@ -2668,20 +2705,114 @@ async function addExpense() {
     }
 }
 
-// Load expenses on page load (async, non-blocking) - moved after function definition
+// Load monthly expenses on page load (async, non-blocking) - moved after function definition
 setTimeout(() => {
-    loadExpenses().catch(error => {
-        console.error('Failed to load expenses:', error);
-        const container = document.getElementById('expensesContainer');
-        if (container) {
-            container.innerHTML = `
-                <div class="text-center py-1">
-                    <small class="text-white">Lỗi tải chi phí</small>
-                </div>
-            `;
+    loadMonthlyExpenses().catch(error => {
+        console.error('Failed to load monthly expenses:', error);
+        const monthlyTotalElement = document.getElementById('monthlyTotal');
+        if (monthlyTotalElement) {
+            monthlyTotalElement.textContent = 'Lỗi tải chi phí';
         }
     });
 }, 100);
+
+// Initialize expense review modal
+document.getElementById('expenseReviewModal').addEventListener('show.bs.modal', function () {
+    const now = new Date();
+    document.getElementById('reviewMonth').value = now.toISOString().slice(0, 7); // YYYY-MM format
+});
+
+// Load expense review function
+async function loadExpenseReview() {
+    const selectedMonth = document.getElementById('reviewMonth').value;
+    if (!selectedMonth) {
+        alert('Vui lòng chọn tháng để xem chi tiết');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/expenses');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        const reviewList = document.getElementById('expenseReviewList');
+        const reviewSummary = document.getElementById('expenseReviewSummary');
+        const reviewTotalCount = document.getElementById('reviewTotalCount');
+        const reviewTotalAmount = document.getElementById('reviewTotalAmount');
+        
+        if (result.success && result.data && result.data.length > 0) {
+            // Parse selected month
+            const [year, month] = selectedMonth.split('-').map(Number);
+            
+            // Filter expenses for selected month
+            const monthlyExpenses = result.data.filter(expense => {
+                if (!expense.date) return false;
+                const expenseDate = new Date(expense.date);
+                return expenseDate.getMonth() + 1 === month && 
+                       expenseDate.getFullYear() === year;
+            });
+            
+            if (monthlyExpenses.length > 0) {
+                // Calculate totals
+                const totalAmount = monthlyExpenses.reduce((sum, expense) => {
+                    return sum + parseFloat(expense.amount || 0);
+                }, 0);
+                
+                // Update summary
+                reviewTotalCount.textContent = monthlyExpenses.length;
+                reviewTotalAmount.textContent = `${totalAmount.toLocaleString()}đ`;
+                reviewSummary.style.display = 'block';
+                
+                // Generate expense list
+                let html = '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Ngày</th><th>Nội dung</th><th class="text-end">Số tiền</th></tr></thead><tbody>';
+                
+                monthlyExpenses
+                    .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by date desc
+                    .forEach(expense => {
+                        const amount = parseFloat(expense.amount || 0);
+                        const date = new Date(expense.date).toLocaleDateString('vi-VN');
+                        
+                        html += `
+                            <tr>
+                                <td><small class="text-muted">${date}</small></td>
+                                <td>${expense.description || 'N/A'}</td>
+                                <td class="text-end text-danger fw-bold">-${amount.toLocaleString()}đ</td>
+                            </tr>
+                        `;
+                    });
+                
+                html += '</tbody></table></div>';
+                reviewList.innerHTML = html;
+            } else {
+                reviewSummary.style.display = 'none';
+                reviewList.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p>Không có chi phí nào trong tháng ${selectedMonth}</p>
+                    </div>
+                `;
+            }
+        } else {
+            reviewSummary.style.display = 'none';
+            reviewList.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-database fa-2x mb-2"></i>
+                    <p>Không có dữ liệu chi phí</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading expense review:', error);
+        reviewList.innerHTML = `
+            <div class="text-center text-danger py-4">
+                <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                <p>Lỗi tải dữ liệu: ${error.message}</p>
+            </div>
+        `;
+    }
+}
 
 </script>
 
