@@ -2142,26 +2142,40 @@
         const supportText = document.getElementById('supportText');
         const recordButton = document.getElementById('recordButton');
         
-        // Enhanced mobile detection
+        // Enhanced browser detection
         const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isAndroid = /Android/i.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) || isIOS;
+        const isSecureContext = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
         
         console.log('Browser detection:', {
-            isMobile,
-            isIOS, 
-            isAndroid,
+            isMobile, isIOS, isAndroid, isSafari, isSecureContext,
             userAgent: navigator.userAgent,
             hasWebkitSpeech: 'webkitSpeechRecognition' in window,
-            hasSpeech: 'SpeechRecognition' in window
+            hasSpeech: 'SpeechRecognition' in window,
+            location: window.location.href
         });
         
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        // Check for speech recognition availability
+        const hasWebkitSpeech = 'webkitSpeechRecognition' in window;
+        const hasSpeech = 'SpeechRecognition' in window;
+        const speechAvailable = hasWebkitSpeech || hasSpeech;
+        
+        if (speechAvailable) {
+            if (!isSecureContext && !isIOS) {
+                supportText.innerHTML = '⚠️ Cần HTTPS để sử dụng voice recognition. <br><small class="text-muted">Hiện tại: ' + window.location.protocol + '</small>';
+                recordButton.disabled = true;
+                return;
+            }
+            
             if (isIOS && isPWA) {
                 supportText.innerHTML = '⚠️ PWA Mode: Voice có thể không hoạt động. <br><a href="#" onclick="openInSafari()" class="btn btn-sm btn-primary mt-2">Mở trong Safari</a>';
-                recordButton.disabled = false; // Still allow trying
-            } else if (isIOS) {
-                supportText.innerHTML = '✅ iOS Safari: Hỗ trợ voice. Nhấn MIC và nói ngay.';
+                recordButton.disabled = false;
+            } else if (isSafari || isIOS) {
+                supportText.innerHTML = '✅ Safari: Hỗ trợ voice. Click MIC và nói <strong>ngay lập tức</strong>.';
+                // Pre-test Safari speech recognition
+                testSafariSpeechSupport();
             } else if (isAndroid) {
                 supportText.innerHTML = '✅ Android: Hỗ trợ đầy đủ. Nhấn MIC để bắt đầu.';
             } else {
@@ -2171,13 +2185,34 @@
         } else {
             if (isIOS && isPWA) {
                 supportText.innerHTML = '❌ PWA Mode: Voice không khả dụng. <br><a href="#" onclick="openInSafari()" class="btn btn-sm btn-primary mt-2">Mở trong Safari</a>';
-            } else if (isIOS) {
-                supportText.innerHTML = '❌ iOS: Cần sử dụng Safari browser để dùng tính năng này';
+            } else if (isIOS || isSafari) {
+                supportText.innerHTML = '❌ Safari: Speech recognition không khả dụng. <br><small>Kiểm tra cài đặt Safari hoặc thử reload trang.</small>';
             } else {
-                supportText.innerHTML = '❌ Trình duyệt không hỗ trợ nhận diện giọng nói';
+                supportText.innerHTML = '❌ Trình duyệt không hỗ trợ nhận diện giọng nói. <br><small>Sử dụng Chrome hoặc Safari để có tính năng này.</small>';
             }
             recordButton.disabled = true;
             recordButton.innerHTML = '<i class="fas fa-times"></i>';
+        }
+    }
+    
+    function testSafariSpeechSupport() {
+        try {
+            const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+            const testRecognition = new SpeechRecognition();
+            console.log('✅ Safari speech recognition test: Successful initialization');
+            
+            // Test basic properties
+            testRecognition.continuous = false;
+            testRecognition.interimResults = false;
+            testRecognition.lang = 'vi-VN';
+            
+            // Clean up test instance
+            testRecognition = null;
+        } catch (error) {
+            console.error('❌ Safari speech recognition test failed:', error);
+            const supportText = document.getElementById('supportText');
+            supportText.innerHTML = '❌ Safari: Speech recognition không khả dụng. <br><small>Lỗi: ' + error.message + '</small>';
+            document.getElementById('recordButton').disabled = true;
         }
     }
     
@@ -2201,23 +2236,44 @@
             const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
             recognition = new SpeechRecognition();
             
-            // Mobile-optimized settings
+            // Enhanced browser detection
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) || isIOS;
             
-            // Enhanced settings for mobile
-            recognition.continuous = !isMobile; // iOS works better with false
-            recognition.interimResults = true;
-            recognition.maxAlternatives = 1;
+            // Safari and iOS optimized settings
+            if (isSafari || isIOS) {
+                recognition.continuous = false;          // Safari works better with single recognition
+                recognition.interimResults = false;     // More reliable on Safari
+                recognition.maxAlternatives = 1;        // Reduce complexity
+                
+                // Add Safari-specific event handlers
+                recognition.onspeechstart = function() {
+                    console.log('Safari: Speech detected');
+                    updateStatus('listening', '🎤 Safari đang nghe...');
+                };
+                
+                recognition.onspeechend = function() {
+                    console.log('Safari: Speech ended');
+                    updateStatus('processing', '⏳ Safari đang xử lý...');
+                };
+                
+                recognition.onsoundstart = function() {
+                    console.log('Safari: Sound detected');
+                };
+                
+                recognition.onsoundend = function() {
+                    console.log('Safari: Sound ended');
+                };
+            } else {
+                // Android and desktop settings
+                recognition.continuous = !isMobile;
+                recognition.interimResults = true;
+                recognition.maxAlternatives = 1;
+            }
             
             // Start with default language
             recognition.lang = getLanguageCode(document.getElementById('sourceLanguage').value);
-            
-            // iOS specific settings
-            if (isIOS) {
-                recognition.continuous = false;
-                recognition.interimResults = false; // More reliable on iOS
-            }
             
             recognition.onstart = function() {
                 console.log('Speech recognition started');
@@ -2279,35 +2335,68 @@
                 let errorMessage = 'Lỗi nhận diện giọng nói';
                 
                 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) || isIOS;
                 
                 switch(event.error) {
                     case 'aborted':
-                        if (isIOS) {
-                            errorMessage = '❌ iOS: Voice bị chặn.\n\n🔧 Giải pháp: Kiểm tra quyền microphone';
+                        if (isSafari || isIOS) {
+                            errorMessage = '❌ Safari: Voice bị ngắt';
                             updateStatus('error', errorMessage);
-                            // Show guidance for iOS
                             setTimeout(() => {
-                                alert('Voice không hoạt động.\n\nKiểm tra:\n1. Quyền microphone trong Settings\n2. Thử reload trang\n3. Dùng Safari browser');
-                            }, 1000);
+                                showSafariTroubleshootingModal();
+                            }, 500);
                         } else {
                             errorMessage = '⚠️ Voice bị ngắt. Thử lại.';
                         }
                         break;
                     case 'no-speech':
-                        errorMessage = '⚠️ Không nghe thấy giọng nói. Thử lại.';
+                        if (isSafari || isIOS) {
+                            errorMessage = '⚠️ Safari: Không nghe thấy giọng nói. Nói ngay sau khi nhấn MIC.';
+                        } else {
+                            errorMessage = '⚠️ Không nghe thấy giọng nói. Thử lại.';
+                        }
                         break;
                     case 'audio-capture':
-                        errorMessage = '❌ Không thể truy cập microphone';
+                        if (isSafari || isIOS) {
+                            errorMessage = '❌ Safari: Không thể truy cập microphone';
+                            setTimeout(() => {
+                                showSafariPermissionGuide();
+                            }, 500);
+                        } else {
+                            errorMessage = '❌ Không thể truy cập microphone';
+                        }
                         break;
                     case 'not-allowed':
-                        errorMessage = '❌ Microphone bị chặn. Cho phép trong cài đặt browser.';
+                        if (isSafari || isIOS) {
+                            errorMessage = '❌ Safari: Microphone bị chặn';
+                            setTimeout(() => {
+                                showSafariPermissionGuide();
+                            }, 500);
+                        } else {
+                            errorMessage = '❌ Microphone bị chặn. Cho phép trong cài đặt browser.';
+                        }
                         break;
                     case 'network':
                         errorMessage = '❌ Lỗi mạng. Kiểm tra kết nối internet.';
                         break;
+                    case 'service-not-allowed':
+                        if (isSafari || isIOS) {
+                            errorMessage = '❌ Safari: Speech service không được phép';
+                            setTimeout(() => {
+                                showSafariTroubleshootingModal();
+                            }, 500);
+                        } else {
+                            errorMessage = '❌ Speech service không được phép';
+                        }
+                        break;
                     default:
                         if (isIOS && isPWA) {
-                            errorMessage = `❌ PWA Error: ${event.error}\n\nThử mở trong Safari browser`;
+                            errorMessage = `❌ PWA Error: ${event.error} - Thử mở trong Safari`;
+                        } else if (isSafari || isIOS) {
+                            errorMessage = `❌ Safari Error: ${event.error}`;
+                            setTimeout(() => {
+                                showSafariTroubleshootingModal();
+                            }, 500);
                         } else {
                             errorMessage = `❌ Lỗi: ${event.error}`;
                         }
@@ -2343,8 +2432,14 @@
     function toggleRecordingInternal() {
         console.log('Toggle recording clicked, recognition:', !!recognition, 'isRecording:', isRecording);
         
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) || /iPad|iPhone|iPod/.test(navigator.userAgent);
+        
         if (!recognition) {
-            alert('Speech recognition không khả dụng!\n\nKiểm tra:\n- Dùng Chrome/Safari\n- Cho phép truy cập microphone\n- Kết nối internet ổn định');
+            if (isSafari) {
+                showSafariPermissionGuide();
+            } else {
+                alert('Speech recognition không khả dụng!\n\nKiểm tra:\n- Dùng Chrome/Safari\n- Cho phép truy cập microphone\n- Kết nối internet ổn định');
+            }
             return;
         }
         
@@ -2353,26 +2448,41 @@
             recognition.stop();
         } else {
             try {
-                // Request microphone permission explicitly on mobile
-                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                    navigator.mediaDevices.getUserMedia({ audio: true })
-                        .then(stream => {
-                            console.log('Microphone access granted');
-                            // Stop the stream since speech recognition will handle it
-                            stream.getTracks().forEach(track => track.stop());
-                            startRecognition();
-                        })
-                        .catch(error => {
-                            console.error('Microphone access denied:', error);
-                            alert('❌ Không thể truy cập microphone!\n\nCách khắc phục:\n1. Cho phép microphone trong browser\n2. Kiểm tra cài đặt thiết bị\n3. Thử làm mới trang');
-                        });
+                if (isSafari) {
+                    // Safari-specific handling - direct start for better compatibility
+                    console.log('Safari detected: Starting recognition directly');
+                    updateStatus('ready', '🎤 Safari: Chuẩn bị...');
+                    
+                    // Give Safari a moment to prepare
+                    setTimeout(() => {
+                        startRecognition();
+                    }, 100);
                 } else {
-                    // Fallback for browsers without getUserMedia
-                    startRecognition();
+                    // Other browsers - request permission first
+                    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                        navigator.mediaDevices.getUserMedia({ audio: true })
+                            .then(stream => {
+                                console.log('Microphone access granted');
+                                // Stop the stream since speech recognition will handle it
+                                stream.getTracks().forEach(track => track.stop());
+                                startRecognition();
+                            })
+                            .catch(error => {
+                                console.error('Microphone access denied:', error);
+                                alert('❌ Không thể truy cập microphone!\n\nCách khắc phục:\n1. Cho phép microphone trong browser\n2. Kiểm tra cài đặt thiết bị\n3. Thử làm mới trang');
+                            });
+                    } else {
+                        // Fallback for browsers without getUserMedia
+                        startRecognition();
+                    }
                 }
             } catch (error) {
                 console.error('Error starting recognition:', error);
-                alert('Lỗi khởi động ghi âm: ' + error.message);
+                if (isSafari) {
+                    showSafariTroubleshootingModal();
+                } else {
+                    alert('Lỗi khởi động ghi âm: ' + error.message);
+                }
             }
         }
     }
@@ -2495,6 +2605,65 @@
             translateButton.innerHTML = originalText;
             checkTranslateButton();
         }
+    }
+    
+    // Safari-specific troubleshooting functions
+    function showSafariPermissionGuide() {
+        const message = `🔧 Safari Voice Recognition Guide:
+
+📱 BƯỚC 1: Kiểm tra Microphone Permission
+• Safari > Preferences > Websites > Microphone
+• Tìm trang web này và chọn "Allow"
+
+📱 BƯỚC 2: Kiểm tra System Settings (iOS)
+• Settings > Safari > Camera & Microphone
+• Bật "Camera & Microphone Access"
+
+📱 BƯỚC 3: Reload trang
+• Command+R (Mac) hoặc Pull down (iOS)
+
+🎤 BƯỚC 4: Thử lại
+• Click MIC và nói NGAY LẬP TỨC
+• Safari cần bạn nói trong vòng 3-5 giây
+
+⚠️ Nếu vẫn lỗi: Thử chuyển sang Chrome`;
+
+        if (confirm(message + '\n\nMở Chrome hoặc tiếp tục với Safari?')) {
+            // User chose to continue with Safari
+            console.log('User continuing with Safari after permission guide');
+        } else {
+            // User wants to try Chrome
+            const chromeUrl = window.location.href.replace(/safari/i, 'chrome');
+            window.open(chromeUrl, '_blank');
+        }
+    }
+    
+    function showSafariTroubleshootingModal() {
+        const troubleshootingSteps = `🛠️ Safari Voice Troubleshooting:
+
+🔍 COMMON ISSUES:
+• Speech recognition service offline 
+• Browser needs user interaction first
+• Microphone access denied
+
+🔧 SOLUTIONS:
+1. Reload trang (Command+R)
+2. Kiểm tra internet connection
+3. Thử click MIC nhiều lần
+4. Nói NGAY sau khi nhấn (trong 2 giây)
+5. Nói to và rõ ràng
+
+📱 iOS SPECIFIC:
+• Đảm bảo không ở Silent mode
+• Kiểm tra Do Not Disturb
+• Thử tắt/bật Airplane mode
+
+🌐 ALTERNATIVE:
+• Thử Chrome browser
+• Thử Desktop Safari
+• Sử dụng typing thay vì voice`;
+
+        alert(troubleshootingSteps);
     }
     
     async function copyTranslation() {
