@@ -1473,26 +1473,30 @@ def edit_quick_note(note_id):
     """API endpoint to edit an existing quick note"""
     try:
         data = request.get_json()
+        print(f"[EDIT_QUICK_NOTE] Received data for note_id {note_id}: {data}")
+        
         if not data:
+            print(f"[EDIT_QUICK_NOTE] No data provided")
             return jsonify({
                 'success': False,
-                'error': 'No data provided'
+                'message': 'No data provided'
             }), 400
         
-        # Validate required fields
-        required_fields = ['type', 'content', 'guest_name']
+        # FIXED: Make guest_name optional and validate only essential fields
+        required_fields = ['type', 'content']
         for field in required_fields:
             if field not in data or not data[field]:
+                print(f"[EDIT_QUICK_NOTE] Missing or empty field: {field}, data: {data}")
                 return jsonify({
                     'success': False,
-                    'error': f'Missing required field: {field}'
+                    'message': f'Missing required field: {field}. Received: {list(data.keys())}'
                 }), 400
         
         # Prepare updated note data
         note_data = {
             'type': data['type'],
             'content': data['content'],
-            'guest_name': data['guest_name'],
+            'guest_name': data.get('guest_name', ''),  # FIXED: Make optional
             'date': data.get('date', datetime.now().strftime('%Y-%m-%d')),
             'time': data.get('time', datetime.now().strftime('%H:%M')),
             'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -1500,18 +1504,40 @@ def edit_quick_note(note_id):
         
         # Update quick note in Google Sheets
         from logic import update_quick_note_in_sheet
+        print(f"[EDIT_QUICK_NOTE] ULTRA-FIX-V2: Attempting to update note {note_id}")
+        
         success = update_quick_note_in_sheet(note_id, note_data)
         
         if success:
+            print(f"[EDIT_QUICK_NOTE] ULTRA-FIX-V2: Update successful for note {note_id}")
             return jsonify({
                 'success': True,
                 'message': 'Quick note updated successfully',
                 'note_id': note_id
             })
         else:
+            print(f"[EDIT_QUICK_NOTE] ULTRA-FIX-V2: Update failed, trying direct create for note {note_id}")
+            
+            # ULTRA-FIX: If update fails, try to create the note directly
+            try:
+                from logic import create_note_directly
+                direct_success = create_note_directly(note_data, note_id)
+                if direct_success:
+                    print(f"[EDIT_QUICK_NOTE] ULTRA-FIX-V2: Direct create successful for note {note_id}")
+                    return jsonify({
+                        'success': True,
+                        'message': 'Quick note created successfully (was missing from Google Sheets)',
+                        'note_id': note_id
+                    })
+                else:
+                    print(f"[EDIT_QUICK_NOTE] ULTRA-FIX-V2: Both update and direct create failed for note {note_id}")
+            except Exception as direct_error:
+                print(f"[EDIT_QUICK_NOTE] ULTRA-FIX-V2: Direct create exception: {direct_error}")
+            
+            # FIXED: More specific error message
             return jsonify({
                 'success': False,
-                'error': 'Failed to update quick note in Google Sheets'
+                'message': f'Failed to update quick note in Google Sheets. Note ID {note_id} may not exist or Google Sheets may be inaccessible.'
             }), 500
             
     except Exception as e:
@@ -1520,7 +1546,7 @@ def edit_quick_note(note_id):
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': f'Server error: {str(e)}'
+            'message': f'Server error: {str(e)}'
         }), 500
 
 @app.route('/voice_translator')
@@ -2355,6 +2381,7 @@ def add_template_api():
         templates.append(new_template_formatted)
         
         # Sync with Google Sheets FIRST (source of truth)
+        sheets_error = None
         try:
             export_message_templates_to_gsheet(templates, DEFAULT_SHEET_ID, GCP_CREDS_FILE_PATH)
             sheets_sync = " - Google Sheets OK"
@@ -2362,6 +2389,7 @@ def add_template_api():
         except Exception as export_error:
             print(f"Export Google Sheets error: {export_error}")
             sheets_sync = " - Google Sheets ERROR"
+            sheets_error = str(export_error)
         
         # Update JSON backup file
         try:
@@ -2374,12 +2402,22 @@ def add_template_api():
             print(f"JSON backup error: {json_error}")
             json_sync = " - JSON backup ERROR"
         
-        return jsonify({
-            'success': True, 
-            'message': f'Template added successfully! Sync:{sheets_sync}{json_sync}',
-            'template_count': len(templates),
-            'new_template': new_template_formatted
-        })
+        # FIXED: Return appropriate response based on sync status
+        if sheets_error:
+            return jsonify({
+                'success': False, 
+                'message': f'Template added locally but Google Sheets sync failed: {sheets_error}',
+                'sync_status': f'{sheets_sync}{json_sync}',
+                'template_count': len(templates),
+                'new_template': new_template_formatted
+            })
+        else:
+            return jsonify({
+                'success': True, 
+                'message': f'Template added successfully! Sync:{sheets_sync}{json_sync}',
+                'template_count': len(templates),
+                'new_template': new_template_formatted
+            })
         
     except Exception as e:
         print(f"Add template error: {e}")
@@ -2490,7 +2528,7 @@ def save_quick_note():
         
         # Chuẩn bị dữ liệu để lưu
         note_id = data.get('id', str(int(datetime.now().timestamp() * 1000)))
-        guest_name = data.get('guestName', '')
+        guest_name = data.get('guest_name', data.get('guestName', ''))  # Support both field names
         created_at = datetime.now().isoformat()
         completed = data.get('completed', 'false')
         
@@ -2517,7 +2555,10 @@ def save_quick_note():
         })
         
     except Exception as e:
-        print(f"Error saving quick note: {e}")
+        print(f"❌ Error saving quick note: {e}")
+        print(f"❌ Request data: {data}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
 
 @app.route('/api/quick_notes/<note_id>/complete', methods=['POST'])

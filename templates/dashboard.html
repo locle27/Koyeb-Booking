@@ -877,12 +877,13 @@
 {% block scripts %}
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <script>
+// ==================== GLOBAL VARIABLES - MUST BE FIRST ====================
+var currentEditBookingData = {};
+var currentBookingData = {};
+
 // Pass chart data from server to dashboard.js
 const monthlyRevenueChartData = {{ monthly_revenue_chart_json | tojson | safe }};
 const collectorChartData = {{ collector_chart_json | tojson | safe }};
-
-// Global variables for payment modal
-let currentBookingData = {};
 
 // Quick Notes functionality
 document.addEventListener('DOMContentLoaded', function() {
@@ -926,6 +927,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function openCollectModal(bookingId, guestName, totalAmount, commission, roomFee, taxiFee) {
+    // FIXED: Add debug logging and parameter validation
+    console.log('[CollectModal] Called with:', {bookingId, guestName, totalAmount, commission, roomFee, taxiFee});
+    
+    // Validate required parameters
+    if (!bookingId || !guestName) {
+        console.error('[CollectModal] Missing required parameters');
+        alert('⚠️ Missing booking information. Please refresh the page.');
+        return;
+    }
+    
     // Store booking data for later use
     currentBookingData = {
         bookingId: bookingId,
@@ -1086,7 +1097,10 @@ function collectPayment() {
             const modal = bootstrap.Modal.getInstance(document.getElementById('collectPaymentModal'));
             modal.hide();
             
-            // No need for page reload anymore!
+            // FIXED: Add page reload after successful payment to ensure fresh data
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
         } else {
             throw new Error(data.message || 'Lỗi không xác định');
         }
@@ -1817,8 +1831,17 @@ function saveQuickNote() {
     const noteTime = document.getElementById('noteTime').value;
     const editId = document.getElementById('quickNotesForm').getAttribute('data-edit-id');
     
+    // FIXED: Debug what we're getting from the form
+    console.log('[SaveQuickNote] Form values:', {
+        noteType, noteContent, noteDate, noteTime, editId,
+        hasNoteType: !!noteType,
+        hasNoteContent: !!noteContent,
+        activeButtons: document.querySelectorAll('.note-type-btn.active').length
+    });
+    
     if (!noteType || !noteContent || !noteDate || !noteTime) {
         console.log('❌ QuickNote validation failed: Missing required fields');
+        console.log(`Debug: noteType="${noteType}", noteContent="${noteContent}", noteDate="${noteDate}", noteTime="${noteTime}"`);
         // Show non-blocking error feedback
         const submitBtn = document.querySelector('#quickNotesModal .btn-primary');
         if (submitBtn) {
@@ -1833,6 +1856,28 @@ function saveQuickNote() {
         return;
     }
     
+    // FIXED: Additional validation for empty strings
+    if (noteType.trim() === '' || noteContent.trim() === '') {
+        console.log('❌ QuickNote validation failed: Empty strings');
+        alert('⚠️ Vui lòng điền đầy đủ thông tin! Hãy chọn loại ghi chú và nhập nội dung.');
+        return;
+    }
+    
+    // FIXED: Fallback - try to get note type from active button if form field is empty
+    if (!noteType || noteType.trim() === '') {
+        const activeButton = document.querySelector('.note-type-btn.active');
+        if (activeButton) {
+            const onclickAttr = activeButton.getAttribute('onclick');
+            if (onclickAttr && onclickAttr.includes('selectNoteType')) {
+                const match = onclickAttr.match(/selectNoteType\('([^']+)'\)/);
+                if (match) {
+                    document.getElementById('noteType').value = match[1];
+                    console.log(`[SaveQuickNote] Fixed noteType from button: ${match[1]}`);
+                }
+            }
+        }
+    }
+    
     const isEditing = !!editId;
     
     const noteData = {
@@ -1845,6 +1890,9 @@ function saveQuickNote() {
         completed: false, // Explicitly set as not completed
         created_at: new Date().toISOString()
     };
+    
+    // FIXED: Add debug logging for troubleshooting
+    console.log(`[QuickNote] ${isEditing ? 'Editing' : 'Creating'} note:`, noteData);
     
     // Save to localStorage
     let savedNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
@@ -1871,19 +1919,34 @@ function saveQuickNote() {
         },
         body: JSON.stringify(noteData)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log(`[QuickNote] API Response Status: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log(`[QuickNote] API Response Data:`, data);
         if (data.success) {
             console.log(`Note ${isEditing ? 'updated' : 'saved'} to Google Sheets successfully`);
             showDashboardToast(`✅ Đã ${isEditing ? 'cập nhật' : 'lưu'} quick note vào Google Sheets!`, 'success');
+            
+            // FIXED: Close modal and reload to show fresh data
+            const modal = bootstrap.Modal.getInstance(document.getElementById('quickNotesModal'));
+            if (modal) modal.hide();
+            
+            setTimeout(() => {
+                loadQuickNotesOnDashboard();
+            }, 500);
         } else {
-            console.error('Server save failed:', data.message);
-            showDashboardToast(`⚠️ Đã ${isEditing ? 'cập nhật' : 'lưu'} local, nhưng lỗi khi sync lên Google Sheets`, 'warning');
+            console.error('Server save failed:', data.message || data.error || 'Unknown error');
+            showDashboardToast(`⚠️ Đã ${isEditing ? 'cập nhật' : 'lưu'} local, nhưng lỗi khi sync lên Google Sheets: ${data.message || data.error || 'Unknown error'}`, 'warning');
         }
     })
     .catch(error => {
         console.error('Error saving to server:', error);
-        showDashboardToast('⚠️ Đã lưu local, nhưng lỗi khi sync lên Google Sheets', 'warning');
+        showDashboardToast(`⚠️ Đã lưu local, nhưng lỗi khi sync lên Google Sheets: ${error.message}`, 'warning');
     });
     
     // Reset form (non-blocking)
@@ -2069,9 +2132,19 @@ function selectNoteType(type) {
 }
 
 // ==================== EDIT AMOUNT MODAL FUNCTIONS ====================
-let currentEditBookingData = {};
+// currentEditBookingData declared at top of script
 
 function openEditAmountModal(bookingId, guestName, roomFee, taxiFee) {
+    // FIXED: Add debug logging and parameter validation
+    console.log('[EditAmount] Called with:', {bookingId, guestName, roomFee, taxiFee});
+    
+    // Validate required parameters
+    if (!bookingId || !guestName) {
+        console.error('[EditAmount] Missing required parameters');
+        alert('⚠️ Missing booking information. Please refresh the page.');
+        return;
+    }
+    
     // Store booking data for editing
     currentEditBookingData = {
         bookingId: bookingId,
@@ -2161,7 +2234,10 @@ function updateBookingAmounts() {
             const modal = bootstrap.Modal.getInstance(document.getElementById('editAmountModal'));
             modal.hide();
             
-            // No page reload needed!
+            // FIXED: Add page reload after successful update to ensure fresh data
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
         } else {
             throw new Error(data.message || 'Lỗi không xác định');
         }
@@ -2570,6 +2646,8 @@ function quickNotify(type, guestName) {
 </div>
 
 <script>
+// Variables already declared at top of script
+
 // Initialize modal date and time when modal opens
 document.getElementById('quickNotesModal').addEventListener('show.bs.modal', function () {
     const now = new Date();
@@ -3099,8 +3177,11 @@ async function saveExpenseEdit(expenseId) {
             const modal = bootstrap.Modal.getInstance(document.getElementById('editExpenseModal'));
             modal.hide();
             
-            // Refresh expense review and monthly expenses
-            await loadExpenseReview();
+            // FIXED: Reload expense data after successful edit
+            setTimeout(() => {
+                loadMonthlyExpenses().catch(console.error);
+                loadExpenseReview();
+            }, 500);
             await loadMonthlyExpenses();
         } else {
             throw new Error(result.message || 'Lỗi không xác định');

@@ -2095,7 +2095,8 @@ def update_quick_note_in_sheet(note_id: str, note_data: dict) -> bool:
     try:
         import os
         
-        print(f"🔍 [DEBUG] Starting update_quick_note_in_sheet for ID: {note_id}")
+        print(f"🔍 [DEBUG] ULTRA-FIX-V2: Starting update_quick_note_in_sheet for ID: {note_id}")
+        print(f"🔍 [DEBUG] ULTRA-FIX-V2: Function updated with latest changes")
         
         # Get credentials and sheet configuration
         gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
@@ -2110,12 +2111,21 @@ def update_quick_note_in_sheet(note_id: str, note_data: dict) -> bool:
             gc = _get_gspread_client(gcp_creds_file_path)
             spreadsheet = gc.open_by_key(sheet_id)
             
-            # Try to get QuickNotes worksheet
+            # Try to get QuickNotes worksheet, create if doesn't exist
             try:
                 worksheet = spreadsheet.worksheet('QuickNotes')
+                print("✅ Found existing QuickNotes worksheet")
             except:
-                print("❌ QuickNotes worksheet not found")
-                return False
+                print("📋 QuickNotes worksheet not found, creating...")
+                try:
+                    worksheet = spreadsheet.add_worksheet(title='QuickNotes', rows=100, cols=8)
+                    # Add headers
+                    headers = ['ID', 'Type', 'Content', 'Date', 'Time', 'GuestName', 'CreatedAt', 'Completed']
+                    worksheet.append_row(headers)
+                    print("✅ Created new QuickNotes worksheet with headers")
+                except Exception as create_error:
+                    print(f"❌ Failed to create QuickNotes worksheet: {create_error}")
+                    return False
                 
         except Exception as e:
             print(f"❌ [DEBUG] Error accessing QuickNotes worksheet: {e}")
@@ -2123,26 +2133,83 @@ def update_quick_note_in_sheet(note_id: str, note_data: dict) -> bool:
         
         # Find and update the note
         try:
+            print(f"🔍 [DEBUG] STEP 1: Getting all records from worksheet")
             # Get all records to find the note
             records = worksheet.get_all_records()
+            print(f"🔍 [DEBUG] STEP 2: Found {len(records)} records in QuickNotes sheet")
             
-            for i, record in enumerate(records):
-                if str(record.get('id', i)) == str(note_id):
-                    row_num = i + 2  # +2 because sheets are 1-indexed and header row
-                    
-                    # Update the note data
-                    worksheet.update_cell(row_num, 1, note_data['type'])
-                    worksheet.update_cell(row_num, 2, note_data['content'])
-                    worksheet.update_cell(row_num, 3, note_data['guest_name'])
-                    worksheet.update_cell(row_num, 4, note_data['date'])
-                    worksheet.update_cell(row_num, 5, note_data['time'])
-                    if 'updated_at' in note_data:
-                        worksheet.update_cell(row_num, 6, note_data['updated_at'])
-                    
-                    print(f"✅ [DEBUG] Successfully updated quick note at row {row_num}")
-                    return True
+            # Check headers first
+            print(f"🔍 [DEBUG] STEP 3: Getting headers")
+            headers = worksheet.row_values(1)
+            print(f"🔍 [DEBUG] STEP 4: Sheet headers: {headers}")
             
-            print(f"❌ [DEBUG] Quick note with ID {note_id} not found")
+            # FIXED: Debug the IDs to see what we're working with
+            print(f"🔍 [DEBUG] STEP 5: Starting to search for note ID {note_id}")
+            note_found = False
+            
+            try:
+                for i, record in enumerate(records):
+                    record_id = str(record.get('ID', record.get('id', i)))
+                    print(f"🔍 [DEBUG] Row {i+1}: ID={record_id}, looking for={note_id}")
+                    
+                    if record_id == str(note_id):
+                        note_found = True
+                        row_num = i + 2  # +2 because sheets are 1-indexed and header row
+                        print(f"🔍 [DEBUG] STEP 6: Found matching note at row {row_num}")
+                        
+                        # Update based on actual column positions
+                        id_col = headers.index('ID') + 1 if 'ID' in headers else 1
+                        type_col = headers.index('Type') + 1 if 'Type' in headers else 2
+                        content_col = headers.index('Content') + 1 if 'Content' in headers else 3
+                        date_col = headers.index('Date') + 1 if 'Date' in headers else 4
+                        time_col = headers.index('Time') + 1 if 'Time' in headers else 5
+                        guest_col = headers.index('GuestName') + 1 if 'GuestName' in headers else 6
+                        
+                        # Update the note data
+                        worksheet.update_cell(row_num, type_col, note_data['type'])
+                        worksheet.update_cell(row_num, content_col, note_data['content'])
+                        worksheet.update_cell(row_num, guest_col, note_data['guest_name'])
+                        worksheet.update_cell(row_num, date_col, note_data['date'])
+                        worksheet.update_cell(row_num, time_col, note_data['time'])
+                        if 'updated_at' in note_data and 'CreatedAt' in headers:
+                            created_col = headers.index('CreatedAt') + 1
+                            worksheet.update_cell(row_num, created_col, note_data['updated_at'])
+                        
+                        print(f"✅ [DEBUG] Successfully updated quick note at row {row_num}")
+                        return True
+                        
+                print(f"🔍 [DEBUG] STEP 7: Finished searching all {len(records)} records")
+                
+            except Exception as search_error:
+                print(f"❌ [DEBUG] STEP 7-ERROR: Error during record search: {search_error}")
+                import traceback
+                traceback.print_exc()
+            
+            if not note_found:
+                print(f"🔍 [DEBUG] STEP 8: Note not found, preparing fallback")
+                print(f"❌ [DEBUG] Quick note with ID {note_id} not found in {len(records)} records")
+                
+                # Print all available IDs for debugging
+                try:
+                    all_ids = [str(record.get('ID', record.get('id', i))) for i, record in enumerate(records)]
+                    print(f"❌ [DEBUG] Available IDs: {all_ids}")
+                except Exception as id_error:
+                    print(f"❌ [DEBUG] Error getting available IDs: {id_error}")
+                
+                # FIXED: Fallback - create new note instead of failing
+                print(f"🔄 [DEBUG] STEP 9: Note not found, creating new note with ID {note_id}")
+                
+                try:
+                    result = create_quick_note_with_id(worksheet, note_data, note_id)
+                    print(f"🔍 [DEBUG] STEP 10: Fallback create result: {result}")
+                    return result
+                except Exception as create_error:
+                    print(f"❌ [DEBUG] STEP 10-ERROR: Fallback create failed: {create_error}")
+                    import traceback
+                    traceback.print_exc()
+                    return False
+            
+            print(f"🔍 [DEBUG] STEP 11: Reached end of function, returning False")
             return False
             
         except Exception as e:
@@ -2151,6 +2218,133 @@ def update_quick_note_in_sheet(note_id: str, note_data: dict) -> bool:
             
     except Exception as e:
         print(f"❌ Error updating quick note in sheet: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def create_note_directly(note_data: dict, note_id: str) -> bool:
+    """Create a new quick note directly, bypassing complex search logic
+    
+    Args:
+        note_data: Dictionary containing note details
+        note_id: The specific ID to use for the note
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        import os
+        
+        print(f"🔄 [DEBUG] ULTRA-FIX-V2: Creating note directly with ID {note_id}")
+        
+        # Get credentials and sheet configuration
+        gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
+        sheet_id = os.getenv('DEFAULT_SHEET_ID')
+        
+        if not sheet_id:
+            print("❌ DEFAULT_SHEET_ID not found in environment variables")
+            return False
+        
+        # Get Google Sheets client
+        gc = _get_gspread_client(gcp_creds_file_path)
+        spreadsheet = gc.open_by_key(sheet_id)
+        
+        # Try to get QuickNotes worksheet, create if doesn't exist
+        try:
+            worksheet = spreadsheet.worksheet('QuickNotes')
+            print("✅ Found existing QuickNotes worksheet")
+        except:
+            print("📋 QuickNotes worksheet not found, creating...")
+            worksheet = spreadsheet.add_worksheet(title='QuickNotes', rows=100, cols=8)
+            # Add headers
+            headers = ['ID', 'Type', 'Content', 'Date', 'Time', 'GuestName', 'CreatedAt', 'Completed']
+            worksheet.append_row(headers)
+            print("✅ Created new QuickNotes worksheet with headers")
+        
+        # Get headers
+        headers = worksheet.row_values(1)
+        print(f"🔍 [DEBUG] Sheet headers: {headers}")
+        
+        # Prepare row data
+        row_data = [
+            note_id,  # ID
+            note_data.get('type', ''),  # Type
+            note_data.get('content', ''),  # Content
+            note_data.get('date', ''),  # Date
+            note_data.get('time', ''),  # Time
+            note_data.get('guest_name', ''),  # GuestName
+            note_data.get('updated_at', note_data.get('created_at', '')),  # CreatedAt
+            'false'  # Completed
+        ]
+        
+        print(f"🔍 [DEBUG] Prepared row data: {row_data}")
+        
+        # Add the new note
+        worksheet.append_row(row_data)
+        print(f"✅ [DEBUG] ULTRA-FIX-V2: Successfully created QuickNote directly with ID {note_id}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ [DEBUG] ULTRA-FIX-V2: Error creating note directly with ID {note_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def create_quick_note_with_id(worksheet, note_data: dict, note_id: str) -> bool:
+    """Create a new quick note with a specific ID in Google Sheets
+    
+    Args:
+        worksheet: The QuickNotes worksheet object
+        note_data: Dictionary containing note details
+        note_id: The specific ID to use for the note
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        print(f"🔄 [DEBUG] Creating new QuickNote with ID {note_id}")
+        
+        # Get headers to ensure proper column mapping
+        headers = worksheet.row_values(1)
+        print(f"🔍 [DEBUG] Sheet headers: {headers}")
+        
+        # Prepare row data in the correct order
+        row_data = []
+        
+        # Map data to columns based on headers
+        for header in headers:
+            if header == 'ID':
+                row_data.append(note_id)
+            elif header == 'Type':
+                row_data.append(note_data.get('type', ''))
+            elif header == 'Content':
+                row_data.append(note_data.get('content', ''))
+            elif header == 'Date':
+                row_data.append(note_data.get('date', ''))
+            elif header == 'Time':
+                row_data.append(note_data.get('time', ''))
+            elif header == 'GuestName':
+                row_data.append(note_data.get('guest_name', ''))
+            elif header == 'CreatedAt':
+                row_data.append(note_data.get('updated_at', note_data.get('created_at', '')))
+            elif header == 'Completed':
+                row_data.append('false')
+            else:
+                row_data.append('')  # Empty cell for unknown headers
+        
+        print(f"🔍 [DEBUG] Prepared row data: {row_data}")
+        
+        # Add the new note
+        worksheet.append_row(row_data)
+        print(f"✅ [DEBUG] Successfully created QuickNote with ID {note_id}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ [DEBUG] Error creating QuickNote with ID {note_id}: {e}")
         import traceback
         traceback.print_exc()
         return False
