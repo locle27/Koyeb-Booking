@@ -1839,10 +1839,32 @@ def add_expense_to_sheet(expense_data: dict) -> bool:
             ]
             print(f"🔍 [DEBUG] Row data prepared: {row_data}")
             
-            # Add the expense row using existing pattern
+            # Add the expense row using existing pattern with timeout protection
             print("🔍 [DEBUG] Adding expense row to worksheet...")
-            worksheet.append_row(row_data)
-            print(f"✅ Added expense: {expense_data['description']} - {expense_data['amount']}đ")
+            
+            # Add timeout protection for Google Sheets API call
+            import signal
+            import functools
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("Google Sheets API call timed out after 30 seconds")
+            
+            try:
+                # Set 30-second timeout for the API call
+                old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(30)
+                
+                worksheet.append_row(row_data)
+                signal.alarm(0)  # Cancel timeout
+                print(f"✅ Added expense: {expense_data['description']} - {expense_data['amount']}đ")
+                
+            except TimeoutError as te:
+                print(f"❌ Google Sheets API timeout: {te}")
+                raise te
+            finally:
+                signal.alarm(0)  # Ensure timeout is always cancelled
+                if 'old_handler' in locals():
+                    signal.signal(signal.SIGALRM, old_handler)
             
             return True
             

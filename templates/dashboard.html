@@ -2914,6 +2914,13 @@ async function addExpense() {
     }
     
     try {
+        // Add timeout to prevent freezing
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+            console.error('Expense save timeout after 15 seconds');
+        }, 15000); // 15 second timeout
+        
         const response = await fetch('/api/expenses', {
             method: 'POST',
             headers: {
@@ -2923,8 +2930,11 @@ async function addExpense() {
                 description: description,
                 amount: parseFloat(amount),
                 date: date
-            })
+            }),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         const result = await response.json();
         
@@ -2945,11 +2955,12 @@ async function addExpense() {
             const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
             modal.hide();
             
-            // Reload data after modal is closed
+            // Reload data after modal is closed (with once: true to prevent memory leaks)
             modalElement.addEventListener('hidden.bs.modal', function reloadHandler() {
-                loadMonthlyExpenses().catch(console.error);
-                modalElement.removeEventListener('hidden.bs.modal', reloadHandler);
-            });
+                setTimeout(() => {
+                    loadMonthlyExpenses().catch(console.error);
+                }, 300); // Small delay to ensure modal is fully closed
+            }, { once: true }); // Prevent event listener accumulation
             
         } else {
             throw new Error(result.error || 'Cannot save expense');
@@ -2957,9 +2968,19 @@ async function addExpense() {
         
     } catch (error) {
         console.error('❌ Error adding expense:', error);
+        
         if (submitBtn) {
-            submitBtn.innerHTML = '❌ Lỗi - Thử lại';
-            submitBtn.className = 'btn btn-danger';
+            if (error.name === 'AbortError') {
+                // Timeout error
+                submitBtn.innerHTML = '⏰ Timeout - Thử lại';
+                submitBtn.className = 'btn btn-warning';
+                showExpenseToast('⏰ Lưu chi phí timeout - vui lòng thử lại', 'warning');
+            } else {
+                // Other errors
+                submitBtn.innerHTML = '❌ Lỗi - Thử lại';
+                submitBtn.className = 'btn btn-danger';
+                showExpenseToast('❌ Lỗi lưu chi phí: ' + error.message, 'error');
+            }
         }
     } finally {
         // Reset button after 2 seconds
