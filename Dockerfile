@@ -23,16 +23,10 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 # Copy requirements files
 COPY requirements*.txt ./
 
-# Emergency install with minimal dependencies
-RUN echo "🚨 Emergency deployment mode..." && \
-    (echo "Trying emergency minimal requirements..." && \
-     pip install --no-cache-dir --timeout=300 -r requirements-emergency.txt && \
-     echo "✅ Emergency install successful!" && \
-     export MARKET_ANALYSIS_MODE=demo_only) || \
-    (echo "Trying production requirements..." && \
-     pip install --no-cache-dir --timeout=300 -r requirements-production.txt) || \
-    (echo "Final fallback to minimal..." && \
-     pip install --no-cache-dir --timeout=300 -r requirements-minimal.txt)
+# Install dependencies from requirements.txt
+RUN echo "🚀 Installing dependencies..." && \
+    pip install --no-cache-dir --timeout=300 -r requirements.txt && \
+    echo "✅ Dependencies installed successfully!"
 
 # Copy application files
 COPY . .
