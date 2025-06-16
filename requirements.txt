@@ -30,6 +30,11 @@ Jinja2>=3.1.0,<4.0.0
 # Add requests for health check
 requests>=2.31.0
 
+# PostgreSQL Database Support
+psycopg2-binary>=2.9.0
+SQLAlchemy>=2.0.0
+Flask-SQLAlchemy>=3.0.0
+
 # Web Crawling for Market Price Analysis - Use stable version
 crawl4ai==0.3.746
 playwright>=1.40.0
