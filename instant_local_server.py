@@ -11,7 +11,7 @@ from flask import Flask
 
 def setup_environment():
     """Set up environment for local testing"""
-    print("🔧 Setting up environment for local testing...")
+    print("[SETUP] Setting up environment for local testing...")
     
     env_vars = {
         'DATABASE_URL': 'postgres://koyeb-adm:npg_T4hEuUQeDl7A@ep-little-haze-a2133rvc.eu-central-1.pg.koyeb.app:5432/koyebdb',
@@ -30,17 +30,17 @@ def setup_environment():
     for key, value in env_vars.items():
         os.environ[key] = value
     
-    print("✅ Environment configured")
+    print("[SUCCESS] Environment configured")
     return env_vars
 
 def create_development_server():
     """Create optimized development server"""
-    print("🚀 Creating development server...")
+    print("[SERVER] Creating development server...")
     
     # Import your main app
     try:
         from app import app
-        print("✅ Main app imported successfully")
+        print("[SUCCESS] Main app imported successfully")
         
         # Enable debug mode for instant reloading
         app.config['DEBUG'] = True
@@ -48,33 +48,33 @@ def create_development_server():
         
         return app
     except ImportError as e:
-        print(f"❌ Could not import app: {e}")
-        print("💡 Make sure app.py exists and is working")
+        print(f"[ERROR] Could not import app: {e}")
+        print("[INFO] Make sure app.py exists and is working")
         return None
     except Exception as e:
-        print(f"❌ App setup error: {e}")
+        print(f"[ERROR] App setup error: {e}")
         return None
 
 def run_local_server(app, port=5000):
     """Run the local development server"""
-    print(f"🌐 Starting server on port {port}...")
-    print(f"📍 Local URL: http://localhost:{port}")
-    print(f"🔄 Auto-reload enabled - changes appear instantly!")
-    print(f"🛡️ Using hybrid database (PostgreSQL + Google Sheets fallback)")
+    print(f"[SERVER] Starting server on port {port}...")
+    print(f"[INFO] Local URL: http://localhost:{port}")
+    print(f"[INFO] Auto-reload enabled - changes appear instantly!")
+    print(f"[INFO] Using hybrid database (PostgreSQL + Google Sheets fallback)")
     print()
-    print("🎯 TESTING URLS:")
-    print(f"   • Dashboard: http://localhost:{port}/")
-    print(f"   • Bookings: http://localhost:{port}/bookings")
-    print(f"   • API Health: http://localhost:{port}/api/database/health")
-    print(f"   • Performance: http://localhost:{port}/api/database/performance")
+    print("[TESTING] Available URLs:")
+    print(f"   - Dashboard: http://localhost:{port}/")
+    print(f"   - Bookings: http://localhost:{port}/bookings")
+    print(f"   - API Health: http://localhost:{port}/api/database/health")
+    print(f"   - Performance: http://localhost:{port}/api/database/performance")
     print()
-    print("💡 NEXT STEPS:")
+    print("[NEXT STEPS]:")
     print("1. Open http://localhost:5000 in your browser")
     print("2. Test all features locally")
     print("3. Make changes to files - they appear instantly!")
     print("4. When ready, share via ngrok: ngrok http 5000")
     print()
-    print("⏹️ Press Ctrl+C to stop the server")
+    print("[INFO] Press Ctrl+C to stop the server")
     print("=" * 60)
     
     try:
@@ -88,22 +88,22 @@ def run_local_server(app, port=5000):
             threaded=True
         )
     except KeyboardInterrupt:
-        print("\n⏹️ Server stopped by user")
+        print("\n[INFO] Server stopped by user")
     except Exception as e:
-        print(f"\n❌ Server error: {e}")
+        print(f"\n[ERROR] Server error: {e}")
 
 def main():
     """Main function"""
-    print("⚡" * 60)
-    print("🚀 HOTEL BOOKING SYSTEM - INSTANT LOCAL TESTING")
-    print("⚡" * 60)
+    print("=" * 60)
+    print("HOTEL BOOKING SYSTEM - INSTANT LOCAL TESTING")
+    print("=" * 60)
     print()
-    print("💡 BENEFITS:")
-    print("✅ INSTANT changes - no deployment delays")
-    print("✅ Full debugging capabilities")
-    print("✅ Connect to your Koyeb PostgreSQL")
-    print("✅ Google Sheets fallback safety")
-    print("✅ Test all features locally first")
+    print("BENEFITS:")
+    print("- INSTANT changes - no deployment delays")
+    print("- Full debugging capabilities")
+    print("- Connect to your Koyeb PostgreSQL")
+    print("- Google Sheets fallback safety")
+    print("- Test all features locally first")
     print()
     
     # Setup environment
@@ -113,21 +113,21 @@ def main():
     app = create_development_server()
     
     if app:
-        print("✅ App ready for local testing")
+        print("[SUCCESS] App ready for local testing")
         run_local_server(app, port=5000)
     else:
-        print("❌ Could not start app")
-        print("🔧 Troubleshooting:")
+        print("[ERROR] Could not start app")
+        print("[TROUBLESHOOTING]:")
         print("1. Make sure you're in the virtual environment")
         print("2. Check that app.py exists and works")
         print("3. Verify all dependencies are installed")
         
         # Show current directory and files
-        print(f"\n📁 Current directory: {os.getcwd()}")
+        print(f"\n[INFO] Current directory: {os.getcwd()}")
         if os.path.exists('app.py'):
-            print("✅ app.py found")
+            print("[SUCCESS] app.py found")
         else:
-            print("❌ app.py not found")
+            print("[ERROR] app.py not found")
 
 if __name__ == '__main__':
     main()

@@ -1933,8 +1933,7 @@ function saveQuickNote() {
             showDashboardToast(`✅ Đã ${isEditing ? 'cập nhật' : 'lưu'} quick note vào Google Sheets!`, 'success');
             
             // FIXED: Close modal and reload to show fresh data
-            const modal = bootstrap.Modal.getInstance(document.getElementById('quickNotesModal'));
-            if (modal) modal.hide();
+            forceCloseModal('quickNotesModal');
             
             setTimeout(() => {
                 loadQuickNotesOnDashboard();
@@ -2649,11 +2648,20 @@ function quickNotify(type, guestName) {
 // Variables already declared at top of script
 
 // Initialize modal date and time when modal opens
-document.getElementById('quickNotesModal').addEventListener('show.bs.modal', function () {
-    const now = new Date();
-    document.getElementById('noteDate').value = now.toISOString().split('T')[0];
-    document.getElementById('noteTime').value = now.toTimeString().slice(0, 5);
-});
+const quickNotesModal = document.getElementById('quickNotesModal');
+if (quickNotesModal) {
+    quickNotesModal.addEventListener('show.bs.modal', function () {
+        const now = new Date();
+        const noteDateElement = document.getElementById('noteDate');
+        const noteTimeElement = document.getElementById('noteTime');
+        if (noteDateElement) {
+            noteDateElement.value = now.toISOString().split('T')[0];
+        }
+        if (noteTimeElement) {
+            noteTimeElement.value = now.toTimeString().slice(0, 5);
+        }
+    });
+}
 
 // Initialize arrival times from server, fallback to localStorage
 document.addEventListener('DOMContentLoaded', async function() {
@@ -2804,11 +2812,138 @@ document.addEventListener('DOMContentLoaded', async function() {
 </div>
 
 <script>
-// Initialize expense modal date
-document.getElementById('expenseModal').addEventListener('show.bs.modal', function () {
-    const now = new Date();
-    document.getElementById('expenseDate').value = now.toISOString().split('T')[0];
+// MODAL CLEANUP UTILITY - Fixes stuck backdrop issues
+function forceCloseModal(modalId) {
+    try {
+        const modalElement = document.getElementById(modalId);
+        if (!modalElement) return;
+        
+        // Get bootstrap modal instance
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Force cleanup if modal is still stuck
+        setTimeout(() => {
+            // Remove modal classes
+            modalElement.classList.remove('show');
+            modalElement.style.display = 'none';
+            modalElement.setAttribute('aria-hidden', 'true');
+            modalElement.removeAttribute('aria-modal');
+            
+            // Clean up body classes and styles
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // Remove any lingering backdrops
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => {
+                if (backdrop.parentNode) {
+                    backdrop.parentNode.removeChild(backdrop);
+                }
+            });
+            
+            // Ensure scrolling is restored
+            document.documentElement.style.overflow = '';
+            
+        }, 100);
+        
+    } catch (error) {
+        console.warn('Modal cleanup warning:', error);
+        
+        // Emergency cleanup - force remove all modal artifacts
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        
+        const allBackdrops = document.querySelectorAll('.modal-backdrop');
+        allBackdrops.forEach(backdrop => backdrop.remove());
+    }
+}
+
+// Emergency backdrop cleaner - call this if modals get stuck
+function clearAllModalBackdrops() {
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+    document.documentElement.style.overflow = '';
+    
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => backdrop.remove());
+    
+    console.log('Cleared all modal backdrops');
+}
+
+// Add emergency escape key handler
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        // Double-tap escape to force close stuck modals
+        setTimeout(() => {
+            const visibleBackdrops = document.querySelectorAll('.modal-backdrop.show, .modal-backdrop.fade.show');
+            if (visibleBackdrops.length > 0) {
+                console.log('🔧 Emergency modal cleanup triggered by ESC key');
+                clearAllModalBackdrops();
+            }
+        }, 100);
+    }
 });
+
+// Add console helper for users
+console.log('🔧 MODAL STUCK? Type: clearAllModalBackdrops() to fix it instantly!');
+
+// Add emergency modal fix button (only shows when needed)
+function addEmergencyModalButton() {
+    // Check if already exists
+    if (document.getElementById('emergencyModalFix')) return;
+    
+    const button = document.createElement('button');
+    button.id = 'emergencyModalFix';
+    button.innerHTML = '🔧 Fix Stuck Modal';
+    button.className = 'btn btn-warning btn-sm';
+    button.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 9999;
+        font-size: 12px;
+        display: none;
+    `;
+    button.onclick = function() {
+        clearAllModalBackdrops();
+        button.style.display = 'none';
+    };
+    
+    document.body.appendChild(button);
+    
+    // Show button when backdrop is detected
+    const observer = new MutationObserver(function() {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        if (backdrops.length > 0) {
+            button.style.display = 'block';
+        } else {
+            button.style.display = 'none';
+        }
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+
+// Initialize emergency button
+setTimeout(addEmergencyModalButton, 1000);
+
+// Initialize expense modal date
+const expenseModal = document.getElementById('expenseModal');
+if (expenseModal) {
+    expenseModal.addEventListener('show.bs.modal', function () {
+        const now = new Date();
+        const expenseDateElement = document.getElementById('expenseDate');
+        if (expenseDateElement) {
+            expenseDateElement.value = now.toISOString().split('T')[0];
+        }
+    });
+}
 
 // Load monthly expenses function (SIMPLIFIED - No more timeouts/aborts)
 async function loadMonthlyExpenses() {
@@ -2950,17 +3085,13 @@ async function addExpense() {
             // Clean reset and close
             document.getElementById('expenseForm').reset();
             
-            // Close modal properly
-            const modalElement = document.getElementById('expenseModal');
-            const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
-            modal.hide();
+            // Close modal properly with force cleanup
+            forceCloseModal('expenseModal');
             
-            // Reload data after modal is closed (with once: true to prevent memory leaks)
-            modalElement.addEventListener('hidden.bs.modal', function reloadHandler() {
-                setTimeout(() => {
-                    loadMonthlyExpenses().catch(console.error);
-                }, 300); // Small delay to ensure modal is fully closed
-            }, { once: true }); // Prevent event listener accumulation
+            // Reload data after a short delay
+            setTimeout(() => {
+                loadMonthlyExpenses().catch(console.error);
+            }, 500);
             
         } else {
             throw new Error(result.error || 'Cannot save expense');
@@ -3006,10 +3137,16 @@ setTimeout(() => {
 }, 100);
 
 // Initialize expense review modal
-document.getElementById('expenseReviewModal').addEventListener('show.bs.modal', function () {
-    const now = new Date();
-    document.getElementById('reviewMonth').value = now.toISOString().slice(0, 7); // YYYY-MM format
-});
+const expenseReviewModal = document.getElementById('expenseReviewModal');
+if (expenseReviewModal) {
+    expenseReviewModal.addEventListener('show.bs.modal', function () {
+        const now = new Date();
+        const reviewMonthElement = document.getElementById('reviewMonth');
+        if (reviewMonthElement) {
+            reviewMonthElement.value = now.toISOString().slice(0, 7); // YYYY-MM format
+        }
+    });
+}
 
 // Load expense review function
 async function loadExpenseReview() {
@@ -3202,8 +3339,7 @@ async function saveExpenseEdit(expenseId) {
             showExpenseToast('✅ Đã cập nhật chi phí thành công!', 'success');
             
             // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editExpenseModal'));
-            modal.hide();
+            forceCloseModal('editExpenseModal');
             
             // FIXED: Reload expense data after successful edit
             setTimeout(() => {

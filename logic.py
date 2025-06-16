@@ -1773,107 +1773,85 @@ def add_expense_to_sheet(expense_data: dict) -> bool:
     try:
         import os
         
-        print("🔍 [DEBUG] Starting add_expense_to_sheet function...")
+        print("[DEBUG] Starting add_expense_to_sheet function...")
         
         # Get credentials and sheet configuration using existing pattern
         gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
         sheet_id = os.getenv('DEFAULT_SHEET_ID')
         
-        print(f"🔍 [DEBUG] GCP_CREDS_FILE_PATH: {gcp_creds_file_path}")
-        print(f"🔍 [DEBUG] DEFAULT_SHEET_ID: {sheet_id}")
-        print(f"🔍 [DEBUG] Current working directory: {os.getcwd()}")
-        print(f"🔍 [DEBUG] Credentials file exists: {os.path.exists(gcp_creds_file_path)}")
+        print(f"[DEBUG] GCP_CREDS_FILE_PATH: {gcp_creds_file_path}")
+        print(f"[DEBUG] DEFAULT_SHEET_ID: {sheet_id}")
+        print(f"[DEBUG] Current working directory: {os.getcwd()}")
+        print(f"[DEBUG] Credentials file exists: {os.path.exists(gcp_creds_file_path)}")
         
         if not sheet_id:
-            print("❌ DEFAULT_SHEET_ID not found in environment variables")
+            print("ERROR: DEFAULT_SHEET_ID not found in environment variables")
             return False
         
         # Use existing helper function to get client
         try:
-            print("🔍 [DEBUG] Getting Google Sheets client using existing helper...")
+            print("[DEBUG] Getting Google Sheets client using existing helper...")
             gc = _get_gspread_client(gcp_creds_file_path)
-            print("✅ [DEBUG] Google Sheets client obtained successfully")
+            print("[DEBUG] Google Sheets client obtained successfully")
         except Exception as e:
-            print(f"❌ [DEBUG] Error getting Google Sheets client: {e}")
+            print(f"ERROR: Error getting Google Sheets client: {e}")
             return False
         
         # Open the spreadsheet
         try:
-            print(f"🔍 [DEBUG] Opening spreadsheet with ID: {sheet_id}")
+            print(f"[DEBUG] Opening spreadsheet with ID: {sheet_id}")
             spreadsheet = gc.open_by_key(sheet_id)
-            print(f"✅ [DEBUG] Spreadsheet opened: {spreadsheet.title}")
+            print(f"[DEBUG] Spreadsheet opened: {spreadsheet.title}")
         except Exception as e:
-            print(f"❌ [DEBUG] Error opening spreadsheet: {e}")
+            print(f"ERROR: Error opening spreadsheet: {e}")
             return False
         
         # Try to get the Expenses worksheet, create if it doesn't exist
         try:
             worksheet = spreadsheet.worksheet('Expenses')
-            print("✅ Found existing 'Expenses' tab")
+            print("SUCCESS: Found existing 'Expenses' tab")
         except:
             # Create new Expenses worksheet
             try:
-                print("📋 Creating new 'Expenses' tab...")
+                print("[DEBUG] Creating new 'Expenses' tab...")
                 worksheet = spreadsheet.add_worksheet(title='Expenses', rows=1000, cols=6)
-                print("✅ [DEBUG] Worksheet created successfully")
+                print("[DEBUG] Worksheet created successfully")
                 
                 # Add headers
                 headers = ['Date', 'Description', 'Amount', 'Created At']
-                print(f"🔍 [DEBUG] Adding headers: {headers}")
+                print(f"[DEBUG] Adding headers: {headers}")
                 worksheet.append_row(headers)
-                print("✅ [DEBUG] Headers added successfully")
+                print("[DEBUG] Headers added successfully")
                 
-                print("✅ Created new 'Expenses' tab with headers")
+                print("SUCCESS: Created new 'Expenses' tab with headers")
             except Exception as e:
-                print(f"❌ [DEBUG] Error creating worksheet: {e}")
+                print(f"ERROR: Error creating worksheet: {e}")
                 return False
         
         # Prepare and add row data
         try:
-            print(f"🔍 [DEBUG] Preparing expense data: {expense_data}")
+            print(f"[DEBUG] Preparing expense data: {expense_data}")
             row_data = [
                 expense_data['date'],
                 expense_data['description'],
                 float(expense_data['amount']),
                 expense_data['created_at']
             ]
-            print(f"🔍 [DEBUG] Row data prepared: {row_data}")
+            print(f"[DEBUG] Row data prepared: {row_data}")
             
-            # Add the expense row using existing pattern with timeout protection
-            print("🔍 [DEBUG] Adding expense row to worksheet...")
-            
-            # Add timeout protection for Google Sheets API call
-            import signal
-            import functools
-            
-            def timeout_handler(signum, frame):
-                raise TimeoutError("Google Sheets API call timed out after 30 seconds")
-            
-            try:
-                # Set 30-second timeout for the API call
-                old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(30)
-                
-                worksheet.append_row(row_data)
-                signal.alarm(0)  # Cancel timeout
-                print(f"✅ Added expense: {expense_data['description']} - {expense_data['amount']}đ")
-                
-            except TimeoutError as te:
-                print(f"❌ Google Sheets API timeout: {te}")
-                raise te
-            finally:
-                signal.alarm(0)  # Ensure timeout is always cancelled
-                if 'old_handler' in locals():
-                    signal.signal(signal.SIGALRM, old_handler)
+            # Add the expense row - simplified without timeout for Windows compatibility
+            print("[DEBUG] Adding expense row to worksheet...")
+            worksheet.append_row(row_data)
+            print(f"SUCCESS: Added expense: {expense_data['description']} - {expense_data['amount']}d")
             
             return True
             
         except Exception as e:
-            print(f"❌ [DEBUG] Error adding expense row: {e}")
+            print(f"ERROR: Error adding expense row: {e}")
             return False
         
     except Exception as e:
-        print(f"❌ Error adding expense to sheet: {e}")
+        print(f"ERROR: Error adding expense to sheet: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -1888,51 +1866,51 @@ def get_expenses_from_sheet() -> List[dict]:
         import os
         from datetime import datetime
         
-        print("🔍 [DEBUG] Starting get_expenses_from_sheet function...")
+        print("[DEBUG] Starting get_expenses_from_sheet function...")
         
         # Get credentials and sheet configuration using existing pattern
         gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
         sheet_id = os.getenv('DEFAULT_SHEET_ID')
         
         if not sheet_id:
-            print("❌ DEFAULT_SHEET_ID not found in environment variables")
+            print("ERROR: DEFAULT_SHEET_ID not found in environment variables")
             return []
         
         # Use existing helper function to get client
         try:
             gc = _get_gspread_client(gcp_creds_file_path)
-            print("✅ [DEBUG] Google Sheets client obtained successfully")
+            print("[DEBUG] Google Sheets client obtained successfully")
         except Exception as e:
-            print(f"❌ [DEBUG] Error getting Google Sheets client: {e}")
+            print(f"ERROR: Error getting Google Sheets client: {e}")
             return []
         
         # Open the spreadsheet
         try:
             spreadsheet = gc.open_by_key(sheet_id)
-            print(f"✅ [DEBUG] Spreadsheet opened: {spreadsheet.title}")
+            print(f"[DEBUG] Spreadsheet opened: {spreadsheet.title}")
         except Exception as e:
-            print(f"❌ [DEBUG] Error opening spreadsheet: {e}")
+            print(f"ERROR: Error opening spreadsheet: {e}")
             return []
         
         # Try to get the Expenses worksheet
         try:
             worksheet = spreadsheet.worksheet('Expenses')
-            print("✅ Found existing 'Expenses' tab")
+            print("[SUCCESS] Found existing 'Expenses' tab")
         except:
             # Expenses tab doesn't exist yet
-            print("ℹ️ Expenses tab not found, returning empty list")
+            print("[INFO] Expenses tab not found, returning empty list")
             return []
         
         # Get all records
         try:
             records = worksheet.get_all_records()
-            print(f"✅ [DEBUG] Retrieved {len(records)} expense records")
+            print(f"[DEBUG] Retrieved {len(records)} expense records")
         except Exception as e:
-            print(f"❌ [DEBUG] Error getting records: {e}")
+            print(f"ERROR: Error getting records: {e}")
             return []
         
         if not records:
-            print("ℹ️ No expense records found")
+            print("[INFO] No expense records found")
             return []
         
         # Parse all expenses and sort by date (newest first)
@@ -1953,20 +1931,17 @@ def get_expenses_from_sheet() -> List[dict]:
                 'created_at': record.get('created at', '') or record.get('Created At', '')
             }
             
-            # Debug: Log each parsed expense
-            print(f"🔍 [DEBUG] Parsed expense: Date='{expense['date']}', Description='{expense['description']}', Amount='{expense['amount']}'")
-            
-            # Include all expenses
+            # Include all expenses (skip debug logging to avoid Unicode issues)
             expenses.append(expense)
         
         # Sort by date (newest first), then by created_at
         expenses.sort(key=lambda x: (x.get('date', ''), x.get('created_at', '')), reverse=True)
         
-        print(f"✅ Retrieved {len(expenses)} total expenses")
+        print(f"[SUCCESS] Retrieved {len(expenses)} total expenses")
         return expenses
         
     except Exception as e:
-        print(f"❌ Error getting expenses from sheet: {e}")
+        print(f"ERROR: Error getting expenses from sheet: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -2054,14 +2029,14 @@ def delete_expense_from_sheet(expense_id: str) -> bool:
     try:
         import os
         
-        print(f"🔍 [DEBUG] Starting delete_expense_from_sheet for ID: {expense_id}")
+        print(f"[DEBUG] Starting delete_expense_from_sheet for ID: {expense_id}")
         
         # Get credentials and sheet configuration
         gcp_creds_file_path = os.getenv('GCP_CREDS_FILE_PATH', 'gcp_credentials.json')
         sheet_id = os.getenv('DEFAULT_SHEET_ID')
         
         if not sheet_id:
-            print("❌ DEFAULT_SHEET_ID not found in environment variables")
+            print("ERROR: DEFAULT_SHEET_ID not found in environment variables")
             return False
         
         # Get Google Sheets client
@@ -2070,7 +2045,7 @@ def delete_expense_from_sheet(expense_id: str) -> bool:
             spreadsheet = gc.open_by_key(sheet_id)
             worksheet = spreadsheet.worksheet('Expenses')
         except Exception as e:
-            print(f"❌ [DEBUG] Error accessing Expenses worksheet: {e}")
+            print(f"ERROR: Error accessing Expenses worksheet: {e}")
             return False
         
         # Find and delete the expense row by created_at timestamp
@@ -2085,21 +2060,21 @@ def delete_expense_from_sheet(expense_id: str) -> bool:
                     break
             
             if target_row is None:
-                print(f"❌ [DEBUG] Expense with created_at '{expense_id}' not found")
+                print(f"ERROR: Expense with created_at '{expense_id}' not found")
                 return False
             
             # Delete the found row
             worksheet.delete_rows(target_row)
             
-            print(f"✅ [DEBUG] Successfully deleted expense at row {target_row}")
+            print(f"SUCCESS: Successfully deleted expense at row {target_row}")
             return True
             
         except Exception as e:
-            print(f"❌ [DEBUG] Error deleting expense: {e}")
+            print(f"ERROR: Error deleting expense: {e}")
             return False
             
     except Exception as e:
-        print(f"❌ Error deleting expense from sheet: {e}")
+        print(f"ERROR: Error deleting expense from sheet: {e}")
         import traceback
         traceback.print_exc()
         return False
