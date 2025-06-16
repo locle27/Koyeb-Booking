@@ -2813,7 +2813,14 @@ document.getElementById('expenseModal').addEventListener('show.bs.modal', functi
 // Load monthly expenses function (SIMPLIFIED - No more timeouts/aborts)
 async function loadMonthlyExpenses() {
     try {
-        const response = await fetch('/api/expenses');
+        // Add timeout to prevent freezing
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        const response = await fetch('/api/expenses', {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -3182,7 +3189,6 @@ async function saveExpenseEdit(expenseId) {
                 loadMonthlyExpenses().catch(console.error);
                 loadExpenseReview();
             }, 500);
-            await loadMonthlyExpenses();
         } else {
             throw new Error(result.message || 'Lỗi không xác định');
         }
