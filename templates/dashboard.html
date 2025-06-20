@@ -4,6 +4,40 @@
 
 {% block extra_css %}
 <style>
+/* Commission Guest Highlighting */
+.high-commission-guest {
+    border-left: 4px solid #dc3545 !important;
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(255, 193, 7, 0.05) 100%) !important;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2) !important;
+    animation: subtlePulse 3s ease-in-out infinite;
+}
+
+.commission-guest {
+    border-left: 4px solid #ffc107 !important;
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 193, 7, 0.05) 100%) !important;
+}
+
+.no-commission-guest {
+    border-left: 4px solid #28a745 !important;
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(40, 167, 69, 0.05) 100%) !important;
+}
+
+.commission-display {
+    margin-top: 2px;
+}
+
+@keyframes subtlePulse {
+    0% { box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2); }
+    50% { box-shadow: 0 2px 12px rgba(220, 53, 69, 0.4); }
+    100% { box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2); }
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
 /* Mobile Dashboard Optimizations */
 @media (max-width: 768px) {
     .container-fluid {
@@ -190,6 +224,48 @@
 
     <!-- 🔔 ARRIVAL & DEPARTURE NOTIFICATIONS (QUICKNOTES STYLE) -->
     {% if arrival_notifications or departure_notifications %}
+    
+    <!-- Commission Summary Alert -->
+    {% set all_notifications = arrival_notifications + departure_notifications %}
+    {% set high_commission_guests = [] %}
+    {% set total_commission_amount = 0 %}
+    {% for notification in all_notifications %}
+        {% set commission = notification.get('Hoa hồng', 0)|float %}
+        {% if commission > 150000 %}
+            {% set _ = high_commission_guests.append(notification) %}
+        {% endif %}
+        {% set total_commission_amount = total_commission_amount + commission %}
+    {% endfor %}
+    
+    {% if high_commission_guests %}
+    <div class="row mb-2">
+        <div class="col-12">
+            <div class="alert alert-warning alert-dismissible fade show" role="alert" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 2px solid #ffc107; animation: subtlePulse 3s ease-in-out infinite;">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle text-danger me-2 fs-5"></i>
+                    <div class="flex-grow-1">
+                        <h6 class="alert-heading mb-1">
+                            <strong>🚨 CẢNH BÁO HOA HỒNG CAO!</strong>
+                        </h6>
+                        <p class="mb-1">
+                            <strong>{{ high_commission_guests|length }} khách</strong> có hoa hồng <strong>trên 150,000đ</strong>:
+                            {% for guest in high_commission_guests %}
+                                <span class="badge bg-danger text-white me-1">
+                                    {{ guest.guest_name }}: {{ "{:,.0f}".format(guest.get('Hoa hồng', 0)|float) }}đ
+                                </span>
+                            {% endfor %}
+                        </p>
+                        <small class="text-muted">
+                            💰 Tổng hoa hồng hôm nay: <strong>{{ "{:,.0f}".format(total_commission_amount) }}đ</strong>
+                        </small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
     <div class="row mb-2">
         <!-- Arrival Notifications -->
         {% if arrival_notifications and arrival_notifications|length > 0 %}
@@ -212,16 +288,32 @@
                     </div>
                     <div>
                         {% for notification in arrival_notifications %}
-                        <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1">
+                        {% set commission = notification.get('Hoa hồng', 0)|float %}
+                        {% set is_high_commission = commission > 150000 %}
+                        {% set has_commission = commission > 0 %}
+                        <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1 {{ 'high-commission-guest' if is_high_commission else ('commission-guest' if has_commission else 'no-commission-guest') }}">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="flex-grow-1">
-                                    <div class="fw-bold text-dark small">{{ notification.guest_name }}</div>
+                                    <div class="fw-bold text-dark small">
+                                        {{ notification.guest_name }}
+                                        {% if is_high_commission %}
+                                        <i class="fas fa-exclamation-triangle text-danger ms-1" title="Hoa hồng cao > 150k"></i>
+                                        {% elif has_commission %}
+                                        <i class="fas fa-percentage text-warning ms-1" title="Có hoa hồng"></i>
+                                        {% else %}
+                                        <i class="fas fa-check text-success ms-1" title="Không hoa hồng"></i>
+                                        {% endif %}
+                                    </div>
                                     <div class="text-muted" style="font-size: 11px;">
                                         <i class="fas fa-calendar me-1"></i>{{ notification.checkin_date }}
                                         <button class="btn btn-sm p-0 ms-2 text-primary" onclick="editGuestArrivalTime('{{ notification.booking_id }}', '{{ notification.guest_name }}')" title="Chỉnh giờ">
                                             <i class="fas fa-clock me-1"></i><span id="time-{{ notification.booking_id }}">14:00</span>
                                         </button>
-                                        {% if notification.priority == 'urgent' %}
+                                        {% if notification.priority == 'critical' %}
+                                        <span class="badge bg-danger ms-1 px-1" style="font-size: 9px; animation: pulse 2s infinite;">
+                                            {% if notification.days_until == 0 %}HÔM NAY{% else %}MAI{% endif %} - HIGH COMMISSION
+                                        </span>
+                                        {% elif notification.priority == 'urgent' %}
                                         <span class="badge bg-danger ms-1 px-1" style="font-size: 9px;">HÔM NAY</span>
                                         {% else %}
                                         <span class="badge bg-warning text-dark ms-1 px-1" style="font-size: 9px;">MAI</span>
@@ -229,14 +321,32 @@
                                     </div>
                                 </div>
                                 <div class="text-end">
-                                    <button class="btn btn-sm btn-outline-success px-1 mb-1" onclick="copyPaymentMessage('{{ notification.guest_name }}', {{ notification.total_amount|float }}, {{ notification['Hoa hồng']|default(0)|float }})" title="Copy payment message">
+                                    <button class="btn btn-sm btn-outline-success px-1 mb-1" onclick="copyPaymentMessage('{{ notification.guest_name }}', {{ notification.total_amount|float }}, {{ commission }})" title="Copy payment message">
                                         <i class="fas fa-dollar-sign"></i>
                                     </button>
                                     <button class="btn btn-sm btn-outline-primary px-1 mb-1" onclick="copyArrivalTaxiMessage('{{ notification.guest_name }}')" title="Copy taxi message">
                                         <i class="fas fa-copy"></i>
                                     </button>
                                     <div class="small fw-bold text-success">{{ "{:,.0f}".format(notification.total_amount|float) }}đ</div>
-                                    <div class="text-muted" style="font-size: 10px;">{{ notification.booking_id }}</div>
+                                    {% if has_commission %}
+                                    <div class="commission-display" style="font-size: 10px;">
+                                        {% if is_high_commission %}
+                                        <span class="badge bg-danger text-white px-1">
+                                            <i class="fas fa-exclamation-triangle"></i> {{ "{:,.0f}".format(commission) }}đ
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark px-1">
+                                            <i class="fas fa-percentage"></i> {{ "{:,.0f}".format(commission) }}đ
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <div class="text-muted" style="font-size: 10px;">
+                                        <span class="badge bg-success text-white px-1">
+                                            <i class="fas fa-check"></i> Không hoa hồng
+                                        </span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -264,10 +374,22 @@
                     </div>
                     <div>
                         {% for notification in departure_notifications %}
-                        <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1">
+                        {% set commission = notification.get('Hoa hồng', 0)|float %}
+                        {% set is_high_commission = commission > 150000 %}
+                        {% set has_commission = commission > 0 %}
+                        <div class="bg-white bg-opacity-90 rounded mb-1 px-2 py-1 {{ 'high-commission-guest' if is_high_commission else ('commission-guest' if has_commission else 'no-commission-guest') }}">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="flex-grow-1">
-                                    <div class="fw-bold text-dark small">{{ notification.guest_name }}</div>
+                                    <div class="fw-bold text-dark small">
+                                        {{ notification.guest_name }}
+                                        {% if is_high_commission %}
+                                        <i class="fas fa-exclamation-triangle text-danger ms-1" title="Hoa hồng cao > 150k"></i>
+                                        {% elif has_commission %}
+                                        <i class="fas fa-percentage text-warning ms-1" title="Có hoa hồng"></i>
+                                        {% else %}
+                                        <i class="fas fa-check text-success ms-1" title="Không hoa hồng"></i>
+                                        {% endif %}
+                                    </div>
                                     <div class="text-muted" style="font-size: 11px;">
                                         <i class="fas fa-calendar me-1"></i>{{ notification.checkout_date }}
                                         {% if notification.priority == 'urgent' %}
@@ -281,7 +403,25 @@
                                     <button class="btn btn-sm btn-outline-primary px-1" onclick="copyTaxiMessage('{{ notification.guest_name }}')" title="Copy taxi">
                                         <i class="fas fa-copy"></i>
                                     </button>
-                                    <div class="text-muted mt-1" style="font-size: 10px;">{{ notification.booking_id }}</div>
+                                    {% if has_commission %}
+                                    <div class="commission-display" style="font-size: 10px;">
+                                        {% if is_high_commission %}
+                                        <span class="badge bg-danger text-white px-1">
+                                            <i class="fas fa-exclamation-triangle"></i> {{ "{:,.0f}".format(commission) }}đ
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark px-1">
+                                            <i class="fas fa-percentage"></i> {{ "{:,.0f}".format(commission) }}đ
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <div class="text-muted mt-1" style="font-size: 10px;">
+                                        <span class="badge bg-success text-white px-1">
+                                            <i class="fas fa-check"></i> Không hoa hồng
+                                        </span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

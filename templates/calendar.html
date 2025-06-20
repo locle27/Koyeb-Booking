@@ -104,13 +104,21 @@
                                                     </div>
                                                 {% endif %}
                                                 
-                                                <!-- Revenue Total -->
+                                                <!-- Revenue Total with Commission Breakdown -->
                                                 {% set revenue_info = revenue_by_date.get(date) %}
                                                 {% if revenue_info and revenue_info.daily_total > 0 %}
                                                 <div class="revenue-total">
                                                     <small class="text-success fw-bold">
                                                         <i class="fas fa-coins"></i> {{ "{:,.0f}".format(revenue_info.daily_total) }}đ
                                                     </small>
+                                                    {% if revenue_info.daily_total_minus_commission != revenue_info.daily_total %}
+                                                    <small class="text-primary fw-bold" style="display: block; margin-top: 2px;">
+                                                        <i class="fas fa-minus-circle"></i> {{ "{:,.0f}".format(revenue_info.daily_total_minus_commission) }}đ
+                                                    </small>
+                                                    <small class="text-muted" style="font-size: 0.55rem;">
+                                                        (Trừ hoa hồng: {{ "{:,.0f}".format(revenue_info.total_commission) }}đ)
+                                                    </small>
+                                                    {% endif %}
                                                 </div>
                                                 {% endif %}
                                             </div>
@@ -329,15 +337,28 @@
 .revenue-total {
     text-align: center;
     margin-top: 4px;
-    padding: 2px 4px;
+    padding: 3px 4px;
     background: rgba(40, 167, 69, 0.1);
     border-radius: 4px;
     border: 1px solid rgba(40, 167, 69, 0.2);
+    line-height: 1.1;
 }
 
 .revenue-total small {
     font-size: 0.65rem;
     color: #28a745;
+    display: block;
+}
+
+.revenue-total small.text-primary {
+    color: #0d6efd !important;
+    margin-top: 1px;
+}
+
+.revenue-total small.text-muted {
+    color: #6c757d !important;
+    font-size: 0.55rem;
+    margin-top: 1px;
 }
 
 /* Legend */
@@ -610,6 +631,11 @@
     
     .revenue-total small {
         font-size: 0.5rem;
+    }
+    
+    /* Hide commission details on very small screens */
+    .revenue-total small.text-muted {
+        display: none;
     }
 }
 

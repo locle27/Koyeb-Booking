@@ -447,7 +447,8 @@ def get_daily_totals(df):
 
 
 def get_daily_revenue_by_stay(df):
-    """Calculate daily revenue by dividing total booking amount by stay duration"""
+    """Calculate daily revenue by dividing total booking amount by stay duration
+    Returns both total revenue and revenue minus commission"""
     daily_revenue = {}
     
     try:
@@ -483,13 +484,26 @@ def get_daily_revenue_by_stay(df):
             checkout_date = booking['Check-out Date'].date()
             total_amount = float(booking['Tổng thanh toán'])
             
+            # Get commission amount - handle various formats
+            commission_amount = 0
+            try:
+                commission_raw = booking.get('Hoa hồng', 0)
+                if commission_raw is not None and str(commission_raw).strip() not in ['', 'nan', 'None', 'N/A']:
+                    commission_amount = float(commission_raw)
+            except (ValueError, TypeError):
+                commission_amount = 0
+            
+            # Calculate revenue minus commission
+            revenue_minus_commission = total_amount - commission_amount
+            
             # Calculate number of nights
             nights = (checkout_date - checkin_date).days
             if nights <= 0:
                 nights = 1  # Minimum 1 night
             
-            # Calculate daily rate
-            daily_rate = total_amount / nights
+            # Calculate daily rates
+            daily_rate_total = total_amount / nights
+            daily_rate_minus_commission = revenue_minus_commission / nights
             
             # Add daily rate to each date in the stay
             current_date = checkin_date
@@ -497,16 +511,23 @@ def get_daily_revenue_by_stay(df):
                 if current_date not in daily_revenue:
                     daily_revenue[current_date] = {
                         'daily_total': 0,
+                        'daily_total_minus_commission': 0,
+                        'total_commission': 0,
                         'guest_count': 0,
                         'bookings': []
                     }
                 
-                daily_revenue[current_date]['daily_total'] += daily_rate
+                # Add to daily totals
+                daily_revenue[current_date]['daily_total'] += daily_rate_total
+                daily_revenue[current_date]['daily_total_minus_commission'] += daily_rate_minus_commission
+                daily_revenue[current_date]['total_commission'] += commission_amount / nights
                 daily_revenue[current_date]['guest_count'] += 1
                 daily_revenue[current_date]['bookings'].append({
                     'guest_name': booking.get('Tên người đặt', 'N/A'),
                     'booking_id': booking.get('Số đặt phòng', 'N/A'),
-                    'daily_amount': daily_rate,
+                    'daily_amount': daily_rate_total,
+                    'daily_amount_minus_commission': daily_rate_minus_commission,
+                    'commission_amount': commission_amount,
                     'total_amount': total_amount,
                     'nights': nights,
                     'checkin': checkin_date,
@@ -515,7 +536,7 @@ def get_daily_revenue_by_stay(df):
                 
                 current_date += timedelta(days=1)
         
-        print(f"✅ Calculated daily revenue for {len(daily_revenue)} dates")
+        print(f"✅ Calculated daily revenue (total + minus commission) for {len(daily_revenue)} dates")
         
     except Exception as e:
         print(f"Error calculating daily revenue by stay: {e}")
@@ -604,16 +625,35 @@ def process_arrival_notifications(df):
                         guest_name = row.get('Tên người đặt', 'Không có tên')
                         booking_id = row.get('Số đặt phòng', 'N/A')
                         total_amount = row.get('Tổng thanh toán', 0)
-                        hoa_hong = row.get('Hoa hồng', 0)
+                        
+                        # Enhanced commission processing
+                        hoa_hong = 0
+                        try:
+                            commission_raw = row.get('Hoa hồng', 0)
+                            if commission_raw is not None and str(commission_raw).strip() not in ['', 'nan', 'None', 'N/A']:
+                                hoa_hong = float(commission_raw)
+                        except (ValueError, TypeError):
+                            hoa_hong = 0
+                        
+                        # Determine commission level and priority
+                        commission_level = 'none'
+                        commission_priority = 'high'
+                        if hoa_hong > 150000:
+                            commission_level = 'high'
+                            commission_priority = 'critical'
+                        elif hoa_hong > 0:
+                            commission_level = 'normal'
+                            commission_priority = 'high'
                         
                         notifications.append({
                             'type': 'arrival',
-                            'priority': 'high',
+                            'priority': commission_priority,
                             'guest_name': guest_name,
                             'booking_id': booking_id,
                             'checkin_date': checkin_date.strftime('%d/%m/%Y'),
                             'total_amount': total_amount,
                             'Hoa hồng': hoa_hong,
+                            'commission_level': commission_level,
                             'days_until': 1,
                             'message': f'Khách {guest_name} sẽ đến vào ngày mai ({checkin_date.strftime("%d/%m/%Y")})'
                         })
@@ -623,16 +663,35 @@ def process_arrival_notifications(df):
                         guest_name = row.get('Tên người đặt', 'Không có tên')
                         booking_id = row.get('Số đặt phòng', 'N/A')
                         total_amount = row.get('Tổng thanh toán', 0)
-                        hoa_hong = row.get('Hoa hồng', 0)
+                        
+                        # Enhanced commission processing
+                        hoa_hong = 0
+                        try:
+                            commission_raw = row.get('Hoa hồng', 0)
+                            if commission_raw is not None and str(commission_raw).strip() not in ['', 'nan', 'None', 'N/A']:
+                                hoa_hong = float(commission_raw)
+                        except (ValueError, TypeError):
+                            hoa_hong = 0
+                        
+                        # Determine commission level and priority
+                        commission_level = 'none'
+                        commission_priority = 'urgent'
+                        if hoa_hong > 150000:
+                            commission_level = 'high'
+                            commission_priority = 'critical'
+                        elif hoa_hong > 0:
+                            commission_level = 'normal'
+                            commission_priority = 'urgent'
                         
                         notifications.append({
                             'type': 'arrival',
-                            'priority': 'urgent',
+                            'priority': commission_priority,
                             'guest_name': guest_name,
                             'booking_id': booking_id,
                             'checkin_date': checkin_date.strftime('%d/%m/%Y'),
                             'total_amount': total_amount,
                             'Hoa hồng': hoa_hong,
+                            'commission_level': commission_level,
                             'days_until': 0,
                             'message': f'Khách {guest_name} đến HÔM NAY ({checkin_date.strftime("%d/%m/%Y")})'
                         })
@@ -641,8 +700,19 @@ def process_arrival_notifications(df):
                 print(f"Error processing arrival for row {index}: {e}")
                 continue
         
-        # Sắp xếp theo độ ưu tiên
-        notifications.sort(key=lambda x: (x['days_until'], x['guest_name']))
+        # Enhanced sorting: Critical commission guests first, then by days_until, then by commission amount
+        def sort_priority(notification):
+            priority_order = {'critical': 0, 'urgent': 1, 'high': 2}
+            commission_order = {'high': 0, 'normal': 1, 'none': 2}
+            return (
+                priority_order.get(notification['priority'], 3),
+                notification['days_until'],
+                commission_order.get(notification['commission_level'], 3),
+                -notification.get('Hoa hồng', 0),  # Negative for descending order
+                notification['guest_name']
+            )
+        
+        notifications.sort(key=sort_priority)
         
         return notifications
         
@@ -688,6 +758,22 @@ def process_departure_notifications(df):
                         booking_id = row.get('Số đặt phòng', 'N/A')
                         total_amount = row.get('Tổng thanh toán', 0)
                         
+                        # Enhanced commission processing
+                        hoa_hong = 0
+                        try:
+                            commission_raw = row.get('Hoa hồng', 0)
+                            if commission_raw is not None and str(commission_raw).strip() not in ['', 'nan', 'None', 'N/A']:
+                                hoa_hong = float(commission_raw)
+                        except (ValueError, TypeError):
+                            hoa_hong = 0
+                        
+                        # Determine commission level
+                        commission_level = 'none'
+                        if hoa_hong > 150000:
+                            commission_level = 'high'
+                        elif hoa_hong > 0:
+                            commission_level = 'normal'
+                        
                         notifications.append({
                             'type': 'departure',
                             'priority': 'high',
@@ -695,6 +781,8 @@ def process_departure_notifications(df):
                             'booking_id': booking_id,
                             'checkout_date': checkout_date.strftime('%d/%m/%Y'),
                             'total_amount': total_amount,
+                            'Hoa hồng': hoa_hong,
+                            'commission_level': commission_level,
                             'days_until': 1,
                             'message': f'Khách {guest_name} sẽ đi vào ngày mai ({checkout_date.strftime("%d/%m/%Y")}) - Chuẩn bị taxi/dịch vụ'
                         })
@@ -705,6 +793,22 @@ def process_departure_notifications(df):
                         booking_id = row.get('Số đặt phòng', 'N/A')
                         total_amount = row.get('Tổng thanh toán', 0)
                         
+                        # Enhanced commission processing
+                        hoa_hong = 0
+                        try:
+                            commission_raw = row.get('Hoa hồng', 0)
+                            if commission_raw is not None and str(commission_raw).strip() not in ['', 'nan', 'None', 'N/A']:
+                                hoa_hong = float(commission_raw)
+                        except (ValueError, TypeError):
+                            hoa_hong = 0
+                        
+                        # Determine commission level
+                        commission_level = 'none'
+                        if hoa_hong > 150000:
+                            commission_level = 'high'
+                        elif hoa_hong > 0:
+                            commission_level = 'normal'
+                        
                         notifications.append({
                             'type': 'departure',
                             'priority': 'urgent',
@@ -712,6 +816,8 @@ def process_departure_notifications(df):
                             'booking_id': booking_id,
                             'checkout_date': checkout_date.strftime('%d/%m/%Y'),
                             'total_amount': total_amount,
+                            'Hoa hồng': hoa_hong,
+                            'commission_level': commission_level,
                             'days_until': 0,
                             'message': f'Khách {guest_name} đi HÔM NAY ({checkout_date.strftime("%d/%m/%Y")}) - Hỗ trợ taxi ngay'
                         })

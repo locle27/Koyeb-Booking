@@ -417,6 +417,8 @@ def calendar_details(date_str):
     daily_revenue = get_daily_revenue_by_stay(df)
     day_revenue_info = daily_revenue.get(parsed_date, {
         'daily_total': 0,
+        'daily_total_minus_commission': 0,
+        'total_commission': 0,
         'guest_count': 0,
         'bookings': []
     })
