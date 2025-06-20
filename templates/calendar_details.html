@@ -22,8 +22,13 @@
                                 <p class="details">
                                     <strong>Mã ĐP:</strong> {{ booking.get('Số đặt phòng', 'N/A') }}<br>
                                     <strong>Trả phòng:</strong> {{ booking['Check-out Date'].strftime('%d/%m/%Y') if booking['Check-out Date'] and pd.notna(booking['Check-out Date']) else 'N/A' }}<br>
+                                    {% set total_nights = (booking['Check-out Date'] - booking['Check-in Date']).days if booking['Check-in Date'] and booking['Check-out Date'] and pd.notna(booking['Check-in Date']) and pd.notna(booking['Check-out Date']) else 1 %}
+                                    {% set total_payment = booking.get('Tổng thanh toán', 0) %}
+                                    {% set per_night_rate = (total_payment / total_nights) if total_nights > 0 else total_payment %}
+                                    <strong>Ở:</strong> {{ total_nights }} đêm<br>
                                     <strong>Người thu:</strong> {{ booking.get('Người thu tiền', 'N/A') }}<br>
-                                    <strong>Thanh toán:</strong> {{ "{:,.0f}".format(booking.get('Tổng thanh toán', 0)) }}đ
+                                    <strong>Thanh toán:</strong> {{ "{:,.0f}".format(total_payment) }}đ<br>
+                                    <strong class="text-info">💰 Giá/đêm:</strong> <span class="text-info">{{ "{:,.0f}".format(per_night_rate) }}đ</span>
                                 </p>
                             </div>
                         {% endfor %}
@@ -49,9 +54,14 @@
                                 <p class="details">
                                     <strong>Mã ĐP:</strong> {{ booking.get('Số đặt phòng', 'N/A') }}<br>
                                     <strong>Ở từ:</strong> {{ booking['Check-in Date'].strftime('%d/%m') if booking['Check-in Date'] and pd.notna(booking['Check-in Date']) else 'N/A' }} - <strong>Trả:</strong> {{ booking['Check-out Date'].strftime('%d/%m') if booking['Check-out Date'] and pd.notna(booking['Check-out Date']) else 'N/A' }}<br>
+                                    {% set total_nights = (booking['Check-out Date'] - booking['Check-in Date']).days if booking['Check-in Date'] and booking['Check-out Date'] and pd.notna(booking['Check-in Date']) and pd.notna(booking['Check-out Date']) else 1 %}
+                                    {% set total_payment = booking.get('Tổng thanh toán', 0) %}
+                                    {% set per_night_rate = (total_payment / total_nights) if total_nights > 0 else total_payment %}
+                                    <strong>Ở:</strong> {{ total_nights }} đêm<br>
                                     <strong>Đã ở:</strong> {{ (current_date - booking['Check-in Date']).days if booking['Check-in Date'] and pd.notna(booking['Check-in Date']) else 'N/A' }} đêm<br>
                                     <strong>Người thu:</strong> {{ booking.get('Người thu tiền', 'N/A') }}<br>
-                                    <strong>Thanh toán:</strong> {{ "{:,.0f}".format(booking.get('Tổng thanh toán', 0)) }}đ
+                                    <strong>Thanh toán:</strong> {{ "{:,.0f}".format(total_payment) }}đ<br>
+                                    <strong class="text-info">💰 Giá/đêm:</strong> <span class="text-info">{{ "{:,.0f}".format(per_night_rate) }}đ</span>
                                 </p>
                             </div>
                         {% endfor %}
@@ -76,9 +86,13 @@
                                 <p class="room-type">{{ booking.get('Tên chỗ nghỉ', 'N/A') }}</p>
                                 <p class="details">
                                     <strong>Mã ĐP:</strong> {{ booking.get('Số đặt phòng', 'N/A') }}<br>
-                                    <strong>Thời gian ở:</strong> {{ (booking['Check-out Date'] - booking['Check-in Date']).days if booking['Check-in Date'] and booking['Check-out Date'] and pd.notna(booking['Check-in Date']) and pd.notna(booking['Check-out Date']) else 'N/A' }} đêm<br>
+                                    {% set total_nights = (booking['Check-out Date'] - booking['Check-in Date']).days if booking['Check-in Date'] and booking['Check-out Date'] and pd.notna(booking['Check-in Date']) and pd.notna(booking['Check-out Date']) else 1 %}
+                                    {% set total_payment = booking.get('Tổng thanh toán', 0) %}
+                                    {% set per_night_rate = (total_payment / total_nights) if total_nights > 0 else total_payment %}
+                                    <strong>Thời gian ở:</strong> {{ total_nights }} đêm<br>
                                     <strong>Người thu:</strong> {{ booking.get('Người thu tiền', 'N/A') }}<br>
-                                    <strong>Thanh toán:</strong> {{ "{:,.0f}".format(booking.get('Tổng thanh toán', 0)) }}đ
+                                    <strong>Thanh toán:</strong> {{ "{:,.0f}".format(total_payment) }}đ<br>
+                                    <strong class="text-info">💰 Giá/đêm:</strong> <span class="text-info">{{ "{:,.0f}".format(per_night_rate) }}đ</span>
                                 </p>
                             </div>
                         {% endfor %}

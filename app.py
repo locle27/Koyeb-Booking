@@ -806,28 +806,30 @@ def edit_booking(booking_id):
     booking = safe_to_dict_records(df[df['Số đặt phòng'] == booking_id])[0] if not df.empty else {}
     
     if request.method == 'POST':
-        # 🚨 FIXED: Only update amount fields, NOT customer info
+        # ✅ FIXED: Update ALL form fields from edit_booking.html
         new_data = {}
         
-        # Only update payment amounts, never overwrite customer data
-        total_amount = request.form.get('Tổng thanh toán')
-        if total_amount:
-            new_data['Tổng thanh toán'] = total_amount
+        # Update all form fields that are present in the template
+        form_fields = [
+            'Tên người đặt', 'Tên chỗ nghỉ', 'Check-in Date', 'Check-out Date',
+            'Tổng thanh toán', 'Hoa hồng', 'Tình trạng', 'Taxi', 'Người thu tiền',
+            'Phí taxi thêm', 'Ghi chú thu tiền'
+        ]
+        
+        for field in form_fields:
+            value = request.form.get(field)
+            if value:  # Only update if value is provided
+                new_data[field] = value
+        
+        # Handle checkboxes separately (they're only present if checked)
+        checkbox_fields = ['Có taxi', 'Không có taxi', 'Khách riêng', 'Dịch vụ thêm']
+        for field in checkbox_fields:
+            if field in request.form:
+                new_data[field] = '1'
+            else:
+                new_data[field] = ''  # Clear checkbox if not checked
             
-        taxi_amount = request.form.get('Taxi')
-        if taxi_amount:
-            new_data['Taxi'] = taxi_amount
-            
-        commission = request.form.get('Hoa hồng')
-        if commission:
-            new_data['Hoa hồng'] = commission
-            
-        # Only update collector if provided
-        collector = request.form.get('Người thu tiền')
-        if collector:
-            new_data['Người thu tiền'] = collector
-            
-        print(f"[EDIT_BOOKING] FIXED - Only updating: {new_data}")
+        print(f"[EDIT_BOOKING] FIXED - Updating all fields: {new_data}")
         
         if not new_data:
             flash('Không có dữ liệu nào để cập nhật.', 'warning')
