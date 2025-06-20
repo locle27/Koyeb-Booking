@@ -6,15 +6,15 @@
 **Owner:** locle27  
 **Repository:** https://github.com/locle27/Koyeb-Booking  
 **Branch:** clean-main  
-**Latest Status:** ✅ **ENTERPRISE POSTGRESQL MIGRATION COMPLETE** - 50-100x Performance Boost  
-**Current Status:** Production Ready - Hybrid PostgreSQL + Google Sheets + Advanced AI + Market Intelligence + Local Development Environment
+**Latest Status:** ✅ **ADVANCED COMMISSION TRACKING & REVENUE ANALYTICS SYSTEM** - Professional Financial Management  
+**Current Status:** Production Ready - Hybrid PostgreSQL + Google Sheets + Advanced AI + Market Intelligence + Commission Analytics + Local Development Environment
 
 ## 🏗️ System Architecture
 
 ### **Core Files:**
 - **`app.py`** - Main Flask application with all routes (2600+ lines) + Gemini RAG + Market Intelligence APIs
 - **`logic.py`** - Business logic, Google Sheets integration, AI processing (Gemini 2.5) + Booking.com scraping functions
-- **`dashboard_routes.py`** - Dashboard data processing functions (enhanced with taxi fee calculations + arrival/departure notifications)
+- **`dashboard_routes.py`** - Dashboard data processing functions (enhanced with taxi fee calculations + arrival/departure notifications + commission tracking system)
 - **`market_intelligence_complete.py`** - Complete hotel market intelligence system with multiple data sources
 - **`simple_rag.py`** - Zero-dependency RAG system with live booking data integration
 - **`gemini_rag.py`** - Enterprise-level AI system with Gemini 2.5 API integration
@@ -25,9 +25,11 @@
 
 ### **Key Templates:**
 - **`base.html`** - Main layout template (enhanced navbar, Market Intelligence tab added)
-- **`dashboard.html`** - Main dashboard with analytics, quick notes, overdue guests management + arrival/departure notifications (mobile-optimized)
+- **`dashboard.html`** - Main dashboard with analytics, quick notes, overdue guests management + arrival/departure notifications + commission highlighting system (mobile-optimized)
 - **`bookings.html`** - Booking management with auto-duplicate filtering (JavaScript errors FIXED)
-- **`market_intelligence.html`** - ⭐ NEW: Complete market intelligence interface with charts, analysis, and export
+- **`calendar.html`** - ⭐ ENHANCED: Revenue calendar with dual display (total + minus commission) and commission breakdown
+- **`calendar_details.html`** - ⭐ ENHANCED: Ultra-detailed daily view with commission customer analysis and financial breakdown
+- **`market_intelligence.html`** - Complete market intelligence interface with charts, analysis, and export
 - **`add_booking.html`** - Add new bookings (manual + photo AI, no rounding restrictions)
 - **`edit_booking.html`** - Edit existing bookings (step="any" for exact values)
 - **`ai_assistant.html`** - AI chat, voice translator, message templates (fixed text colors)
@@ -36,7 +38,52 @@
 
 ## 🚀 Recent Major Features & Fixes
 
-### **🗄️ POSTGRESQL MIGRATION SYSTEM** ⭐ NEWEST FEATURE ⭐
+### **💰 ADVANCED COMMISSION TRACKING & REVENUE ANALYTICS SYSTEM** ⭐ NEWEST FEATURE ⭐
+**Status:** ✅ COMPLETED & DEPLOYED | **Impact:** Professional Financial Management | **Business Value:** High
+
+**🎯 Commission Management Revolution:**
+- **🚨 High Commission Alerts:** Auto-highlight guests with commission >150,000đ with red borders and pulse animations
+- **📊 Smart Prioritization:** Critical commission guests appear first in all notifications
+- **🎯 Visual Classification:** Color-coded system (Red: High commission, Yellow: Normal, Green: None)
+- **💡 Commission Display:** Replace booking IDs with commission amounts in notifications for instant financial awareness
+
+**📈 Enhanced Revenue Calendar System:**
+- **💎 Dual Revenue Display:** Calendar shows both total revenue AND revenue minus commission per day
+- **🔍 Commission Breakdown:** Detailed per-day commission analysis with customer-specific breakdown
+- **📋 Ultra-Detailed Calendar:** Click any day for complete commission customer analysis and financial impact
+- **🎨 Professional UI:** Commission legends, visual guides, and responsive design across all devices
+
+**🎯 Dashboard Notification Intelligence:**
+- **⚡ Priority Sorting:** Multi-level sorting (commission level → urgency → commission amount → guest name)
+- **🎨 Visual Commission Levels:** Red highlighting for >150k, yellow for normal, green for none
+- **💫 Animated Alerts:** Subtle pulse effects for critical commission guests to grab attention
+- **📊 Commission Summary Banner:** Daily commission overview with guest-by-guest breakdown at top of dashboard
+
+**🏗️ Backend Intelligence Enhancements:**
+- **🧠 Smart Commission Processing:** Enhanced calculation with robust error handling and various data format support
+- **📊 Revenue Analytics:** Per-night commission calculations integrated into daily revenue breakdowns
+- **🔄 Advanced Sorting Algorithm:** Sophisticated priority system ensuring high-value guests receive immediate attention
+- **💾 Enhanced Data Structure:** Complete commission tracking throughout notification and calendar systems
+
+**📊 Business Intelligence Features:**
+- **💰 True Profit Visibility:** Immediate visibility of actual revenue after commission deductions
+- **🎯 Cost Awareness:** Instant identification of expensive commission guests for strategic management
+- **📈 Daily Impact Analysis:** Complete commission financial impact tracking with totals and breakdowns
+- **🔍 Customer Classification:** Smart categorization by commission levels for optimized workflow
+
+**Technical Implementation:**
+- **Functions Enhanced:** `get_daily_revenue_by_stay()`, `process_arrival_notifications()`, `process_departure_notifications()`
+- **Templates Updated:** `dashboard.html`, `calendar.html`, `calendar_details.html` with commission analytics
+- **Visual Elements:** Professional animations, color-coded borders, commission badges, and responsive design
+- **Performance:** Real-time commission calculations with optimized sorting and display algorithms
+
+**Business Impact:** 
+- Instant commission awareness and financial transparency
+- Optimized guest prioritization for high-value customers
+- Professional visual management for hotel staff efficiency
+- Complete revenue analytics with commission cost visibility
+
+### **🗄️ POSTGRESQL MIGRATION SYSTEM** ⭐ ESTABLISHED FEATURE ⭐
 **Status:** ✅ COMPLETED & TESTED | **Performance:** 50-100x Faster | **Risk:** Zero (Hybrid Mode)
 
 **🎯 Implementation Complete:**
@@ -269,16 +316,19 @@ hotel_flask_app/
 ## 🎯 Deployment
 
 **Repository:** https://github.com/locle27/Koyeb-Booking  
-**Branch:** clean-main | **Latest:** 12bc9b9 (Duplicate Comparison Interface)
+**Branch:** clean-main | **Latest:** 07a52ce (Advanced Commission Tracking & Revenue Analytics System)
 
-**Status:** ✅ Production Ready + PostgreSQL Migration Complete
+**Status:** ✅ Production Ready + Commission Analytics System Complete
+- **Advanced Commission Management** (>150k VND highlighting, smart prioritization, visual indicators)
+- **Dual Revenue Analytics** (total revenue + revenue minus commission displays)
+- **Professional Financial UI** (color-coded guests, animated alerts, commission badges)
 - **50-100x Performance Boost** (PostgreSQL + Google Sheets hybrid)
 - Enterprise AI System (Gemini 2.5 RAG)
 - Advanced Duplicate Management (side-by-side comparison)
 - Market Intelligence (real-time competitor analysis)
 - **Instant Local Development** (0-second changes)
 - Cross-device sync, zero JavaScript errors
-- Complete hotel management platform
+- Complete hotel management platform with financial intelligence
 
 ## 🔮 Future Ideas
 - Database migration to PostgreSQL
@@ -299,10 +349,10 @@ hotel_flask_app/
 
 ---
 
-**Last Updated:** June 16, 2025  
-**Status:** Production Ready - **PostgreSQL Migration Complete** + Enterprise AI + Market Intelligence + Instant Development  
-**Performance:** 50-100x faster database operations  
-**Recent Fix:** ✅ Complete Expense System Fixed (Unicode/Emoji encoding + JavaScript defensive checks)  
+**Last Updated:** June 20, 2025  
+**Status:** Production Ready - **Advanced Commission Analytics System Complete** + PostgreSQL Migration + Enterprise AI + Market Intelligence + Instant Development  
+**Performance:** 50-100x faster database operations + Real-time commission tracking  
+**Recent Enhancement:** ✅ Advanced Commission Tracking & Revenue Analytics System (High commission alerts, dual revenue display, professional financial UI)  
 **Next Review:** Q3 2025
 
 ## 📞 Quick Support
@@ -324,7 +374,10 @@ git reset --hard HEAD~1          # Reset to last commit
 - **JavaScript freezing:** ✅ Added defensive checks for addEventListener null elements (June 16, 2025)
 - **Modal backdrop stuck:** ✅ Added force modal cleanup and emergency backdrop removal (June 16, 2025)
 
-**System Status:** ✅ All major systems working + **PostgreSQL Migration Complete**
+**System Status:** ✅ All major systems working + **Commission Analytics System Complete**
+- **Advanced Commission Management** (>150k VND alerts, visual highlighting, smart prioritization)
+- **Dual Revenue Analytics** (total revenue + revenue minus commission tracking)
+- **Professional Financial UI** (color-coded guests, animated alerts, commission badges)
 - **Hybrid Database** (PostgreSQL 50-100x faster + Google Sheets fallback)
 - **Instant Local Development** (0-second changes with START_LOCAL_TESTING.bat)
 - Enterprise RAG (Gemini 2.5 + Simple fallback)
@@ -337,6 +390,9 @@ git reset --hard HEAD~1          # Reset to last commit
 **Enterprise AI Hotel Platform** - From basic booking system to:
 
 **🔥 Key Capabilities:**
+- **Advanced Commission Analytics:** Professional financial management with >150k VND alerts and dual revenue tracking
+- **Smart Guest Prioritization:** High commission guests automatically highlighted and prioritized in all notifications
+- **Dual Revenue Intelligence:** Calendar shows both total revenue and revenue minus commission with detailed breakdowns
 - **Gemini 2.5 AI:** Across all features (RAG, photo analysis, market intelligence)
 - **Advanced Duplicate Management:** Side-by-side comparison with precision deletion
 - **Market Intelligence:** Real-time competitor analysis (346k VND avg market rate)
@@ -345,6 +401,9 @@ git reset --hard HEAD~1          # Reset to last commit
 - **Cross-platform Sync:** Desktop/mobile synchronization
 
 **💰 Business Impact:**
+- **Financial Transparency:** Instant commission awareness and true profit visibility
+- **Strategic Guest Management:** High-value customer prioritization and cost optimization
+- **Professional Operations:** Visual financial management with animated alerts and smart workflows
 - 24/7 AI assistance, precision duplicate removal
 - Smart upselling, competitive pricing optimization
 - Staff efficiency, operational intelligence
@@ -355,9 +414,44 @@ git reset --hard HEAD~1          # Reset to last commit
 - Performance optimized, clean architecture
 - Production ready, scalable infrastructure
 
-*Complete transformation into enterprise-level AI-powered hospitality platform with **50-100x PostgreSQL performance boost** and instant development environment. 🚀*
+*Complete transformation into enterprise-level AI-powered hospitality platform with **advanced commission analytics**, **50-100x PostgreSQL performance boost**, and instant development environment. 🚀*
 
-## 🎯 **LATEST ACHIEVEMENT: POSTGRESQL MIGRATION** ⭐
+## 🎯 **LATEST ACHIEVEMENT: ADVANCED COMMISSION ANALYTICS SYSTEM** ⭐
+
+**✅ Completed June 20, 2025:**
+- **Advanced Commission Tracking:** Smart identification and prioritization of high commission guests (>150,000đ)
+- **Dual Revenue Analytics:** Calendar displays both total revenue and revenue minus commission
+- **Professional Financial UI:** Color-coded visual system with animated alerts for instant commission awareness
+- **Smart Guest Prioritization:** High commission guests automatically appear first in all notifications
+- **Complete Revenue Transparency:** Daily commission impact analysis with customer-specific breakdowns
+
+**🎯 Commission Management Features:**
+- **Visual Alerts:** Red highlighting + pulse animations for guests with commission >150k VND
+- **Smart Sorting:** Multi-level priority system (commission level → urgency → commission amount)
+- **Commission Badges:** Replace booking IDs with commission amounts in notifications
+- **Daily Overview:** Commission summary banner with guest-by-guest breakdown
+
+**📊 Revenue Calendar Intelligence:**
+- **Dual Display:** Green line (total revenue) + Blue line (revenue minus commission)
+- **Commission Breakdown:** Click any day for detailed commission customer analysis
+- **Financial Transparency:** Complete visibility of commission impact on daily profits
+- **Professional Legends:** Visual guides for understanding commission levels
+
+**🎨 Professional Visual System:**
+- **Color Classification:** Red (high commission), Yellow (normal commission), Green (no commission)
+- **Animated Effects:** Subtle pulse animations for critical commission guests
+- **Responsive Design:** Mobile-optimized commission displays across all devices
+- **Business Intelligence:** Instant financial awareness for strategic decision making
+
+**💰 Business Impact:**
+- **Immediate Commission Awareness:** Staff can instantly identify expensive guests
+- **Optimized Workflow:** High-value customers receive priority attention automatically
+- **Financial Intelligence:** True profit visibility after commission deductions
+- **Professional Management:** Visual system enhances operational efficiency
+
+**Status: Deployed and operational across entire platform** ✅
+
+## 🎯 **POSTGRESQL MIGRATION SYSTEM** ⭐ ESTABLISHED ⭐
 
 **✅ Completed June 16, 2025:**
 - **Koyeb PostgreSQL Database:** Deployed & operational
@@ -365,23 +459,5 @@ git reset --hard HEAD~1          # Reset to last commit
 - **Zero-Risk Migration:** Hybrid mode with Google Sheets fallback
 - **Instant Local Development:** No more deployment delays
 - **Complete Verification:** All systems tested and working
-
-**📊 Performance Verification Results:**
-- Dashboard loading: **50x faster** (3-5s → 50-100ms)
-- Booking operations: **100x faster** (2-3s → 20-50ms)
-- Search/filtering: **100x faster** (instant response)
-- Duplicate detection: **100x faster** (5-10s → 100ms)
-
-**🛡️ Safety Features Active:**
-- Google Sheets remains primary (zero risk)
-- PostgreSQL secondary for performance testing
-- Automatic fallback on any errors
-- Complete data integrity verification
-
-**🚀 Development Workflow Enhanced:**
-- `START_LOCAL_TESTING.bat` - Instant local server
-- Real-time changes without deployment delays
-- Same Koyeb PostgreSQL connection
-- Full debugging capabilities
 
 **Status: Ready for production integration when needed** ✅
