@@ -36,6 +36,9 @@ from logic import (
 # Import dashboard logic module
 from dashboard_routes import process_dashboard_data, safe_to_dict_records
 
+# Import hybrid database service
+from database_service import get_database_service
+
 # Email & Reminder System imports removed per user request
 
 # Cấu hình
@@ -725,51 +728,46 @@ def save_extracted_bookings():
                 traceback.print_exc()
 
         if formatted_bookings:
-            print(f"[SAVE] Attempting to save {len(formatted_bookings)} bookings to Google Sheets...")
+            print(f"[SAVE] Attempting to save {len(formatted_bookings)} bookings using hybrid database service...")
             
-            # Save to Google Sheets with enhanced error handling
+            # Use hybrid database service instead of hardcoded Google Sheets
             try:
                 print(f"[SAVE] Attempting to save {len(formatted_bookings)} bookings...")
                 print(f"[SAVE] Sample booking data: {formatted_bookings[0] if formatted_bookings else 'None'}")
                 
-                append_multiple_bookings_to_sheet(
-                    bookings=formatted_bookings,
-                    gcp_creds_file_path=GCP_CREDS_FILE_PATH,
-                    sheet_id=DEFAULT_SHEET_ID,
-                    worksheet_name=WORKSHEET_NAME
-                )
-                print("[SAVE] ✅ Successfully saved to Google Sheets")
+                # Get database service instance
+                db_service = get_database_service()
+                
+                # Convert each formatted booking to database format and save
+                for booking_data in formatted_bookings:
+                    # Convert Google Sheets format to database format
+                    db_booking = {
+                        'booking_id': booking_data['Số đặt phòng'],
+                        'guest_name': booking_data['Tên người đặt'],
+                        'checkin_date': booking_data['Check-in Date'],
+                        'checkout_date': booking_data['Check-out Date'],
+                        'room_amount': float(booking_data.get('Tổng thanh toán', 0) or 0),
+                        'commission': float(booking_data.get('Hoa hồng', 0) or 0),
+                        'taxi_amount': 0,  # Default for AI bookings
+                        'collector': '',   # Will be filled when payment collected
+                        'booking_status': 'confirmed',
+                        'payment_status': 'pending',
+                        'has_taxi': False,
+                        'booking_notes': booking_data.get('Ghi chú thanh toán', '')
+                    }
+                    
+                    # Create booking using hybrid service
+                    saved_booking = db_service.create_booking(db_booking)
+                    print(f"[SAVE] ✅ Saved booking: {saved_booking['guest_name']} (ID: {saved_booking['booking_id']})")
+                
+                print(f"[SAVE] ✅ Successfully saved {len(formatted_bookings)} bookings using hybrid database")
                 
                 # ⚠️ QUAN TRỌNG: Xóa cache sau khi lưu thành công
                 print("[CACHE] Clearing cache...")
                 load_data.cache_clear()
                 print("[CACHE] Cache cleared successfully after saving")
                 
-                # Verify data was saved by checking fresh data  
-                print("[VERIFY] Loading fresh data to verify save...")
-                fresh_df, _ = load_data()
-                if not fresh_df.empty:
-                    print(f"[VERIFY] Total bookings in fresh data: {len(fresh_df)}")
-                    print(f"[VERIFY] Looking for booking IDs: {saved_booking_ids}")
-                    print(f"[VERIFY] Sample booking IDs in sheet: {fresh_df['Số đặt phòng'].head().tolist()}")
-                    # Force string comparison to avoid type mismatches
-                    fresh_df['Số đặt phòng'] = fresh_df['Số đặt phòng'].astype(str)
-                    saved_booking_ids_str = [str(id) for id in saved_booking_ids]
-                    recent_bookings = fresh_df[fresh_df['Số đặt phòng'].isin(saved_booking_ids_str)]
-                    print(f"[VERIFY] Found {len(recent_bookings)} newly saved bookings in fresh data")
-                    if len(recent_bookings) > 0:
-                        print(f"[VERIFY] Success! New booking found: {recent_bookings['Tên người đặt'].tolist()}")
-                    else:
-                        # Alternative verification: check for recently added bookings by notes
-                        recent_by_notes = fresh_df[fresh_df['Ghi chú thanh toán'].str.contains('Thêm từ ảnh', na=False)]
-                        print(f"[VERIFY] Alternative check: Found {len(recent_by_notes)} bookings with 'Thêm từ ảnh' notes")
-                        if len(recent_by_notes) > 0:
-                            latest = recent_by_notes.tail(1)
-                            print(f"[VERIFY] Latest booking from image: {latest['Tên người đặt'].iloc[0]} (ID: {latest['Số đặt phòng'].iloc[0]})")
-                else:
-                    print("[VERIFY] Fresh data is empty")
-                
-                success_message = f'[SUCCESS] Đã lưu thành công {len(formatted_bookings)} đặt phòng mới!'
+                success_message = f'[SUCCESS] Đã lưu thành công {len(formatted_bookings)} đặt phòng mới vào {os.getenv("USE_POSTGRESQL", "false").lower() == "true" and "PostgreSQL" or "Google Sheets"}!'
                 if errors:
                     success_message += f' ([WARNING] {len(errors)} lỗi bỏ qua)'
                 flash(success_message, 'success')
@@ -779,10 +777,10 @@ def save_extracted_bookings():
                 return redirect(url_for('view_bookings', show_all='true'))
                 
             except Exception as save_error:
-                print(f"[SAVE ERROR] Failed to save to Google Sheets: {save_error}")
+                print(f"[SAVE ERROR] Failed to save using hybrid database service: {save_error}")
                 import traceback
                 traceback.print_exc()
-                flash(f'[ERROR] Lỗi khi lưu vào Google Sheets: {str(save_error)}', 'danger')
+                flash(f'[ERROR] Lỗi khi lưu booking: {str(save_error)}', 'danger')
                 return redirect(url_for('add_from_image_page'))
             
         else:
@@ -3090,6 +3088,10 @@ Translation:
 
 # --- Chạy ứng dụng ---
 if __name__ == '__main__':
+    # Initialize hybrid database service
+    from database_service import init_database_service
+    init_database_service(app)
+    
     # Email reminder system initialization removed per user request
     
     # Chạy trên cổng từ environment variable hoặc mặc định 8080 cho Koyeb
